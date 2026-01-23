@@ -168,16 +168,44 @@ class TimeSeriesAnalyzer:
                 window_duration_sec=window_sec,
             )
 
-        mean = float(np.mean(values))
-        std = float(np.std(values))
-        min_val = float(np.min(values))
-        max_val = float(np.max(values))
+        # Remove NaN/Inf for basic statistics
+        valid_mask = ~np.isnan(values) & ~np.isinf(values)
+        if np.sum(valid_mask) == 0:
+            return WindowMetrics(
+                mean=0.0,
+                std=0.0,
+                min=0.0,
+                max=0.0,
+                trend=0.0,
+                volatility=0.0,
+                sample_count=0,
+                window_duration_sec=window_sec,
+            )
+        values_clean = values[valid_mask]
+        
+        mean = float(np.mean(values_clean))
+        std = float(np.std(values_clean))
+        min_val = float(np.min(values_clean))
+        max_val = float(np.max(values_clean))
 
-        # Linear trend (slope)
-        if len(times) > 1:
-            trend = float(np.polyfit(times - times[0], values, 1)[0])
-        else:
-            trend = 0.0
+        # Linear trend (slope) with robust error handling
+        trend = 0.0
+        if len(times) >= 2 and len(values) >= 2:
+            # Remove NaN/Inf values for both values and times
+            trend_valid_mask = ~np.isnan(values) & ~np.isinf(values) & ~np.isnan(times) & ~np.isinf(times)
+            if np.sum(trend_valid_mask) >= 2:
+                values_trend = values[trend_valid_mask]
+                times_trend = times[trend_valid_mask]
+                
+                # Normalize times to avoid numerical issues
+                times_normalized = times_trend - times_trend[0]
+                
+                # Check for sufficient variation
+                if np.std(times_normalized) >= 1e-10:
+                    try:
+                        trend = float(np.polyfit(times_normalized, values_trend, 1)[0])
+                    except (np.linalg.LinAlgError, ValueError):
+                        trend = 0.0
 
         # Volatility (coefficient of variation)
         volatility = std / mean if mean > 0 else 0.0
@@ -294,19 +322,44 @@ class SessionStatistics:
         posture_arr = np.array(self.all_posture_scores)
         times_arr = np.array(self.all_timestamps)
 
-        # Focus statistics
-        focus_mean = float(np.mean(focus_arr))
-        focus_std = float(np.std(focus_arr))
-        focus_trend = (
-            float(np.polyfit(times_arr - times_arr[0], focus_arr, 1)[0])
-            if len(times_arr) > 1
-            else 0.0
-        )
+        # Focus statistics (handle NaN/Inf)
+        focus_valid = focus_arr[~np.isnan(focus_arr) & ~np.isinf(focus_arr)]
+        if len(focus_valid) == 0:
+            focus_mean = 0.0
+            focus_std = 0.0
+        else:
+            focus_mean = float(np.mean(focus_valid))
+            focus_std = float(np.std(focus_valid))
+        
+        # Focus trend with robust error handling
+        focus_trend = 0.0
+        if len(times_arr) >= 2 and len(focus_arr) >= 2:
+            # Remove NaN/Inf values
+            valid_mask = ~np.isnan(focus_arr) & ~np.isinf(focus_arr) & ~np.isnan(times_arr) & ~np.isinf(times_arr)
+            if np.sum(valid_mask) >= 2:
+                focus_clean = focus_arr[valid_mask]
+                times_clean = times_arr[valid_mask]
+                
+                # Normalize times to avoid numerical issues
+                times_normalized = times_clean - times_clean[0]
+                
+                # Check for sufficient variation
+                if np.std(times_normalized) >= 1e-10:
+                    try:
+                        focus_trend = float(np.polyfit(times_normalized, focus_clean, 1)[0])
+                    except (np.linalg.LinAlgError, ValueError):
+                        focus_trend = 0.0
+        
         focus_volatility = focus_std / focus_mean if focus_mean > 0 else 0.0
 
-        # Posture statistics
-        posture_mean = float(np.mean(posture_arr))
-        posture_std = float(np.std(posture_arr))
+        # Posture statistics (handle NaN/Inf)
+        posture_valid = posture_arr[~np.isnan(posture_arr) & ~np.isinf(posture_arr)]
+        if len(posture_valid) == 0:
+            posture_mean = 0.0
+            posture_std = 0.0
+        else:
+            posture_mean = float(np.mean(posture_valid))
+            posture_std = float(np.std(posture_valid))
 
         duration = float(times_arr[-1] - times_arr[0]) if len(times_arr) > 1 else 0.0
 

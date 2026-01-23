@@ -381,6 +381,14 @@ def compute_posture_score(shoulder_ear_angle: Optional[float],
     shoulder_roll_threshold = (SHOULDER_ROLL_THRESHOLD + abs(calibration.shoulder_roll_baseline) 
                               if calibration.calibrated else SHOULDER_ROLL_THRESHOLD)
     
+    # Validate thresholds to prevent division by zero
+    if forward_head_threshold < 0.01:
+        forward_head_threshold = FORWARD_HEAD_THRESHOLD  # Use default if too small
+    if neck_angle_threshold < 0.01:
+        neck_angle_threshold = NECK_ANGLE_THRESHOLD  # Use default if too small
+    if shoulder_roll_threshold < 0.01:
+        shoulder_roll_threshold = SHOULDER_ROLL_THRESHOLD  # Use default if too small
+    
     # 1. Shoulder-ear angle (30% weight)
     if shoulder_ear_angle is not None:
         baseline = calibration.shoulder_ear_angle_baseline if calibration.calibrated else 20.0
@@ -388,15 +396,23 @@ def compute_posture_score(shoulder_ear_angle: Optional[float],
         
         if shoulder_ear_angle < shoulder_ear_threshold:
             slouching = True
-            score = max(0.0, 50.0 * (shoulder_ear_angle / shoulder_ear_threshold))
+            # Prevent division by zero
+            if abs(shoulder_ear_threshold) > 0.01:
+                score = max(0.0, 50.0 * (shoulder_ear_angle / shoulder_ear_threshold))
+            else:
+                score = 0.0  # Invalid threshold, penalize
         else:
             # Good range: threshold to baseline+5 = 50 to 100 score
             max_angle = baseline + 5.0
             if shoulder_ear_angle >= max_angle:
                 score = 100.0
             else:
-                score = 50.0 + ((shoulder_ear_angle - shoulder_ear_threshold) / 
-                               (max_angle - shoulder_ear_threshold)) * 50.0
+                # Prevent division by zero
+                denominator = max_angle - shoulder_ear_threshold
+                if abs(denominator) > 0.01:
+                    score = 50.0 + ((shoulder_ear_angle - shoulder_ear_threshold) / denominator) * 50.0
+                else:
+                    score = 50.0  # Neutral score if denominator invalid
         
         scores.append(score)
         weights.append(0.30)
@@ -412,11 +428,19 @@ def compute_posture_score(shoulder_ear_angle: Optional[float],
             if forward_head_ratio >= max_ratio:
                 score = 0.0
             else:
-                score = 50.0 * (1.0 - (forward_head_ratio - forward_head_threshold) / 
-                               (max_ratio - forward_head_threshold))
+                # Prevent division by zero
+                denominator = max_ratio - forward_head_threshold
+                if abs(denominator) > 0.01:
+                    score = 50.0 * (1.0 - (forward_head_ratio - forward_head_threshold) / denominator)
+                else:
+                    score = 0.0  # Invalid threshold, penalize
         else:
             # Good range: 0 to threshold = 50 to 100 score
-            score = 50.0 + (1.0 - forward_head_ratio / forward_head_threshold) * 50.0
+            # Prevent division by zero
+            if abs(forward_head_threshold) > 0.01:
+                score = 50.0 + (1.0 - forward_head_ratio / forward_head_threshold) * 50.0
+            else:
+                score = 50.0  # Neutral score if threshold invalid
         
         scores.append(score)
         weights.append(0.25)
@@ -432,11 +456,19 @@ def compute_posture_score(shoulder_ear_angle: Optional[float],
             if neck_angle >= max_deviation:
                 score = 0.0
             else:
-                score = 50.0 * (1.0 - (neck_angle - neck_angle_threshold) / 
-                               (max_deviation - neck_angle_threshold))
+                # Prevent division by zero
+                denominator = max_deviation - neck_angle_threshold
+                if abs(denominator) > 0.01:
+                    score = 50.0 * (1.0 - (neck_angle - neck_angle_threshold) / denominator)
+                else:
+                    score = 0.0  # Invalid threshold, penalize
         else:
             # Good range: 0 to threshold = 50 to 100 score
-            score = 50.0 + (1.0 - neck_angle / neck_angle_threshold) * 50.0
+            # Prevent division by zero
+            if abs(neck_angle_threshold) > 0.01:
+                score = 50.0 + (1.0 - neck_angle / neck_angle_threshold) * 50.0
+            else:
+                score = 50.0  # Neutral score if threshold invalid
         
         scores.append(score)
         weights.append(0.25)
@@ -452,11 +484,19 @@ def compute_posture_score(shoulder_ear_angle: Optional[float],
             if shoulder_roll >= max_deviation:
                 score = 0.0
             else:
-                score = 50.0 * (1.0 - (shoulder_roll - shoulder_roll_threshold) / 
-                               (max_deviation - shoulder_roll_threshold))
+                # Prevent division by zero
+                denominator = max_deviation - shoulder_roll_threshold
+                if abs(denominator) > 0.01:
+                    score = 50.0 * (1.0 - (shoulder_roll - shoulder_roll_threshold) / denominator)
+                else:
+                    score = 0.0  # Invalid threshold, penalize
         else:
             # Good range: 0 to threshold = 50 to 100 score
-            score = 50.0 + (1.0 - shoulder_roll / shoulder_roll_threshold) * 50.0
+            # Prevent division by zero
+            if abs(shoulder_roll_threshold) > 0.01:
+                score = 50.0 + (1.0 - shoulder_roll / shoulder_roll_threshold) * 50.0
+            else:
+                score = 50.0  # Neutral score if threshold invalid
         
         scores.append(score)
         weights.append(0.20)

@@ -1418,6 +1418,11 @@ def main() -> None:
         st.session_state.latest_fps = 0.0
     if "preview_image" not in st.session_state:
         st.session_state.preview_image = None
+    # Initialize persistent placeholder for preview (prevents duplicate panels)
+    if "preview_placeholder" not in st.session_state:
+        st.session_state.preview_placeholder = None
+    if "preview_caption_placeholder" not in st.session_state:
+        st.session_state.preview_caption_placeholder = None
     if "focus_history" not in st.session_state:
         st.session_state.focus_history = deque(maxlen=WINDOW_SIZE * TARGET_FPS)
     # Posture Detection state
@@ -1601,6 +1606,13 @@ def main() -> None:
                 st.session_state.video_processor.stop()
                 st.session_state.session_start_time = 0.0
                 st.session_state.preview_image = None
+                # Clear placeholders when stopping
+                if st.session_state.preview_placeholder is not None:
+                    st.session_state.preview_placeholder.empty()
+                    st.session_state.preview_placeholder = None
+                if st.session_state.preview_caption_placeholder is not None:
+                    st.session_state.preview_caption_placeholder.empty()
+                    st.session_state.preview_caption_placeholder = None
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
             
@@ -1992,9 +2004,19 @@ def main() -> None:
     render_analytics()
     
     # Preview Image (if enabled) - Apple-style subtle container
+    # Use persistent placeholder to prevent duplicate panels
+    # Always create placeholders in the same location (prevents layout shifts)
+    if st.session_state.preview_placeholder is None:
+        st.session_state.preview_placeholder = st.empty()
+    if st.session_state.preview_caption_placeholder is None:
+        st.session_state.preview_caption_placeholder = st.empty()
+    
+    # Update or clear placeholders based on preview state
     if st.session_state.show_preview and st.session_state.preview_image is not None:
         caption_text = "Live Preview" + (" (with face mesh)" if st.session_state.video_processor.draw_landmarks else " (clean)")
-        st.markdown(
+        
+        # Update existing placeholders (don't create new components)
+        st.session_state.preview_caption_placeholder.markdown(
             f"""
             <div style='margin: 2rem 0; padding: 1.5rem; background: #ffffff; border-radius: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);'>
                 <div style='color: #86868b; font-size: 13px; font-weight: 400; margin-bottom: 1rem; text-align: center; letter-spacing: 0.3px;'>
@@ -2004,11 +2026,15 @@ def main() -> None:
             """,
             unsafe_allow_html=True,
         )
-        st.image(
+        st.session_state.preview_placeholder.image(
             st.session_state.preview_image, 
             channels="BGR", 
             width='stretch'
         )
+    else:
+        # Clear placeholders when preview is disabled (but keep placeholder objects)
+        st.session_state.preview_caption_placeholder.empty()
+        st.session_state.preview_placeholder.empty()
     
     # Auto-refresh for real-time updates
     time.sleep(0.1)  # Small delay to prevent excessive CPU usage
