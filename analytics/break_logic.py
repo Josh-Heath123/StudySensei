@@ -68,7 +68,8 @@ class BreakRecommender:
             reasons.append("You've been studying for over 25 minutes")
 
         # 2. Focus decay: significant drop in focus
-        if baseline_focus is not None and focus_score > 0:
+        # Safe division: check for zero baseline_focus to prevent division by zero
+        if baseline_focus is not None and focus_score > 0 and baseline_focus > 0.01:
             drop = (baseline_focus - focus_score) / baseline_focus
             if drop >= FOCUS_DECAY_THRESHOLD:
                 reasons.append(f"Focus has dropped by {drop*100:.0f}%")

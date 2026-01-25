@@ -6,6 +6,5 @@ from .components import (
     render_interactive_analytics,
     render_analytics,
     render_preview,
-    render_header,
-    render_controls
+    render_header
 )

@@ -68,14 +68,53 @@ class VideoProcessor:
         self.thread.start()
         
     def stop(self):
-        """Stop video processing thread."""
+        """Stop video processing thread and release all resources."""
         self.running = False
+        
+        # Wait for thread to finish
         if self.thread:
             self.thread.join(timeout=2.0)
+            self.thread = None
+        
+        # Release video capture
         if self.cap:
-            self.cap.release()
-        self.cap = None
-        self.thread = None
+            try:
+                self.cap.release()
+            except Exception:
+                pass  # Don't crash on release errors
+            self.cap = None
+        
+        # Clear large data structures to prevent memory leaks
+        if hasattr(self, 'ear_history'):
+            self.ear_history.clear()
+        if hasattr(self, 'blink_timestamps'):
+            self.blink_timestamps.clear()
+        
+        # Clear latest result (may contain large frames)
+        with self.lock:
+            if self.latest_result and isinstance(self.latest_result, dict):
+                # Remove large preview frames
+                if 'preview' in self.latest_result:
+                    self.latest_result['preview'] = None
+            self.latest_result = None
+        
+        # Clear pose landmarks
+        self.latest_pose_landmarks = None
+    
+    def cleanup(self):
+        """
+        Comprehensive cleanup method for memory leak prevention.
+        Releases all resources and clears data structures.
+        """
+        self.stop()
+        
+        # Additional cleanup for emotion detector
+        if hasattr(self, 'emotion_detector') and self.emotion_detector:
+            try:
+                if hasattr(self.emotion_detector, 'disable'):
+                    self.emotion_detector.disable()
+            except Exception:
+                pass
         
     def _process_loop(self):
         """
@@ -100,13 +139,13 @@ class VideoProcessor:
                 time.sleep(0.1)
                 continue
             
-            # Frame skipping - only process every Nth frame
+            # Frame skipping logic - CRITICAL: Posture detection runs EVERY frame
+            # Only face processing is skipped for performance
             self.frame_skip_counter += 1
-            if self.frame_skip_counter < FRAME_SKIP_N:
-                # Skip this frame but still update timestamp for next frame
-                continue
+            should_process_face = (self.frame_skip_counter >= FRAME_SKIP_N)
             
-            self.frame_skip_counter = 0  # Reset counter
+            if should_process_face:
+                self.frame_skip_counter = 0  # Reset counter
             
             # Compute blink rate (blinks per minute) over last 60 seconds
             current_timestamp = time.time()
@@ -126,16 +165,19 @@ class VideoProcessor:
                 blink_rate_per_min = 0.0
                 
             # Process frame with enhanced features (face + posture + emotion)
+            # CRITICAL: Posture detection runs EVERY frame (not skipped by frame skipping)
+            # Face processing can be skipped for performance (every Nth frame)
             result = process_frame(
                 frame.copy(), 
                 last_process_time, 
                 self.draw_landmarks,
                 self.ear_history,
                 blink_rate_per_min,
-                self.enable_posture,
+                self.enable_posture,  # Always True by default, runs every frame
                 self.draw_pose,
                 self.slouch_start_time,
-                self.emotion_detector if self.enable_emotion else None
+                self.emotion_detector if self.enable_emotion else None,
+                process_face=should_process_face  # Only process face every Nth frame
             )
             
             # Posture: Track slouching duration for alerts

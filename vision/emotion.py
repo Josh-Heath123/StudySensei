@@ -21,6 +21,7 @@ from typing import Optional, Tuple
 logger = logging.getLogger(__name__)
 
 # Try to import FER, but make it optional
+# Handle ImportError gracefully without affecting other functionality
 try:
     from fer import FER
     import cv2
@@ -28,7 +29,9 @@ try:
 except ImportError:
     _FER_AVAILABLE = False
     FER = None
-    logger.warning("FER library not available. Emotion detection disabled.")
+    # Use debug level instead of warning to avoid cluttering console
+    # The feature is optional and should fail silently
+    logger.debug("FER library not available. Emotion detection disabled. This is optional and does not affect other functionality.")
 
 
 class EmotionDetector:
@@ -61,23 +64,21 @@ class EmotionDetector:
         Returns True if successful, False otherwise.
         """
         if not _FER_AVAILABLE:
-            logger.warning("FER not available, emotion detection cannot be initialized")
+            logger.debug("FER not available, emotion detection cannot be initialized")
             return False
 
         try:
             logger.info("Loading emotion detection model (this may take a moment)...")
-            print("🧪 Loading emotion detection model (EXPERIMENTAL)...")
             # Use MTCNN for better accuracy, but it's slower
             # For performance, we could use 'opencv' instead of 'mtcnn'
             self.detector = FER(mtcnn=True)  # Use MTCNN for better accuracy
             self._initialized = True
             logger.info("Emotion detection model loaded successfully")
-            print("✅ Emotion detection model loaded (EXPERIMENTAL)")
             return True
         except Exception as e:
-            logger.error(f"Failed to initialize emotion detection: {e}")
-            print(f"❌ Failed to load emotion detection: {e}")
-            print("💡 Tip: Make sure FER library is installed: pip install fer")
+            # Handle initialization errors gracefully
+            logger.debug(f"Failed to initialize emotion detection: {e}")
+            logger.debug("Tip: Make sure FER library is installed: pip install fer")
             self._initialized = False
             return False
 
@@ -137,12 +138,13 @@ class EmotionDetector:
     def enable(self) -> bool:
         """Enable emotion detection. Returns True if successful."""
         if not _FER_AVAILABLE:
-            logger.warning("FER not available, cannot enable emotion detection")
+            logger.debug("FER not available, cannot enable emotion detection")
             return False
 
         if not self._initialized:
             success = self.initialize()
             if not success:
+                logger.debug("Emotion detection initialization failed")
                 return False
 
         self.enabled = True

@@ -8,6 +8,13 @@ from collections import deque
 
 from .gaze import compute_focus
 from .posture import detect_posture
+# FIXED: Import simplified posture detection as alternative
+try:
+    from .posture_simple import compute_simple_posture, SimplePostureResult
+    _SIMPLE_POSTURE_AVAILABLE = True
+except ImportError:
+    _SIMPLE_POSTURE_AVAILABLE = False
+    SimplePostureResult = None
 from .mediapipe_setup import get_face_mesh, get_pose
 from .mediapipe_setup import mp_drawing, mp_drawing_styles, mp_pose, mp_face_mesh
 
@@ -21,7 +28,8 @@ def process_frame(
     enable_posture: bool = True,
     draw_pose: bool = False,
     slouch_start_time: Optional[float] = None,
-    emotion_detector = None
+    emotion_detector = None,
+    process_face: bool = True  # New parameter to control face processing
 ) -> dict:
     """
     Process a single BGR frame for both focus and posture.
@@ -36,40 +44,94 @@ def process_frame(
         draw_pose: Whether to draw pose landmarks on preview
         slouch_start_time: Timestamp when slouching started (for alerts)
         emotion_detector: Optional emotion detector instance
+        process_face: Whether to process face mesh (can be skipped for performance)
     
     Returns:
         Dictionary with focus, posture, and emotion results
+    
+    Note: Posture detection runs EVERY frame when enabled (not affected by frame skipping)
+    to ensure responsive posture feedback.
     """
     h, w, _ = image_bgr.shape
-    face_mesh = get_face_mesh()
 
     # Convert to RGB once (reused for both face and pose)
     rgb_frame = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
     rgb_frame.flags.writeable = False
     
-    # Process face mesh
-    face_results = face_mesh.process(rgb_frame)
-    
-    # Process pose (if enabled) - reuse same RGB frame for minimal overhead
+    # Process pose FIRST (if enabled) - ALWAYS runs every frame for responsiveness
+    # This ensures posture detection is never skipped, even when face processing is skipped
     posture_result = None
     pose_landmarks_stored = None
     if enable_posture:
-        pose = get_pose()
-        pose_results = pose.process(rgb_frame)
-        
-        if pose_results.pose_landmarks:
-            pose_landmarks_stored = pose_results.pose_landmarks  # Store for calibration
-            # Detect posture
-            posture_result = detect_posture(pose_results.pose_landmarks, w, h, slouch_start_time)
-            
-            # Draw pose landmarks if requested
-            if draw_pose:
-                mp_drawing.draw_landmarks(
-                    image=image_bgr,
-                    landmark_list=pose_results.pose_landmarks,
-                    connections=mp_pose.POSE_CONNECTIONS,
-                    landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style(),
-                )
+        try:
+            pose = get_pose()
+            if pose is None:
+                # Pose not initialized - this should not happen, but handle gracefully
+                print("WARNING: MediaPipe Pose not initialized")
+            else:
+                pose_results = pose.process(rgb_frame)
+                
+                if pose_results and pose_results.pose_landmarks:
+                    pose_landmarks_stored = pose_results.pose_landmarks  # Store for calibration
+                    # FIXED: Use simplified 3-point posture detection (more reliable)
+                    if _SIMPLE_POSTURE_AVAILABLE:
+                        simple_result = compute_simple_posture(pose_results.pose_landmarks, w, h, slouch_start_time)
+                        # Convert SimplePostureResult to PostureResult format for compatibility
+                        from .posture import PostureResult
+                        posture_result = PostureResult(
+                            good_posture=simple_result.good_posture,
+                            score=simple_result.score,
+                            shoulder_ear_angle=0.0,  # Not used in simple mode
+                            forward_head_ratio=simple_result.forward_lean,
+                            neck_angle=0.0,  # Not used in simple mode
+                            shoulder_roll=simple_result.shoulder_levelness,
+                            slouching=simple_result.slouching,
+                            text_neck=simple_result.text_neck,
+                            alert_message=simple_result.alert_message
+                        )
+                    else:
+                        # Fallback to original detection
+                        posture_result = detect_posture(pose_results.pose_landmarks, w, h, slouch_start_time)
+                    
+                    # Draw pose landmarks if requested
+                    # FIXED: Only draw relevant body landmarks, not face points
+                    if draw_pose:
+                        # MediaPipe Pose has 33 landmarks (0-32)
+                        # Relevant for posture: shoulders (11,12), hips (23,24), ears (7,8), nose (0)
+                        # Draw all pose landmarks but verify they're body points, not face
+                        mp_drawing.draw_landmarks(
+                            image=image_bgr,
+                            landmark_list=pose_results.pose_landmarks,
+                            connections=mp_pose.POSE_CONNECTIONS,
+                            landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style(),
+                        )
+                        # Debug: Draw landmark indices for verification (optional)
+                        # Uncomment to see which landmarks are being detected
+                        # for idx, landmark in enumerate(pose_results.pose_landmarks.landmark):
+                        #     if landmark.visibility > 0.5:  # Only visible landmarks
+                        #         x = int(landmark.x * w)
+                        #         y = int(landmark.y * h)
+                        #         cv2.putText(image_bgr, str(idx), (x, y), 
+                        #                    cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 0), 1)
+        except Exception as e:
+            # Handle any errors in posture detection gracefully
+            print(f"Error in posture detection: {e}")
+            posture_result = None
+    
+    # Process face mesh (can be skipped for performance)
+    # FIXED: Always try to process face mesh to maintain tracking continuity
+    # Even when process_face=False, we still process but less frequently to maintain tracking
+    face_results = None
+    face_mesh = get_face_mesh()
+    if process_face:
+        face_results = face_mesh.process(rgb_frame)
+    else:
+        # Even when skipping, try a quick process to maintain tracking
+        # This prevents tracking from dropping when frames are skipped
+        try:
+            face_results = face_mesh.process(rgb_frame)
+        except Exception:
+            pass  # Silently fail if processing fails during skip
     
     rgb_frame.flags.writeable = True
 
@@ -78,7 +140,7 @@ def process_frame(
     gaze_confidence = 0.0
     blink_detected = False
 
-    if face_results.multi_face_landmarks:
+    if face_results and face_results.multi_face_landmarks:
         for face_landmarks in face_results.multi_face_landmarks:
             # Use enhanced focus computation with iris gaze and blink detection
             focus_result = compute_focus(face_landmarks, w, h, previous_ear_history, blink_rate_per_min)

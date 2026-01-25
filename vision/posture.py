@@ -11,18 +11,21 @@ import time
 import json
 import os
 
-# MediaPipe Pose landmark indices
-LEFT_SHOULDER = 11
-RIGHT_SHOULDER = 12
-LEFT_EAR = 7
-RIGHT_EAR = 8
-NOSE = 0
-LEFT_HIP = 23
-RIGHT_HIP = 24
-LEFT_ELBOW = 13
-RIGHT_ELBOW = 14
-LEFT_WRIST = 15
-RIGHT_WRIST = 16
+# MediaPipe Pose landmark indices (33 total landmarks: 0-32)
+# FIXED: Verified indices are correct for MediaPipe Pose model
+# These are BODY landmarks, not face landmarks (FaceMesh uses different indices)
+# Reference: https://google.github.io/mediapipe/solutions/pose.html
+LEFT_SHOULDER = 11  # Left shoulder
+RIGHT_SHOULDER = 12  # Right shoulder
+LEFT_EAR = 7  # Left ear (body landmark, not face mesh)
+RIGHT_EAR = 8  # Right ear (body landmark, not face mesh)
+NOSE = 0  # Nose (body landmark, not face mesh)
+LEFT_HIP = 23  # Left hip
+RIGHT_HIP = 24  # Right hip
+LEFT_ELBOW = 13  # Left elbow
+RIGHT_ELBOW = 14  # Right elbow
+LEFT_WRIST = 15  # Left wrist
+RIGHT_WRIST = 16  # Right wrist
 
 # Posture thresholds (configurable, can be calibrated)
 SHOULDER_EAR_ANGLE_THRESHOLD = 15.0  # degrees - angle below which is considered slouching
@@ -179,6 +182,11 @@ def compute_shoulder_ear_angle(pose_landmarks, frame_width: int, frame_height: i
     """
     Calculate shoulder-ear angle for slouch detection.
     
+    FIXED: Added validation to ensure landmarks are valid and visible.
+    MediaPipe Pose landmarks: 0-32 (33 total)
+    - Shoulders: 11 (left), 12 (right)
+    - Ears: 7 (left), 8 (right) - these are body landmarks, not face
+    
     Algorithm:
     - Get left/right shoulder and ear positions
     - Calculate angle between shoulder line and ear-to-shoulder line
@@ -188,9 +196,34 @@ def compute_shoulder_ear_angle(pose_landmarks, frame_width: int, frame_height: i
         Angle in degrees, or None if landmarks not available
     """
     try:
+        # FIXED: Validate landmark indices are within MediaPipe Pose range (0-32)
+        if len(pose_landmarks.landmark) < 33:
+            return None  # Invalid pose data
+        
+        # Get landmarks with visibility check
+        left_shoulder_lm = pose_landmarks.landmark[LEFT_SHOULDER]
+        right_shoulder_lm = pose_landmarks.landmark[RIGHT_SHOULDER]
+        left_ear_lm = pose_landmarks.landmark[LEFT_EAR]
+        
+        # FIXED: Check visibility - MediaPipe provides visibility score (0-1)
+        # Only use landmarks that are actually visible
+        if (left_shoulder_lm.visibility < 0.5 or 
+            right_shoulder_lm.visibility < 0.5 or 
+            left_ear_lm.visibility < 0.5):
+            return None  # Landmarks not visible enough
+        
         left_shoulder = _pose_lm_to_px(pose_landmarks, LEFT_SHOULDER, frame_width, frame_height)
         right_shoulder = _pose_lm_to_px(pose_landmarks, RIGHT_SHOULDER, frame_width, frame_height)
         left_ear = _pose_lm_to_px(pose_landmarks, LEFT_EAR, frame_width, frame_height)
+        
+        # Validate coordinates are reasonable (within frame bounds)
+        if (left_shoulder[0] < 0 or left_shoulder[0] > frame_width or
+            left_shoulder[1] < 0 or left_shoulder[1] > frame_height or
+            right_shoulder[0] < 0 or right_shoulder[0] > frame_width or
+            right_shoulder[1] < 0 or right_shoulder[1] > frame_height or
+            left_ear[0] < 0 or left_ear[0] > frame_width or
+            left_ear[1] < 0 or left_ear[1] > frame_height):
+            return None  # Invalid coordinates
         
         # Calculate shoulder midpoint
         shoulder_mid = ((left_shoulder[0] + right_shoulder[0]) / 2,
@@ -200,13 +233,16 @@ def compute_shoulder_ear_angle(pose_landmarks, frame_width: int, frame_height: i
         angle = calculate_angle(shoulder_mid, left_ear, left_shoulder)
         
         return angle
-    except (IndexError, KeyError, AttributeError):
+    except (IndexError, KeyError, AttributeError, ValueError):
         return None
 
 
 def compute_forward_head_ratio(pose_landmarks, frame_width: int, frame_height: int) -> Optional[float]:
     """
     Detect forward head posture (text neck).
+    
+    FIXED: Added validation for landmark visibility and coordinates.
+    MediaPipe Pose nose landmark (0) is a body landmark, not face mesh.
     
     Algorithm:
     - Measure horizontal distance from nose to shoulder line
@@ -217,6 +253,20 @@ def compute_forward_head_ratio(pose_landmarks, frame_width: int, frame_height: i
         Normalized forward head ratio, or None if landmarks not available
     """
     try:
+        # FIXED: Validate landmark count and visibility
+        if len(pose_landmarks.landmark) < 33:
+            return None
+        
+        left_shoulder_lm = pose_landmarks.landmark[LEFT_SHOULDER]
+        right_shoulder_lm = pose_landmarks.landmark[RIGHT_SHOULDER]
+        nose_lm = pose_landmarks.landmark[NOSE]
+        
+        # Check visibility
+        if (left_shoulder_lm.visibility < 0.5 or 
+            right_shoulder_lm.visibility < 0.5 or 
+            nose_lm.visibility < 0.5):
+            return None
+        
         left_shoulder = _pose_lm_to_px(pose_landmarks, LEFT_SHOULDER, frame_width, frame_height)
         right_shoulder = _pose_lm_to_px(pose_landmarks, RIGHT_SHOULDER, frame_width, frame_height)
         nose = _pose_lm_to_px(pose_landmarks, NOSE, frame_width, frame_height)
@@ -343,7 +393,10 @@ def compute_posture_score(shoulder_ear_angle: Optional[float],
                          shoulder_roll: Optional[float],
                          calibration: Optional[PostureCalibration] = None) -> Tuple[float, bool, bool]:
     """
-    Compute overall posture score (0-100) from multiple metrics with calibration support.
+    Compute overall posture score (0-100) using simplified grey zone approach.
+    
+    SIMPLIFIED: No calibration - uses fixed ideal ranges with tolerance zones.
+    Grey zone approach: Within acceptable range = 95-100%, outside = proportional penalty.
     
     Uses weighted combination of:
     1. Shoulder-ear angle (30% weight) - primary slouch indicator
@@ -352,11 +405,11 @@ def compute_posture_score(shoulder_ear_angle: Optional[float],
     4. Shoulder roll (20% weight) - shoulder symmetry
     
     Args:
-        shoulder_ear_angle: Angle in degrees (lower = more slouching)
-        forward_head_ratio: Normalized forward head distance (higher = more text neck)
-        neck_angle: Neck angle deviation from vertical (higher = worse)
-        shoulder_roll: Shoulder roll/rotation angle (higher = worse)
-        calibration: Optional calibration data for baseline adjustment
+        shoulder_ear_angle: Angle in degrees (ideal: 85-95°, lower = more slouching)
+        forward_head_ratio: Normalized forward head distance (ideal: <0.10, higher = more text neck)
+        neck_angle: Neck angle deviation from vertical (ideal: <5°, higher = worse)
+        shoulder_roll: Shoulder roll/rotation angle (ideal: <3°, higher = worse)
+        calibration: Ignored (kept for API compatibility)
     
     Returns:
         Tuple of (score: float, slouching: bool, text_neck: bool)
@@ -364,139 +417,125 @@ def compute_posture_score(shoulder_ear_angle: Optional[float],
     if all(x is None for x in [shoulder_ear_angle, forward_head_ratio, neck_angle, shoulder_roll]):
         return 0.0, False, False
     
-    calibration = calibration or load_calibration()
-    
     scores = []
     weights = []
     slouching = False
     text_neck = False
     
-    # Adjust thresholds based on calibration
-    shoulder_ear_threshold = (calibration.shoulder_ear_angle_baseline * 0.75 
-                             if calibration.calibrated else SHOULDER_EAR_ANGLE_THRESHOLD)
-    forward_head_threshold = (calibration.forward_head_ratio_baseline * 1.5 
-                             if calibration.calibrated else FORWARD_HEAD_THRESHOLD)
-    neck_angle_threshold = (NECK_ANGLE_THRESHOLD + abs(calibration.neck_angle_baseline) 
-                           if calibration.calibrated else NECK_ANGLE_THRESHOLD)
-    shoulder_roll_threshold = (SHOULDER_ROLL_THRESHOLD + abs(calibration.shoulder_roll_baseline) 
-                              if calibration.calibrated else SHOULDER_ROLL_THRESHOLD)
+    # SIMPLIFIED: Fixed ideal ranges with grey zones (no calibration)
+    # Ideal shoulder-ear angle: 85-95° (grey zone: ±5° from 90°)
+    IDEAL_SHOULDER_EAR_ANGLE = 90.0
+    SHOULDER_EAR_GREY_ZONE = 5.0  # ±5° tolerance for 95-100% score
+    SHOULDER_EAR_MIN = 15.0  # Below this is definitely slouching
     
-    # Validate thresholds to prevent division by zero
-    if forward_head_threshold < 0.01:
-        forward_head_threshold = FORWARD_HEAD_THRESHOLD  # Use default if too small
-    if neck_angle_threshold < 0.01:
-        neck_angle_threshold = NECK_ANGLE_THRESHOLD  # Use default if too small
-    if shoulder_roll_threshold < 0.01:
-        shoulder_roll_threshold = SHOULDER_ROLL_THRESHOLD  # Use default if too small
+    # Ideal forward head ratio: <0.10 (grey zone: 0.0-0.10 for 95-100%)
+    IDEAL_FORWARD_HEAD_RATIO = 0.05
+    FORWARD_HEAD_GREY_ZONE = 0.05  # ±0.05 tolerance
+    FORWARD_HEAD_MAX = 0.20  # Above this is definitely text neck
     
-    # 1. Shoulder-ear angle (30% weight)
+    # Ideal neck angle: <5° (grey zone: 0-5° for 95-100%)
+    IDEAL_NECK_ANGLE = 0.0
+    NECK_ANGLE_GREY_ZONE = 5.0
+    NECK_ANGLE_MAX = 15.0  # Above this is definitely bad
+    
+    # Ideal shoulder roll: <3° (grey zone: 0-3° for 95-100%)
+    IDEAL_SHOULDER_ROLL = 0.0
+    SHOULDER_ROLL_GREY_ZONE = 3.0
+    SHOULDER_ROLL_MAX = 10.0  # Above this is definitely bad
+    
+    # 1. Shoulder-ear angle (30% weight) - SIMPLIFIED GREY ZONE
     if shoulder_ear_angle is not None:
-        baseline = calibration.shoulder_ear_angle_baseline if calibration.calibrated else 20.0
-        deviation = abs(shoulder_ear_angle - baseline)
+        deviation = abs(shoulder_ear_angle - IDEAL_SHOULDER_EAR_ANGLE)
         
-        if shoulder_ear_angle < shoulder_ear_threshold:
+        # Grey zone: within ±5° of ideal = 95-100% score
+        if deviation <= SHOULDER_EAR_GREY_ZONE:
+            # Perfect posture: 95-100% with small variation for natural movement
+            score = 95.0 + (5.0 * (1.0 - deviation / SHOULDER_EAR_GREY_ZONE))
+            score = min(100.0, score)
+        elif shoulder_ear_angle < SHOULDER_EAR_MIN:
+            # Definitely slouching
             slouching = True
-            # Prevent division by zero
-            if abs(shoulder_ear_threshold) > 0.01:
-                score = max(0.0, 50.0 * (shoulder_ear_angle / shoulder_ear_threshold))
-            else:
-                score = 0.0  # Invalid threshold, penalize
+            score = max(0.0, 50.0 * (shoulder_ear_angle / SHOULDER_EAR_MIN))
         else:
-            # Good range: threshold to baseline+5 = 50 to 100 score
-            max_angle = baseline + 5.0
-            if shoulder_ear_angle >= max_angle:
-                score = 100.0
+            # Outside grey zone but not slouching - proportional penalty
+            # Score decreases from 95% to 50% as deviation increases
+            max_deviation = 30.0  # Max deviation before hitting 50% score
+            if deviation >= max_deviation:
+                score = 50.0
             else:
-                # Prevent division by zero
-                denominator = max_angle - shoulder_ear_threshold
-                if abs(denominator) > 0.01:
-                    score = 50.0 + ((shoulder_ear_angle - shoulder_ear_threshold) / denominator) * 50.0
-                else:
-                    score = 50.0  # Neutral score if denominator invalid
+                score = 95.0 - (45.0 * (deviation - SHOULDER_EAR_GREY_ZONE) / (max_deviation - SHOULDER_EAR_GREY_ZONE))
+                score = max(50.0, score)
         
         scores.append(score)
         weights.append(0.30)
     
-    # 2. Forward head ratio (25% weight)
+    # 2. Forward head ratio (25% weight) - SIMPLIFIED GREY ZONE
     if forward_head_ratio is not None:
-        baseline = calibration.forward_head_ratio_baseline if calibration.calibrated else 0.10
-        deviation = abs(forward_head_ratio - baseline)
+        deviation = abs(forward_head_ratio - IDEAL_FORWARD_HEAD_RATIO)
         
-        if forward_head_ratio > forward_head_threshold:
+        # Grey zone: within ±0.05 of ideal = 95-100% score
+        if deviation <= FORWARD_HEAD_GREY_ZONE:
+            # Perfect posture: 95-100%
+            score = 95.0 + (5.0 * (1.0 - deviation / FORWARD_HEAD_GREY_ZONE))
+            score = min(100.0, score)
+        elif forward_head_ratio > FORWARD_HEAD_MAX:
+            # Definitely text neck
             text_neck = True
-            max_ratio = forward_head_threshold * 2.0
-            if forward_head_ratio >= max_ratio:
-                score = 0.0
-            else:
-                # Prevent division by zero
-                denominator = max_ratio - forward_head_threshold
-                if abs(denominator) > 0.01:
-                    score = 50.0 * (1.0 - (forward_head_ratio - forward_head_threshold) / denominator)
-                else:
-                    score = 0.0  # Invalid threshold, penalize
+            score = max(0.0, 50.0 * (1.0 - (forward_head_ratio - FORWARD_HEAD_MAX) / FORWARD_HEAD_MAX))
         else:
-            # Good range: 0 to threshold = 50 to 100 score
-            # Prevent division by zero
-            if abs(forward_head_threshold) > 0.01:
-                score = 50.0 + (1.0 - forward_head_ratio / forward_head_threshold) * 50.0
+            # Outside grey zone but not text neck - proportional penalty
+            max_deviation = 0.15
+            if deviation >= max_deviation:
+                score = 50.0
             else:
-                score = 50.0  # Neutral score if threshold invalid
+                score = 95.0 - (45.0 * (deviation - FORWARD_HEAD_GREY_ZONE) / (max_deviation - FORWARD_HEAD_GREY_ZONE))
+                score = max(50.0, score)
         
         scores.append(score)
         weights.append(0.25)
     
-    # 3. Neck angle (25% weight)
+    # 3. Neck angle (25% weight) - SIMPLIFIED GREY ZONE
     if neck_angle is not None:
-        baseline = abs(calibration.neck_angle_baseline) if calibration.calibrated else 0.0
-        deviation = abs(neck_angle - baseline)
+        deviation = abs(neck_angle - IDEAL_NECK_ANGLE)
         
-        if neck_angle > neck_angle_threshold:
-            # Penalize large deviations
-            max_deviation = neck_angle_threshold * 2.0
-            if neck_angle >= max_deviation:
-                score = 0.0
-            else:
-                # Prevent division by zero
-                denominator = max_deviation - neck_angle_threshold
-                if abs(denominator) > 0.01:
-                    score = 50.0 * (1.0 - (neck_angle - neck_angle_threshold) / denominator)
-                else:
-                    score = 0.0  # Invalid threshold, penalize
+        # Grey zone: within ±5° of ideal = 95-100% score
+        if deviation <= NECK_ANGLE_GREY_ZONE:
+            score = 95.0 + (5.0 * (1.0 - deviation / NECK_ANGLE_GREY_ZONE))
+            score = min(100.0, score)
+        elif neck_angle > NECK_ANGLE_MAX:
+            # Definitely bad neck angle
+            score = max(0.0, 50.0 * (1.0 - (neck_angle - NECK_ANGLE_MAX) / NECK_ANGLE_MAX))
         else:
-            # Good range: 0 to threshold = 50 to 100 score
-            # Prevent division by zero
-            if abs(neck_angle_threshold) > 0.01:
-                score = 50.0 + (1.0 - neck_angle / neck_angle_threshold) * 50.0
+            # Outside grey zone - proportional penalty
+            max_deviation = 20.0
+            if deviation >= max_deviation:
+                score = 50.0
             else:
-                score = 50.0  # Neutral score if threshold invalid
+                score = 95.0 - (45.0 * (deviation - NECK_ANGLE_GREY_ZONE) / (max_deviation - NECK_ANGLE_GREY_ZONE))
+                score = max(50.0, score)
         
         scores.append(score)
         weights.append(0.25)
     
-    # 4. Shoulder roll (20% weight)
+    # 4. Shoulder roll (20% weight) - SIMPLIFIED GREY ZONE
     if shoulder_roll is not None:
-        baseline = abs(calibration.shoulder_roll_baseline) if calibration.calibrated else 0.0
-        deviation = abs(shoulder_roll - baseline)
+        deviation = abs(shoulder_roll - IDEAL_SHOULDER_ROLL)
         
-        if shoulder_roll > shoulder_roll_threshold:
-            # Penalize large deviations
-            max_deviation = shoulder_roll_threshold * 2.0
-            if shoulder_roll >= max_deviation:
-                score = 0.0
-            else:
-                # Prevent division by zero
-                denominator = max_deviation - shoulder_roll_threshold
-                if abs(denominator) > 0.01:
-                    score = 50.0 * (1.0 - (shoulder_roll - shoulder_roll_threshold) / denominator)
-                else:
-                    score = 0.0  # Invalid threshold, penalize
+        # Grey zone: within ±3° of ideal = 95-100% score
+        if deviation <= SHOULDER_ROLL_GREY_ZONE:
+            score = 95.0 + (5.0 * (1.0 - deviation / SHOULDER_ROLL_GREY_ZONE))
+            score = min(100.0, score)
+        elif shoulder_roll > SHOULDER_ROLL_MAX:
+            # Definitely bad shoulder roll
+            score = max(0.0, 50.0 * (1.0 - (shoulder_roll - SHOULDER_ROLL_MAX) / SHOULDER_ROLL_MAX))
         else:
-            # Good range: 0 to threshold = 50 to 100 score
-            # Prevent division by zero
-            if abs(shoulder_roll_threshold) > 0.01:
-                score = 50.0 + (1.0 - shoulder_roll / shoulder_roll_threshold) * 50.0
+            # Outside grey zone - proportional penalty
+            max_deviation = 15.0
+            if deviation >= max_deviation:
+                score = 50.0
             else:
-                score = 50.0  # Neutral score if threshold invalid
+                score = 95.0 - (45.0 * (deviation - SHOULDER_ROLL_GREY_ZONE) / (max_deviation - SHOULDER_ROLL_GREY_ZONE))
+                score = max(50.0, score)
         
         scores.append(score)
         weights.append(0.20)
@@ -534,12 +573,10 @@ def detect_posture(pose_landmarks, frame_width: int, frame_height: int,
     neck_angle = compute_neck_angle(pose_landmarks, frame_width, frame_height)
     shoulder_roll = compute_shoulder_roll(pose_landmarks, frame_width, frame_height)
     
-    # Load calibration
-    calibration = load_calibration()
-    
-    # Compute score with calibration
+    # SIMPLIFIED: No calibration - use grey zone approach
+    # Compute score without calibration (calibration parameter ignored)
     score, slouching, text_neck = compute_posture_score(
-        shoulder_ear_angle, forward_head_ratio, neck_angle, shoulder_roll, calibration
+        shoulder_ear_angle, forward_head_ratio, neck_angle, shoulder_roll, None
     )
     
     # Realistic threshold: 65% is good posture (allows minor variations)
