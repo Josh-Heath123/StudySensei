@@ -28,7 +28,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 - [x] Root `package.json` (`npm run dev` / `check`), TypeScript client generated from OpenAPI
 - [x] ruff, mypy, pytest, eslint, prettier, vitest and the GitHub Actions workflow
 - [x] `CLAUDE.md`, `docs/PRODUCT.md`, `ARCHITECTURE.md`, `ROADMAP.md`, `PROGRESS.md`, decisions 0001–0002
-- [ ] Push `rebuild`, open the first PR, and confirm CI passes on it
+- [x] Push `rebuild`, open the first PR (#1), and confirm CI passes on it
 - [x] Stop hook (`scripts/stop-check.mjs`) runs `npm run check` when the tree has changes; narrow allowlist in `.claude/settings.json` (`uv run`, `npm run`, `git status/diff/log/add/commit`)
 
 **Done when:**
