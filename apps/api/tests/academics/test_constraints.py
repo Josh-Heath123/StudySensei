@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import AssessmentTopic, Module, Task, Topic, User
-from app.schemas.academics import ModuleCreate
+from app.schemas.academics import ModuleCreate, ModuleUpdate
 from app.services.academics import modules
 from app.services.errors import Conflict
 from tests.academics.conftest import Rows, make_rows
@@ -105,3 +105,21 @@ async def test_module_code_unique_per_user_not_globally(
     await assert_rejected(
         session, Module(user_id=alice.user.id, code="COS330", name="Dup", colour="#000000")
     )
+
+
+async def test_renaming_to_an_existing_code_conflicts_and_session_survives(
+    session: AsyncSession, alice: Rows
+) -> None:
+    other = await modules.create_module(
+        session, ModuleCreate(code="cos301", name="Other"), user_id=alice.user.id
+    )
+
+    with pytest.raises(Conflict, match="COS330"):
+        await modules.update_module(
+            session, other.id, ModuleUpdate(code="cos330"), user_id=alice.user.id
+        )
+
+    # Only the failed change was rolled back; earlier rows are still loaded and usable.
+    fresh = await modules.get_module(session, other.id, user_id=alice.user.id)
+    assert fresh.code == "COS301"
+    assert alice.module.code == "COS330"

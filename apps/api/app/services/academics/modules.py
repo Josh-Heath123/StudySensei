@@ -1,6 +1,9 @@
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Module
@@ -24,20 +27,33 @@ async def get_module(session: AsyncSession, module_id: uuid.UUID, *, user_id: uu
     return module
 
 
-async def _ensure_code_free(
-    session: AsyncSession, code: str, *, user_id: uuid.UUID, except_id: uuid.UUID | None = None
-) -> None:
-    query = select(Module.id).where(Module.user_id == user_id, Module.code == code)
-    if except_id is not None:
-        query = query.where(Module.id != except_id)
-    if await session.scalar(query) is not None:
-        raise Conflict(f"You already have a module with code {code}")
+@asynccontextmanager
+async def _code_must_be_unique(
+    session: AsyncSession, code: str, existing: Module | None = None
+) -> AsyncIterator[None]:
+    """Run a change in a SAVEPOINT; a duplicate (user_id, code) becomes a Conflict.
+
+    The unique constraint is the only check, so two concurrent requests can't
+    both slip past a "does it exist?" query. Rolling back just the savepoint
+    keeps the rest of the session usable; ``existing`` (the module being
+    updated) is reloaded so the caller never holds an expired object.
+    """
+    try:
+        async with session.begin_nested():
+            yield
+            await session.flush()
+    except IntegrityError as exc:
+        if "uq_modules_user_code" not in str(exc.orig):
+            raise
+        if existing is not None:
+            await session.refresh(existing)
+        raise Conflict(f"You already have a module with the code {code}.") from exc
 
 
 async def create_module(session: AsyncSession, data: ModuleCreate, *, user_id: uuid.UUID) -> Module:
-    await _ensure_code_free(session, data.code, user_id=user_id)
     module = Module(user_id=user_id, **data.model_dump())
-    session.add(module)
+    async with _code_must_be_unique(session, data.code):
+        session.add(module)
     await session.commit()
     return module
 
@@ -46,11 +62,9 @@ async def update_module(
     session: AsyncSession, module_id: uuid.UUID, data: ModuleUpdate, *, user_id: uuid.UUID
 ) -> Module:
     module = await get_module(session, module_id, user_id=user_id)
-    changes = data.model_dump(exclude_unset=True)
-    if "code" in changes:
-        await _ensure_code_free(session, changes["code"], user_id=user_id, except_id=module.id)
-    for field, value in changes.items():
-        setattr(module, field, value)
+    async with _code_must_be_unique(session, data.code or module.code, existing=module):
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(module, field, value)
     await session.commit()
     return module
 
