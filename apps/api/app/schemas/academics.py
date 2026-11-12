@@ -163,3 +163,38 @@ class TopicNodeOut(TopicOut):
     """A topic with its subtopics, for rendering the tree."""
 
     children: list["TopicNodeOut"]
+
+
+class AssessmentFields(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    module_id: uuid.UUID
+    title: str
+    kind: AssessmentKind
+    due_at: datetime | None
+    # A JSON number; Pydantic would send a Decimal as a string.
+    weight: float | None
+    status: AssessmentStatus
+    notes: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AssessmentOut(AssessmentFields):
+    topic_ids: list[uuid.UUID]
+
+
+class TaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    module_id: uuid.UUID
+    assessment_id: uuid.UUID | None
+    title: str
+    due_at: datetime | None
+    status: TaskStatus
+    completed_at: datetime | None
+    notes: str | None
+    created_at: datetime
+    updated_at: datetime
