@@ -24,10 +24,114 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/modules": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Modules */
+    get: operations["list_modules_modules_get"];
+    put?: never;
+    /** Create Module */
+    post: operations["create_module_modules_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/modules/{module_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Module */
+    get: operations["get_module_modules__module_id__get"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete Module
+     * @description Deletes the module with all its topics, assessments and tasks.
+     */
+    delete: operations["delete_module_modules__module_id__delete"];
+    options?: never;
+    head?: never;
+    /** Update Module */
+    patch: operations["update_module_modules__module_id__patch"];
+    trace?: never;
+  };
+  "/modules/{module_id}/topics": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Topic Tree
+     * @description The module's topics as a nested tree, siblings in position order.
+     */
+    get: operations["get_topic_tree_modules__module_id__topics_get"];
+    put?: never;
+    /** Create Topic */
+    post: operations["create_topic_modules__module_id__topics_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/topics/{topic_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete Topic
+     * @description Deletes the topic and all its subtopics.
+     */
+    delete: operations["delete_topic_topics__topic_id__delete"];
+    options?: never;
+    head?: never;
+    /** Update Topic */
+    patch: operations["update_topic_topics__topic_id__patch"];
+    trace?: never;
+  };
+  "/topics/{topic_id}/move": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Move Topic */
+    post: operations["move_topic_topics__topic_id__move_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** HTTPValidationError */
+    HTTPValidationError: {
+      /** Detail */
+      detail?: components["schemas"]["ValidationError"][];
+    };
     /** HealthResponse */
     HealthResponse: {
       /**
@@ -47,6 +151,155 @@ export interface components {
       database: "ok" | "error";
       /** Database Error */
       database_error?: string | null;
+    };
+    /** ModuleCreate */
+    ModuleCreate: {
+      /** Code */
+      code: string;
+      /** Name */
+      name: string;
+      /**
+       * Colour
+       * @default #007AFF
+       */
+      colour: string;
+      /** Semester */
+      semester?: string | null;
+    };
+    /** ModuleOut */
+    ModuleOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Code */
+      code: string;
+      /** Name */
+      name: string;
+      /** Colour */
+      colour: string;
+      /** Semester */
+      semester: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** ModuleUpdate */
+    ModuleUpdate: {
+      /** Code */
+      code?: string | null;
+      /** Name */
+      name?: string | null;
+      /** Colour */
+      colour?: string | null;
+      /** Semester */
+      semester?: string | null;
+    };
+    /** TopicCreate */
+    TopicCreate: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /** Parent Id */
+      parent_id?: string | null;
+      /** Position */
+      position?: number | null;
+    };
+    /**
+     * TopicMove
+     * @description Move a topic under ``parent_id`` (null = top level) at index ``position``.
+     */
+    TopicMove: {
+      /** Parent Id */
+      parent_id: string | null;
+      /** Position */
+      position: number;
+    };
+    /**
+     * TopicNodeOut
+     * @description A topic with its subtopics, for rendering the tree.
+     */
+    TopicNodeOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Module Id
+       * Format: uuid
+       */
+      module_id: string;
+      /** Parent Id */
+      parent_id: string | null;
+      /** Name */
+      name: string;
+      /** Description */
+      description: string | null;
+      /** Position */
+      position: number;
+      /**
+       * Source
+       * @enum {string}
+       */
+      source: "user" | "ai";
+      /** Children */
+      children: components["schemas"]["TopicNodeOut"][];
+    };
+    /** TopicOut */
+    TopicOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Module Id
+       * Format: uuid
+       */
+      module_id: string;
+      /** Parent Id */
+      parent_id: string | null;
+      /** Name */
+      name: string;
+      /** Description */
+      description: string | null;
+      /** Position */
+      position: number;
+      /**
+       * Source
+       * @enum {string}
+       */
+      source: "user" | "ai";
+    };
+    /** TopicUpdate */
+    TopicUpdate: {
+      /** Name */
+      name?: string | null;
+      /** Description */
+      description?: string | null;
+    };
+    /** ValidationError */
+    ValidationError: {
+      /** Location */
+      loc: (string | number)[];
+      /** Message */
+      msg: string;
+      /** Error Type */
+      type: string;
+      /** Input */
+      input?: unknown;
+      /** Context */
+      ctx?: Record<string, never>;
     };
   };
   responses: never;
@@ -82,6 +335,319 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HealthResponse"];
+        };
+      };
+    };
+  };
+  list_modules_modules_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModuleOut"][];
+        };
+      };
+    };
+  };
+  create_module_modules_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ModuleCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModuleOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_module_modules__module_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModuleOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_module_modules__module_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_module_modules__module_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ModuleUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModuleOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_topic_tree_modules__module_id__topics_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TopicNodeOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_topic_modules__module_id__topics_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TopicCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TopicOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_topic_topics__topic_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        topic_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_topic_topics__topic_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        topic_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TopicUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TopicOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  move_topic_topics__topic_id__move_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        topic_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TopicMove"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TopicOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

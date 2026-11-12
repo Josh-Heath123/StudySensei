@@ -2,6 +2,20 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-12: Phase 1, task 2 (modules and topics endpoints + Modules UI)
+
+- **Done:**
+  - REST endpoints for modules and topics (a tree, plus a move endpoint)
+  - a Modules list and form
+  - a module page with a manual topic tree: add, rename, reorder, indent, outdent, delete
+  - PR #2 review fixes: an explicit null in a PATCH → 422; a duplicate module code → 409 with a clear message, decided by the unique constraint
+  - tests: 81 API tests (9 HTTP cross-user cases that get the same 404 as a missing ID), 23 web tests
+- **Decided:**
+  - module codes are stored upper-case, so duplicates are case-insensitive
+  - topic moves use buttons (drag-and-drop waits for design system v1)
+  - positions are renumbered 0..n-1 on every move or delete
+- **Next:** Phase 1 task 3: assessments and tasks endpoints and UI.
+
 ## 2026-11-12: Phase 1, task 1 (academic models and user scoping)
 
 - **Done:**

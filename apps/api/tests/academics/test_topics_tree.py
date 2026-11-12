@@ -55,10 +55,11 @@ async def test_move_to_root_and_under_another_topic(session: AsyncSession, alice
     child = await add(session, alice, "Child", alice.topic)
     other = await add(session, alice, "Other", position=1)
 
+    # A position past the end is clamped: it becomes the only (index 0) child.
     moved = await topics.move_topic(
         session, child.id, new_parent_id=other.id, position=3, user_id=alice.user.id
     )
-    assert (moved.parent_id, moved.position) == (other.id, 3)
+    assert (moved.parent_id, moved.position) == (other.id, 0)
 
     moved = await topics.move_topic(
         session, child.id, new_parent_id=None, position=0, user_id=alice.user.id
@@ -97,3 +98,44 @@ async def test_user_edit_claims_an_ai_topic(session: AsyncSession, alice: Rows) 
     )
 
     assert (updated.name, updated.source) == ("Renamed", "user")
+
+
+async def positions(session: AsyncSession, rows: Rows) -> dict[str, int]:
+    return {
+        t.name: t.position
+        for t in await topics.list_topics(session, rows.module.id, user_id=rows.user.id)
+    }
+
+
+async def test_new_topics_append_after_their_siblings(session: AsyncSession, alice: Rows) -> None:
+    second = await topics.create_topic(
+        session, alice.module.id, TopicCreate(name="Second"), user_id=alice.user.id
+    )
+    first_child = await add(session, alice, "First child", alice.topic)
+
+    assert second.position == 1  # after "Microservices"
+    assert first_child.position == 0  # first under its own parent
+
+
+async def test_moves_renumber_old_and_new_siblings(session: AsyncSession, alice: Rows) -> None:
+    uid = alice.user.id
+    b = await topics.create_topic(session, alice.module.id, TopicCreate(name="B"), user_id=uid)
+    c = await topics.create_topic(session, alice.module.id, TopicCreate(name="C"), user_id=uid)
+    # Roots: Microservices 0, B 1, C 2
+
+    await topics.move_topic(session, c.id, new_parent_id=None, position=0, user_id=uid)
+    assert await positions(session, alice) == {"C": 0, "Microservices": 1, "B": 2}
+
+    # Indent B under C: roots close the gap, B becomes C's first child.
+    await topics.move_topic(session, b.id, new_parent_id=c.id, position=0, user_id=uid)
+    assert await positions(session, alice) == {"C": 0, "Microservices": 1, "B": 0}
+
+
+async def test_delete_closes_the_gap(session: AsyncSession, alice: Rows) -> None:
+    uid = alice.user.id
+    b = await topics.create_topic(session, alice.module.id, TopicCreate(name="B"), user_id=uid)
+    await topics.create_topic(session, alice.module.id, TopicCreate(name="C"), user_id=uid)
+
+    await topics.delete_topic(session, b.id, user_id=uid)
+
+    assert await positions(session, alice) == {"Microservices": 0, "C": 1}

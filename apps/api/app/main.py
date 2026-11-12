@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health
+from app.api import health, modules, topics
+from app.api.errors import add_error_handlers
 from app.core.config import get_settings
 
 
@@ -13,7 +14,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    add_error_handlers(app)
     app.include_router(health.router)
+    app.include_router(modules.router)
+    app.include_router(topics.router)
     return app
 
 
