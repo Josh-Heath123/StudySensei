@@ -1,5 +1,7 @@
 import { vi } from "vitest";
 
+import { API_URL } from "@/lib/api/client";
+
 export type ApiCall = { method: string; path: string; body: unknown };
 
 type Reply = unknown | Response;
@@ -22,7 +24,8 @@ export function mockApi(routes: Record<string, Handler>) {
   });
 
   const fetchMock = vi.fn(async (request: Request) => {
-    const path = new URL(request.url).pathname;
+    // Route keys are API paths, so drop the client's base path (e.g. "/api").
+    const path = new URL(request.url).pathname.slice(new URL(API_URL).pathname.length) || "/";
     const text = await request.text();
     const call: ApiCall = { method: request.method, path, body: text ? JSON.parse(text) : null };
     calls.push(call);
