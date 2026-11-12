@@ -76,6 +76,7 @@ docs/           PRODUCT · ARCHITECTURE · ROADMAP · PROGRESS · decisions/ · 
 ### TypeScript (apps/web)
 - Strict TS with `noUncheckedIndexedAccess`. Use the `@/` alias for `src/`.
 - Call the server only through `api` in `src/lib/api/client.ts` (typed from OpenAPI). Never hand-write response types.
+  Its base URL is `/api` on the page's origin; in dev, Vite proxies `/api` to :8000 (`API_PROXY_TARGET` overrides).
   Query and mutation hooks live in `features/<area>/api.ts` and wrap calls in `unwrap()` (`lib/api/errors.ts`),
   which throws `ApiError` with a readable message.
 - Server state goes in TanStack Query. Zustand is only for client-only state that must outlive a component.
@@ -101,8 +102,10 @@ docs/           PRODUCT · ARCHITECTURE · ROADMAP · PROGRESS · decisions/ · 
 ## Gotchas
 
 - pytest treats module-level functions named `setup_module` / `teardown_module` as hooks. Don't use those names for helpers.
-- The shadcn CLI may import `cn` from an npm package called `cn`. After `shadcn add`, make sure components import
-  `cn` from `@/lib/utils`, and that no `cn` dependency was added.
+- On Windows, stopping a background `npm run dev`/`vite`/`uvicorn` task can leave its child process holding the port.
+  This sandbox's `netstat -ano` shows listening sockets as `CLOSED` with their PID.
+- The shadcn CLI (every time so far) imports `cn` from an npm package called `cn`; ESLint now rejects that import.
+  After `shadcn add`: `npm uninstall -w apps/web cn`, and import `cn` from `@/lib/utils` in the new component.
 
 - Windows: use the asyncpg driver (`postgresql+asyncpg://`). psycopg's async mode fails on the default Proactor event loop.
 - `.gitattributes` forces LF. Don't fight it with editor settings.

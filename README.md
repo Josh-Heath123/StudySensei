@@ -34,7 +34,7 @@ npm run dev
 This starts Postgres in Docker (port 5433), applies migrations, creates the local user, and runs:
 
 - the web app at http://localhost:5173
-- the API at http://localhost:8000 (docs at http://localhost:8000/docs)
+- the API at http://localhost:8000 (docs at http://localhost:8000/docs); the web app reaches it through Vite at `/api`
 
 The Today page shows a **System status** card. Both rows should read **Connected**.
 

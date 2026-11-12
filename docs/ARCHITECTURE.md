@@ -79,6 +79,13 @@ the web app calls the API through the typed `openapi-fetch` client. CI fails if 
 | --- | --- |
 | Modules | `GET/POST /modules`, `GET/PATCH/DELETE /modules/{id}` |
 | Topics | `GET /modules/{id}/topics` (nested tree), `POST /modules/{id}/topics`, `PATCH/DELETE /topics/{id}`, `POST /topics/{id}/move` `{parent_id, position}` |
+| Assessments | `GET /assessments?module_id=`, `POST /modules/{id}/assessments`, `GET/PATCH/DELETE /assessments/{id}` (responses include `topic_ids`; sending `topic_ids` replaces the whole set) |
+| Tasks | `GET /tasks?module_id=&assessment_id=`, `POST /modules/{id}/tasks`, `GET/PATCH/DELETE /tasks/{id}` (`status: "done"` sets `completed_at`) |
+
+Notes on these endpoints:
+- Dates (`due_at`) must include a timezone; a bare local time is a 422.
+- Lists come soonest first, with undated items last.
+- List filters with someone else's ID return `[]`, exactly like a non-existent ID.
 
 Topic `position` is the index among siblings. New topics append, and moves/deletes renumber the siblings to 0..n-1.
 
@@ -207,6 +214,11 @@ Scoping by `user_id` is enforced twice: by the services and by Postgres.
 
 - **Prerequisites:** Git, `uv` (it fetches Python 3.12), Node LTS and Docker Desktop.
 - **`npm run dev`:** starts Postgres, migrates, seeds, then runs uvicorn (:8000, reload) and Vite (:5173).
+- **Same-origin API in development:** the web app calls `/api/*` on its own origin, and Vite proxies it to the API
+  (`API_PROXY_TARGET`, default `http://localhost:8000`). The browser makes no cross-origin requests, so a
+  browser-driving agent can test the UI as-is.
+  - Setting `VITE_API_URL` makes the app call an API directly instead; the API keeps CORS for that case.
+  - If the API is down, the proxy answers 502, and the health card shows "API: Not connected".
 - **Secrets:** `apps/api/.env` and `apps/web/.env`, never committed. `.env.example` files document each setting.
 
 ## Testing and CI

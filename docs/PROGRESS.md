@@ -2,6 +2,20 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-12: Phase 1, task 3 (dev proxy, assessments and tasks)
+
+- **Done:**
+  - same-origin `/api` dev proxy; the health card now treats the proxy's 502 as "API down"
+  - assessments and tasks endpoints; topic scope is set atomically with create and update
+  - module page tabs: Assessments (dates, weights + total, topic checklist), Tasks (done checkbox, status, overdue), Topics
+  - tests: API 113 (21 cross-user requests + 3 list filters); web 49
+- **Decided:**
+  - due dates must carry a timezone, and the UI sends local date + time as ISO
+  - default times: 09:00 for sit-down assessments, 23:59 for hand-ins
+  - weights aren't forced to total 100; the UI shows the total
+  - ESLint blocks the shadcn CLI's stray `cn` import
+- **Next:** Phase 1 task 4: the Today page with upcoming deadlines and empty states.
+
 ## 2026-11-12: Phase 1, task 2 (modules and topics endpoints + Modules UI)
 
 - **Done:**
