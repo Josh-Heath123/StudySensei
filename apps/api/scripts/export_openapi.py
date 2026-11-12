@@ -11,5 +11,5 @@ from app.main import app
 OUT = Path(__file__).resolve().parents[2] / "web" / "src" / "lib" / "api" / "openapi.json"
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
-OUT.write_text(json.dumps(app.openapi(), indent=2) + "\n", encoding="utf-8")
+OUT.write_text(json.dumps(app.openapi(), indent=2) + "\n", encoding="utf-8", newline="\n")
 print(f"Wrote {OUT}")
