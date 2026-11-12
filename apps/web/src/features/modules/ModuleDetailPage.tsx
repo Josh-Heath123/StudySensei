@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs";
 import { useDeleteModule, useModule, useUpdateModule } from "./api";
 import { ModuleForm } from "./ModuleForm";
 import { AssessmentsTab } from "./assessments/AssessmentsTab";
+import { TasksTab } from "./tasks/TasksTab";
 import { TopicTree } from "./TopicTree";
 
 export function ModuleDetailPage() {
@@ -112,6 +113,7 @@ export function ModuleDetailPage() {
 // The first tab is the default. The open tab lives in ?tab= so reloads and links keep it.
 const TABS = [
   { value: "assessments", label: "Assessments", Panel: AssessmentsTab },
+  { value: "tasks", label: "Tasks", Panel: TasksTab },
   { value: "topics", label: "Topics", Panel: TopicTree },
 ];
 
