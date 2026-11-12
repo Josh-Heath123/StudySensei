@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/ui/dialog";
 
 import { useDeleteModule, useModule, useUpdateModule } from "./api";
 import { ModuleForm } from "./ModuleForm";
+import { TopicTree } from "./TopicTree";
 
 export function ModuleDetailPage() {
   const { moduleId = "" } = useParams();
@@ -71,6 +72,8 @@ export function ModuleDetailPage() {
           </>
         }
       />
+
+      <TopicTree moduleId={moduleId} />
 
       <Dialog open={editing} onOpenChange={setEditing}>
         <DialogContent>
