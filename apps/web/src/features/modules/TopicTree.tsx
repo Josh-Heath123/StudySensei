@@ -58,7 +58,7 @@ export function TopicTree({ moduleId }: { moduleId: string }) {
   const subtopics = toDelete ? countDescendants(toDelete) : 0;
 
   return (
-    <section aria-labelledby="topics-heading" className="mt-8 max-w-3xl">
+    <section aria-labelledby="topics-heading" className="max-w-3xl">
       <h2 id="topics-heading" className="mb-1 text-lg font-semibold tracking-tight">
         Topics
       </h2>

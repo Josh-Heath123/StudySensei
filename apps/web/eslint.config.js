@@ -14,6 +14,11 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      // The shadcn CLI keeps importing cn from an unrelated npm package called "cn".
+      "no-restricted-imports": [
+        "error",
+        { paths: [{ name: "cn", message: 'Use `import { cn } from "@/lib/utils"`.' }] },
+      ],
     },
   },
   {
