@@ -59,6 +59,10 @@ docs/           PRODUCT · ARCHITECTURE · ROADMAP · PROGRESS · decisions/ · 
 - Python 3.12, fully typed; `mypy --strict` must pass. Use ruff for lint and format (line length 100).
 - Async SQLAlchemy 2 with `Mapped[...]` models. New models inherit `TimestampedBase` (UUID id, created_at, updated_at)
   and are imported in `app/models/__init__.py` so Alembic sees them.
+- User-owned tables follow the isolation pattern in `app/models/academics.py`: a `UNIQUE (id, user_id)`, and composite
+  FKs to parents that include `user_id` or `module_id` (see ARCHITECTURE "User isolation").
+- Service functions take `session`, then a keyword-only `user_id`, and filter on it. Another user's ID → `NotFound`.
+  Errors live in `app/services/errors.py`. Endpoints get the user from `CurrentUser` (`app/api/deps.py`).
 - Every schema change needs an Alembic migration. Never edit a migration that's already merged.
 - Routers stay thin: validate with Pydantic, call a service, return a schema. Business logic lives in `app/services/`.
 - Settings come from `app/core/config.py` (`get_settings()`), never `os.environ` directly.

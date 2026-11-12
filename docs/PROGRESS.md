@@ -2,6 +2,20 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-12: Phase 1, task 1 (academic models and user scoping)
+
+- **Done:**
+  - migration 0002 (modules, topic tree, assessments, assessment_topics, tasks)
+  - user-scoped services, Pydantic input schemas and the `CurrentUser` dependency
+  - 46 new tests: cross-user read, update, delete and link attempts; DB constraints; tree rules; cascades; schema guards
+  - the test DB is rebuilt each run, and every test rolls back
+- **Decided:**
+  - isolation is enforced in Postgres too, via composite FKs, not just by query filters
+  - another user's ID is indistinguishable from a missing one
+  - scoping is proved at the data layer now; endpoint tasks add HTTP-level cross-user tests
+  - services commit
+- **Next:** Phase 1 task 2: modules and topics REST endpoints plus the Modules UI.
+
 ## 2026-11-12: Phase 0 wrap-up (tag, checks, hook)
 
 - **Done:**

@@ -95,7 +95,24 @@ Derived tables can always be rebuilt from source tables.
 | AI | `conversations`, `messages` (with citations), `ai_usage` | Usage drives budget and rate-limit handling |
 | System | `jobs` (kind, payload, status, attempts, run_after, error) | |
 
-Phase 0 creates only `users` (+ the `vector` extension).
+**Built so far:**
+- `users` + the `vector` extension (migration 0001)
+- `modules`, `topics`, `assessments`, `assessment_topics`, `tasks` (0002)
+
+### User isolation
+
+Scoping by `user_id` is enforced twice: by the services and by Postgres.
+
+- **Services:** every function in `app/services/` takes a keyword-only `user_id` and filters every query on it.
+  Another user's ID raises `NotFound`, exactly like a missing ID, so IDs can't be probed.
+  The API maps `NotFound` / `Conflict` / `Invalid` to 404 / 409 / 422.
+- **Postgres:**
+  - Every user-owned table has `UNIQUE (id, user_id)`.
+  - Children reference parents through **composite foreign keys** that include `user_id` or `module_id`, for example
+    `topics (module_id, user_id) → modules (id, user_id)` and `topics (parent_id, module_id) → topics (id, module_id)`.
+  - So even code that forgets a check can't link a row to another user's data, or to another module.
+- **Join tables** (`assessment_topics`) carry `module_id` with composite FKs to both sides instead of `user_id`.
+- **Guard test:** `tests/test_schema_guards.py` fails if a new table lacks `user_id` without being allow-listed.
 
 ## AI integration
 
