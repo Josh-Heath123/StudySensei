@@ -29,7 +29,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 - [x] ruff, mypy, pytest, eslint, prettier, vitest and the GitHub Actions workflow
 - [x] `CLAUDE.md`, `docs/PRODUCT.md`, `ARCHITECTURE.md`, `ROADMAP.md`, `PROGRESS.md`, decisions 0001–0002
 - [ ] Push `rebuild`, open the first PR, and confirm CI passes on it
-- [ ] Add a Stop hook running `npm run check`, and allowlist `uv run *`, `npm run *`, `git *` in `.claude/settings.json`
+- [x] Stop hook (`scripts/stop-check.mjs`) runs `npm run check` when the tree has changes; narrow allowlist in `.claude/settings.json` (`uv run`, `npm run`, `git status/diff/log/add/commit`)
 
 **Done when:**
 - `npm run dev` opens the shell showing "API connected" and "Database connected"

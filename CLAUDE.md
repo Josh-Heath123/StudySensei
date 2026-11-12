@@ -79,6 +79,13 @@ docs/           PRODUCT · ARCHITECTURE · ROADMAP · PROGRESS · decisions/ · 
 - Decisions go in `docs/decisions/NNNN-title.md` (context, decision, alternatives, consequences). They're never edited afterwards; supersede them with a new one.
 - Update `PRODUCT.md` / `ARCHITECTURE.md` in the same PR as a change that alters them.
 
+## Hooks and permissions (`.claude/settings.json`)
+
+- **Stop hook:** when `git status --porcelain` shows changes, `scripts/stop-check.mjs` runs `npm run check`. A failure
+  blocks the session from finishing once; if it still fails after that retry, the session stops with a warning.
+- **Allowlisted without prompts:** `uv run`, `npm run`, `git status/diff/log/add/commit`. Everything else (push, tag,
+  reset, checkout…) still asks.
+
 ## Gotchas
 
 - Windows: use the asyncpg driver (`postgresql+asyncpg://`). psycopg's async mode fails on the default Proactor event loop.

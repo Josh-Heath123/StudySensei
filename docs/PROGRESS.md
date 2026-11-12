@@ -2,6 +2,18 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-12: Phase 0 wrap-up (tag, checks, hook)
+
+- **Done:**
+  - created and pushed `v0-pyqt-prototype` (annotated, on `1d55ce1`) and pushed `rebuild`
+  - `npm run check` and `npm run dev` pass on Windows with Docker
+  - `/health` returns 503 when Postgres is stopped and recovers when it restarts
+  - added the Stop hook and a narrow permission allowlist
+- **Decided:**
+  - the Stop hook runs only when the tree is dirty
+  - the hook blocks once, then lets the session stop with a warning, so a broken environment can't trap a session
+- **Next:** CI green on the first PR (rebuild → main), then Phase 1 task 1 (models and migrations).
+
 ## 2026-11-12: Phase 0 (reset and foundations)
 
 - **Done:**
