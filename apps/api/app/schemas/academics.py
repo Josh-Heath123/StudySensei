@@ -64,7 +64,8 @@ class TopicCreate(_Input):
     name: Name
     description: str | None = None
     parent_id: uuid.UUID | None = None
-    position: int = Field(default=0, ge=0)
+    # Index among its siblings; omitted means "after the last one".
+    position: int | None = Field(default=None, ge=0)
 
 
 class TopicUpdate(_Update):
@@ -110,3 +111,43 @@ class TaskUpdate(_Update):
     due_at: datetime | None = None
     status: TaskStatus | None = None
     notes: str | None = None
+
+
+class TopicMove(_Input):
+    """Move a topic under ``parent_id`` (null = top level) at index ``position``."""
+
+    parent_id: uuid.UUID | None
+    position: int = Field(ge=0)
+
+
+# --- Responses -----------------------------------------------------------------------
+
+
+class ModuleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    code: str
+    name: str
+    colour: str
+    semester: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class TopicOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    module_id: uuid.UUID
+    parent_id: uuid.UUID | None
+    name: str
+    description: str | None
+    position: int
+    source: Literal["user", "ai"]
+
+
+class TopicNodeOut(TopicOut):
+    """A topic with its subtopics, for rendering the tree."""
+
+    children: list["TopicNodeOut"]

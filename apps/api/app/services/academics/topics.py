@@ -57,13 +57,50 @@ async def _check_parent(
         raise Invalid("A topic's parent must be in the same module")
 
 
+async def _siblings(
+    session: AsyncSession,
+    module_id: uuid.UUID,
+    parent_id: uuid.UUID | None,
+    *,
+    user_id: uuid.UUID,
+    exclude: uuid.UUID | None = None,
+) -> list[Topic]:
+    """Topics sharing a parent (or the module's roots), in display order."""
+    same_parent = Topic.parent_id.is_(None) if parent_id is None else Topic.parent_id == parent_id
+    query = select(Topic).where(Topic.module_id == module_id, Topic.user_id == user_id, same_parent)
+    if exclude is not None:
+        query = query.where(Topic.id != exclude)
+    return list(await session.scalars(query.order_by(Topic.position, Topic.name)))
+
+
+def _place(siblings: list[Topic], topic: Topic, position: int | None) -> None:
+    """Insert ``topic`` at ``position`` (end if None) and renumber everyone 0..n-1."""
+    index = len(siblings) if position is None else min(position, len(siblings))
+    ordered = [*siblings[:index], topic, *siblings[index:]]
+    for i, t in enumerate(ordered):
+        t.position = i
+
+
+def _renumber(siblings: list[Topic]) -> None:
+    for i, t in enumerate(siblings):
+        t.position = i
+
+
 async def create_topic(
     session: AsyncSession, module_id: uuid.UUID, data: TopicCreate, *, user_id: uuid.UUID
 ) -> Topic:
+    """Add a topic; without a position it goes after its last sibling."""
     await get_module(session, module_id, user_id=user_id)
     if data.parent_id is not None:
         await _check_parent(session, data.parent_id, module_id, user_id=user_id)
-    topic = Topic(user_id=user_id, module_id=module_id, source="user", **data.model_dump())
+    siblings = await _siblings(session, module_id, data.parent_id, user_id=user_id)
+    topic = Topic(
+        user_id=user_id,
+        module_id=module_id,
+        source="user",
+        **data.model_dump(exclude={"position"}),
+    )
+    _place(siblings, topic, data.position)
     session.add(topic)
     await session.commit()
     return topic
@@ -103,7 +140,8 @@ async def move_topic(
     position: int,
     user_id: uuid.UUID,
 ) -> Topic:
-    """Re-parent a topic (None = make it a root) and set its position among siblings."""
+    """Re-parent a topic (None = make it a root) and insert it at ``position`` among its
+    new siblings. Both the old and new sibling lists are renumbered 0..n-1."""
     topic = await get_topic(session, topic_id, user_id=user_id)
     if new_parent_id is not None:
         await _check_parent(session, new_parent_id, topic.module_id, user_id=user_id)
@@ -111,8 +149,19 @@ async def move_topic(
             session, topic.id, user_id=user_id
         ):
             raise Invalid("A topic can't be moved under itself or one of its subtopics")
+    old_parent_id = topic.parent_id
+    new_siblings = await _siblings(
+        session, topic.module_id, new_parent_id, user_id=user_id, exclude=topic.id
+    )
     topic.parent_id = new_parent_id
-    topic.position = position
+    _place(new_siblings, topic, position)
+    if old_parent_id != new_parent_id:
+        # Close the gap the topic left behind.
+        _renumber(
+            await _siblings(
+                session, topic.module_id, old_parent_id, user_id=user_id, exclude=topic.id
+            )
+        )
     await session.commit()
     return topic
 
@@ -120,5 +169,9 @@ async def move_topic(
 async def delete_topic(session: AsyncSession, topic_id: uuid.UUID, *, user_id: uuid.UUID) -> None:
     """Deletes the topic and its whole subtree (FK cascade)."""
     topic = await get_topic(session, topic_id, user_id=user_id)
+    siblings = await _siblings(
+        session, topic.module_id, topic.parent_id, user_id=user_id, exclude=topic.id
+    )
     await session.delete(topic)
+    _renumber(siblings)
     await session.commit()
