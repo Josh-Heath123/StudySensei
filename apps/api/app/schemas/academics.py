@@ -11,7 +11,14 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, ClassVar, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    model_validator,
+)
 
 # Module codes are stored upper-case so "cos330" and "COS330" are the same module.
 Code = Annotated[
@@ -78,10 +85,13 @@ class TopicUpdate(_Update):
 class AssessmentCreate(_Input):
     title: Name
     kind: AssessmentKind
-    due_at: datetime | None = None
+    # Must carry a timezone (e.g. "...Z" or "+02:00"); a bare local time is ambiguous.
+    due_at: AwareDatetime | None = None
     weight: Weight | None = None
     status: AssessmentStatus = "upcoming"
     notes: str | None = None
+    # Topics it covers; all must be in the assessment's module.
+    topic_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
 class AssessmentUpdate(_Update):
@@ -89,16 +99,18 @@ class AssessmentUpdate(_Update):
 
     title: Name | None = None
     kind: AssessmentKind | None = None
-    due_at: datetime | None = None
+    due_at: AwareDatetime | None = None
     weight: Weight | None = None
     status: AssessmentStatus | None = None
     notes: str | None = None
+    # Omitted: unchanged. []: covers no topics. Otherwise replaces the whole set.
+    topic_ids: list[uuid.UUID] | None = None
 
 
 class TaskCreate(_Input):
     title: Name
     assessment_id: uuid.UUID | None = None
-    due_at: datetime | None = None
+    due_at: AwareDatetime | None = None
     status: TaskStatus = "todo"
     notes: str | None = None
 
@@ -108,7 +120,7 @@ class TaskUpdate(_Update):
 
     title: Name | None = None
     assessment_id: uuid.UUID | None = None
-    due_at: datetime | None = None
+    due_at: AwareDatetime | None = None
     status: TaskStatus | None = None
     notes: str | None = None
 

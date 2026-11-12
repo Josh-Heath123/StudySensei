@@ -33,12 +33,57 @@ async def get_assessment(
     return assessment
 
 
+async def _check_topics(
+    session: AsyncSession,
+    topic_ids: set[uuid.UUID],
+    module_id: uuid.UUID,
+    *,
+    user_id: uuid.UUID,
+) -> None:
+    """Every topic must exist and be the user's (else NotFound) and be in ``module_id``."""
+    if not topic_ids:
+        return
+    topics = list(
+        await session.scalars(
+            select(Topic).where(Topic.id.in_(topic_ids), Topic.user_id == user_id)
+        )
+    )
+    if len(topics) != len(topic_ids):
+        raise NotFound("Topic")
+    if any(t.module_id != module_id for t in topics):
+        raise Invalid("An assessment can only cover topics from its own module")
+
+
+async def _replace_topics(
+    session: AsyncSession, assessment: Assessment, topic_ids: set[uuid.UUID]
+) -> None:
+    """Swap the assessment's topic links for ``topic_ids`` (already checked). No commit."""
+    await session.execute(
+        delete(AssessmentTopic).where(AssessmentTopic.assessment_id == assessment.id)
+    )
+    session.add_all(
+        AssessmentTopic(
+            assessment_id=assessment.id, topic_id=topic_id, module_id=assessment.module_id
+        )
+        for topic_id in topic_ids
+    )
+
+
 async def create_assessment(
     session: AsyncSession, module_id: uuid.UUID, data: AssessmentCreate, *, user_id: uuid.UUID
 ) -> Assessment:
+    """Create the assessment and its topic links together. Topics are checked first,
+    so a bad topic ID writes nothing."""
     await get_module(session, module_id, user_id=user_id)
-    assessment = Assessment(user_id=user_id, module_id=module_id, **data.model_dump())
+    topic_ids = set(data.topic_ids)
+    await _check_topics(session, topic_ids, module_id, user_id=user_id)
+
+    assessment = Assessment(
+        user_id=user_id, module_id=module_id, **data.model_dump(exclude={"topic_ids"})
+    )
     session.add(assessment)
+    await session.flush()
+    await _replace_topics(session, assessment, topic_ids)
     await session.commit()
     return assessment
 
@@ -46,9 +91,18 @@ async def create_assessment(
 async def update_assessment(
     session: AsyncSession, assessment_id: uuid.UUID, data: AssessmentUpdate, *, user_id: uuid.UUID
 ) -> Assessment:
+    """Apply the fields sent. ``topic_ids``, if sent, replaces the whole set. All checks
+    run before anything changes, so a bad topic leaves the assessment untouched."""
     assessment = await get_assessment(session, assessment_id, user_id=user_id)
-    for name, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    new_topics: list[uuid.UUID] | None = changes.pop("topic_ids", None)
+    if new_topics is not None:
+        await _check_topics(session, set(new_topics), assessment.module_id, user_id=user_id)
+
+    for name, value in changes.items():
         setattr(assessment, name, value)
+    if new_topics is not None:
+        await _replace_topics(session, assessment, set(new_topics))
     await session.commit()
     return assessment
 
@@ -62,14 +116,26 @@ async def delete_assessment(
     await session.commit()
 
 
+async def topic_ids_for(
+    session: AsyncSession, assessment_ids: list[uuid.UUID], *, user_id: uuid.UUID
+) -> dict[uuid.UUID, set[uuid.UUID]]:
+    """Topic IDs for many assessments in one query (only the user's assessments)."""
+    found: dict[uuid.UUID, set[uuid.UUID]] = {a: set() for a in assessment_ids}
+    rows = await session.execute(
+        select(AssessmentTopic.assessment_id, AssessmentTopic.topic_id)
+        .join(Assessment, Assessment.id == AssessmentTopic.assessment_id)
+        .where(AssessmentTopic.assessment_id.in_(assessment_ids), Assessment.user_id == user_id)
+    )
+    for assessment_id, topic_id in rows:
+        found[assessment_id].add(topic_id)
+    return found
+
+
 async def get_assessment_topic_ids(
     session: AsyncSession, assessment_id: uuid.UUID, *, user_id: uuid.UUID
 ) -> set[uuid.UUID]:
     await get_assessment(session, assessment_id, user_id=user_id)
-    result = await session.scalars(
-        select(AssessmentTopic.topic_id).where(AssessmentTopic.assessment_id == assessment_id)
-    )
-    return set(result)
+    return (await topic_ids_for(session, [assessment_id], user_id=user_id))[assessment_id]
 
 
 async def set_assessment_topics(
@@ -80,25 +146,7 @@ async def set_assessment_topics(
     user_id: uuid.UUID,
 ) -> set[uuid.UUID]:
     """Replace the topics an assessment covers. All must be in its module."""
-    assessment = await get_assessment(session, assessment_id, user_id=user_id)
-    topics = list(
-        await session.scalars(
-            select(Topic).where(Topic.id.in_(topic_ids), Topic.user_id == user_id)
-        )
+    await update_assessment(
+        session, assessment_id, AssessmentUpdate(topic_ids=list(topic_ids)), user_id=user_id
     )
-    if len(topics) != len(topic_ids):
-        raise NotFound("Topic")
-    if any(t.module_id != assessment.module_id for t in topics):
-        raise Invalid("An assessment can only cover topics from its own module")
-
-    await session.execute(
-        delete(AssessmentTopic).where(AssessmentTopic.assessment_id == assessment.id)
-    )
-    session.add_all(
-        AssessmentTopic(
-            assessment_id=assessment.id, topic_id=topic_id, module_id=assessment.module_id
-        )
-        for topic_id in topic_ids
-    )
-    await session.commit()
     return topic_ids
