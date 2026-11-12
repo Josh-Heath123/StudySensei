@@ -1,130 +1,56 @@
 # StudySensei
 
-## Project Description
-StudySensei is a real-time focus and posture tracking application that uses computer vision to monitor study sessions. It combines MediaPipe FaceMesh for focus detection and MediaPipe Pose for posture analysis, providing comprehensive analytics and behavior modeling.
+A study planner and tutor that knows your modules and your habits. It tells you what to study next and why, helps
+while you study, and gets more accurate about you every week.
 
-## Features
+> Being rebuilt as a web app. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for status.
+> The original PyQt prototype is archived at the git tag `v0-pyqt-prototype`.
 
-### Core Functionality
-- **Real-time Focus Tracking**: Iris-based gaze confidence and blink-rate fatigue detection
-- **Posture Detection**: Forward head ratio and shoulder-ear alignment monitoring
-- **Session Analytics**: Time-series analysis with sliding windows (1min, 5min, 10min)
-- **Behavior Modeling**: Pattern detection, session phase identification, and break recommendations
-- **Machine Learning**: Optional focus drop prediction using Random Forest
-- **SQLite Persistence**: Local, privacy-first data storage
+## Prerequisites (Windows, macOS or Linux)
 
-### Advanced Features
-- **Posture Calibration**: Set your baseline posture for personalized detection
-- **Interactive Analytics Dashboard**: Real-time charts with throttled updates (5-second intervals)
-- **Emotion Detection** (Experimental): Optional FER-based emotion recognition
-- **Performance Optimized**: Frame skipping, lightweight charts, auto-disable for low FPS
+- Git
+- [uv](https://docs.astral.sh/uv/) (it installs Python 3.12 for you)
+- Node.js 22 LTS
+- Docker Desktop, **running**
 
-### UI Design
-- **Apple-style Minimalist**: Clean, calm interface with neutral colors
-- **Real-time Metrics**: Live focus percentage, posture score, session duration
-- **Responsive**: Optimized for standard laptops (target: >15 FPS)
-
-## Installation
-
-### Prerequisites
-- **Python 3.10+** recommended
-- A webcam
-- Windows, macOS, or Linux
-
-### Setup
-1. Clone/download this repository.
-
-2. Create and activate a virtual environment:
+## First-time setup
 
 ```bash
-python -m venv .venv
+git clone https://github.com/Josh-Heath123/StudySensei.git
+cd StudySensei
+npm install                      # web and root JS dependencies
+uv sync --directory apps/api     # Python 3.12 + API dependencies
 ```
 
-Windows (PowerShell):
-```bash
-.venv\Scripts\Activate.ps1
-```
+Optional: copy `apps/api/.env.example` to `apps/api/.env` (and the same for `apps/web`) to override the defaults.
+The defaults work for local development.
 
-macOS/Linux:
-```bash
-source .venv/bin/activate
-```
-
-3. Install dependencies:
+## Run
 
 ```bash
-pip install -r requirements.txt
+npm run dev
 ```
 
-## Usage
+This starts Postgres in Docker (port 5433), applies migrations, creates the local user, and runs:
 
-Start the app:
+- the web app at http://localhost:5173
+- the API at http://localhost:8000 (docs at http://localhost:8000/docs)
+
+The Today page shows a **System status** card. Both rows should read **Connected**.
+
+## Check
+
 ```bash
-streamlit run app.py
+npm run check
 ```
 
-### Basic Workflow
-1. Click **Start** to begin a session and enable webcam processing
-2. The **focus %** shows the fraction of "focused" samples in the last 60 seconds
-3. **Posture score** displays real-time posture quality (0-100%)
-4. Click **Calibrate Posture** to set your baseline (recommended on first use)
-5. Click **Stop** to end/reset the session
+This runs ruff, prettier, eslint, mypy, tsc, pytest (against real Postgres) and vitest, the same checks as CI.
 
-### Controls
-- **Show Preview**: Toggle webcam feed display
-- **Posture Detection**: Enable/disable posture monitoring
-- **Draw Pose**: Visualize pose landmarks on preview
-- **Emotion Detection** (Experimental): Optional emotion recognition
-- **Toggle Mesh**: Show/hide FaceMesh landmarks
+## Docs
 
-### Analytics
-- **Focus Trend**: Line chart showing focus over time (updates every 5 seconds)
-- **Posture Trend**: Posture score visualization
-- **Session Phase**: Automatic detection (warm-up, peak, fatigue, recovery)
-- **Break Suggestions**: Intelligent recommendations based on focus decay
-
-## Architecture
-
-### Modules
-- `app.py`: Main Streamlit application and UI
-- `posture.py`: Posture detection with calibration support
-- `emotion_detection.py`: Experimental emotion recognition (optional)
-- `analytics/`: Advanced analytics engine
-  - `time_series.py`: Sliding window analysis
-  - `behavior_model.py`: Pattern detection and phase identification
-  - `session_store.py`: SQLite persistence
-  - `break_logic.py`: Break recommendations
-  - `ml_predictor.py`: Focus drop prediction
-
-### Performance
-- **Frame Processing**: Every 3rd frame (FRAME_SKIP_N=3)
-- **Chart Updates**: Throttled to 5-second intervals
-- **Data Storage**: Last 100 data points for charts
-- **Auto-optimization**: Charts disabled if FPS < 15
-
-## Data Storage
-
-- **SQLite Database**: `studysensei.db` (local, privacy-first)
-- **Calibration**: `posture_calibration.json` (user baseline)
-- **ML Models**: `focus_predictor_model.joblib` (optional)
-
-## Requirements
-
-See `requirements.txt` for complete list. Key dependencies:
-- `opencv-python>=4.9.0.0`
-- `mediapipe>=0.10.0`
-- `streamlit>=1.32.0`
-- `numpy>=1.24.0,<2.0.0`
-- `scikit-learn>=1.3.0`
-- `pandas>=2.0.0`
-- `plotly>=5.18.0` (optional, for advanced charts)
-
-## Notes
-
-- **Emotion Detection**: Experimental feature, accuracy varies by lighting
-- **Performance**: Optimized for laptops; may need adjustment for lower-end devices
-- **Privacy**: All data stored locally, no cloud services
-
-## License
-
-[Add your license here]
+- [Product](docs/PRODUCT.md): what we're building and why
+- [Architecture](docs/ARCHITECTURE.md): how it's built
+- [Roadmap](docs/ROADMAP.md): phases and tasks
+- [Progress](docs/PROGRESS.md): session log
+- [Decisions](docs/decisions/)
+- [Legacy notes](docs/legacy-notes.md): ideas kept from the prototype

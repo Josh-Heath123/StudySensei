@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, rebuild]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: studysensei
+          POSTGRES_PASSWORD: studysensei
+          POSTGRES_DB: studysensei_test
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U studysensei -d studysensei_test"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      DATABASE_URL: postgresql+asyncpg://studysensei:studysensei@localhost:5433/studysensei_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Ruff
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: Mypy
+        run: uv run mypy
+      - name: Migrations apply cleanly
+        run: uv run alembic upgrade head
+      - name: Pytest
+        run: uv run pytest
+      - name: OpenAPI schema is up to date
+        run: |
+          uv run python -m scripts.export_openapi
+          git diff --exit-code -- ../web/src/lib/api/openapi.json
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Generated API types are up to date
+        run: |
+          npm run gen:api -w apps/web
+          git diff --exit-code -- apps/web/src/lib/api/schema.d.ts
+      - name: ESLint
+        run: npm run lint -w apps/web
+      - name: Prettier
+        run: npm run format:check -w apps/web
+      - name: TypeScript
+        run: npm run typecheck -w apps/web
+      - name: Vitest
+        run: npm run test -w apps/web
+      - name: Build
+        run: npm run build -w apps/web

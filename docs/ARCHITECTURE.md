@@ -1,0 +1,184 @@
+# Architecture
+
+The "how". Change it in the same PR as any change that alters it. Source: PLAN.md §3, updated by decision 0002.
+
+## Overview
+
+```
+Browser (React PWA)                         Server                              External
+├─ UI, TanStack Query  ── REST/SSE ──────►  FastAPI (apps/api)  ───────────►  Gemini API (free tier)
+├─ session-engine: timer, interventions     ├─ services: planning, mastery…     Groq (fallback)
+├─ vision worker (MediaPipe, on-device)     ├─ ai: LLMClient, retrieval         Ollama (optional, local)
+└─ voice: Web Speech API, speechSynthesis   └─ worker (Phase 2): jobs table
+                                                      │
+                                            Postgres 16 + pgvector (docker-compose)
+```
+
+The browser does the real-time work: timers, nudges, camera and voice. The server owns stored data, search, AI calls and
+background work. **Camera frames and audio never leave the browser.**
+
+## Key decisions
+
+| Area | Choice | Why |
+| --- | --- | --- |
+| Platform | Web app (PWA), Chromium first | Easiest to polish; nothing to install; camera runs on-device. Tauri is the fallback if spike S1 fails ([0001](decisions/0001-web-rebuild.md)) |
+| Front end | React + TypeScript + Vite, Tailwind v4 + shadcn/ui, React Router, TanStack Query, Zustand | Largest ecosystem; no SSR needed |
+| Back end | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 (async, asyncpg) + Alembic, `uv` | Best document and ML libraries; Pydantic validates AI output |
+| Database | Postgres 16 + pgvector + built-in full-text search | One service for relational data, vectors, keywords and jobs |
+| Background jobs | Worker polling a `jobs` table with `FOR UPDATE SKIP LOCKED` (Phase 2) | No Redis; jobs survive restarts |
+| Embeddings | Local `fastembed`, `BAAI/bge-small-en-v1.5` (384 dims, CPU) | Free, private, fast enough |
+| LLM access | Our own `LLMClient` with **one OpenAI-compatible adapter** | ~200 lines we control ([0002](decisions/0002-free-ai-providers.md)) |
+| Models | Gemini Flash (tutor, topic maps, scanned pages), Gemini Flash-Lite (bulk classification), Groq fallback | Zero cost |
+| PDF / Office | `pypdfium2`, `python-pptx`, `python-docx` | Permissive licences (PyMuPDF is AGPL; Docling pulls in PyTorch) |
+| Scanned pages | Detect pages with no text layer; opt-in vision-LLM transcription | Tesseract handles maths and handwriting badly |
+| Spaced repetition | FSRS (`py-fsrs` / `ts-fsrs`) | Fewer reviews for the same retention |
+| Camera | MediaPipe Tasks Vision (FaceLandmarker + blendshapes, PoseLandmarker lite) in a Web Worker | Free, private, proper blink and head-pose signals |
+| Speech | Push-to-talk; Web Speech API for STT, `speechSynthesis` for TTS | Zero cost; upgradeable behind interfaces |
+| Auth and hosting | Single local user until Phase 9, then Supabase + one small container | One free tier covers DB, auth and storage |
+
+## Repository layout
+
+```
+apps/api/            FastAPI service (+ worker from Phase 2), one Python package `app`
+  app/api/           routers (health; later modules, materials, sessions, plan, tutor, practice, profile)
+  app/core/          config (pydantic-settings), db (async engine/session)
+  app/models/        SQLAlchemy models (TimestampedBase: UUID id, created_at, updated_at)
+  app/schemas/       Pydantic request/response + AI output schemas
+  app/services/      planning/, mastery/, profile/, ingestion/, pastpapers/
+  app/ai/            llm_client.py, adapters/, prompts/, retrieval.py, budget.py
+  app/jobs/          worker.py, tasks/
+  alembic/           migrations
+  tests/             pytest against real Postgres (studysensei_test)
+  evals/             fixed AI test sets + results/
+  scripts/           export_openapi.py
+apps/web/            React app
+  src/app/           routes, layout, sidebar, providers
+  src/features/      today/, modules/, session/, plan/, practice/, insights/, settings/
+  src/vision/        camera.ts, vision.worker.ts, signals.ts, calibration.ts, rollup.ts   (Phase 7)
+  src/voice/         stt.ts, tts.ts                                                       (Phase 3)
+  src/session-engine/ timer.ts, interventions.ts                                         (Phase 1/7)
+  src/lib/api/       openapi.json, generated schema.d.ts, typed client (openapi-fetch)
+  src/ui/            design-system components (shadcn/ui)
+infra/db/init.sql    creates studysensei_test
+docker-compose.yml   Postgres 16 + pgvector on host port 5433
+scripts/dev.mjs      `npm run dev`: db → migrate → seed → api + web
+```
+
+Folders marked with a phase are created when that phase starts.
+
+## API contract
+
+FastAPI generates OpenAPI. `npm run gen:api` writes `apps/web/src/lib/api/openapi.json` and regenerates `schema.d.ts`, and
+the web app calls the API through the typed `openapi-fetch` client. CI fails if the committed schema is stale.
+
+`GET /health` returns `{status, api, database, database_error}`: 200 when Postgres answers `SELECT 1` within 2 s, otherwise 503.
+
+## Data model
+
+Every table has:
+- a UUID primary key
+- `user_id` (except child tables reached through a parent)
+- `created_at` and `updated_at`
+
+Derived tables can always be rebuilt from source tables.
+
+| Area | Tables | Notes |
+| --- | --- | --- |
+| People and settings | `users`, `ai_credentials`, `consents`, `push_subscriptions` | Keys Fernet-encrypted; consent per feature with timestamps |
+| Academic structure | `modules`, `topics` (tree via `parent_id`), `assessments`, `assessment_topics`, `tasks` | `topics.source` is `ai` or `user`; user edits never overwritten |
+| Materials | `materials`, `chunks` (text, page range, `embedding vector(384)`, `tsv tsvector`), `chunk_topics` | `materials.kind`: slides, notes, guide, tutorial, past paper, test, assignment, outline; SHA-256 dedupe |
+| Past papers | `past_questions`, `past_question_topics` | Profile computed by queries, never stored as AI output |
+| Planning | `availability_rules`, `availability_exceptions`, `plan_blocks` | `plan_version` on each block |
+| Sessions | `study_sessions`, `session_events`, `session_minutes` | No images or audio, ever |
+| Practice | `practice_items`, `reviews` (grade + FSRS state) | |
+| Derived | `topic_mastery`, `profile_metrics` (value, sample size, label), `recommendations` | Rebuilt nightly and after each session |
+| AI | `conversations`, `messages` (with citations), `ai_usage` | Usage drives budget and rate-limit handling |
+| System | `jobs` (kind, payload, status, attempts, run_after, error) | |
+
+Phase 0 creates only `users` (+ the `vector` extension).
+
+## AI integration
+
+- **Interface:** `LLMClient.complete(tier, messages, schema=None, stream=False)`. Features ask for a tier, and settings map
+  each tier to a provider and model.
+- **Structured output:** every saved AI result passes a Pydantic schema. It is retried once, then the job is marked for manual review.
+- **AI suggests, code decides:** AI never changes the plan, deletes data or sends notifications.
+- **Untrusted input:** uploaded documents are untrusted, and retrieved text is labelled as source material in prompts.
+- **Free-tier privacy:** never send personal data (names, student numbers, emails, reflections). For COS330, the student's own
+  `u23541475_*` submissions are excluded from AI processing.
+- **Cost and rate controls:**
+  - two tiers and per-feature token limits
+  - each file is processed once (by hash), and practice items are cached
+  - backoff on 429s, then fall back to Groq
+  - `ai/budget.py`
+- **Later:** a read-only MCP server (`get_modules`, `get_plan`, `get_weak_topics`, `search_materials`).
+
+## Document pipeline
+
+1. **Upload:** 50 MB limit and a type allow-list. Stored through the `Storage` interface (local folder in dev), with a hash recorded.
+2. **Extract:** text per page or slide, with titles and speaker notes. Pages with no text layer are flagged as scanned.
+3. **Chunk:** along page and slide boundaries, ~400–800 tokens, keeping the page reference.
+4. **Index:** local embeddings plus `tsvector`.
+5. **Understand (Flash):** topics per material, merged into the module tree; chunks linked by similarity, then user review.
+6. **Past papers:** segment into questions with marks, map to topics, and classify type and difficulty. Code recomputes the profile.
+7. **Search:** vector and keyword (top 20 each) → reciprocal rank fusion → module filter → current-topic boost → top 8 cited as [S1]–[S8].
+
+## Camera and microphone (Phase 7 / 3)
+
+- **Capture:** `getUserMedia` at 640×480. Face at ~5 fps and pose at ~1 fps in a Web Worker, slowed on weak laptops.
+- **`signals.ts`** (pure functions):
+  - presence
+  - head yaw and pitch from the transformation matrix
+  - blink edges with hysteresis
+  - posture deviation from a 5 s calibration: face size, nose height vs the shoulder line, shoulder tilt
+- **Modes:** "Screen" or "Desk/paper". In desk mode, looking down is normal.
+- **What leaves the browser:** only per-minute summaries (presence ratio, head-away ratio, posture deviation, long eye closures).
+- **`interventions.ts`:**
+  - posture nudge after 3 min of drift, at most once every 15 min, never in the first 10 min
+  - away for more than 5 min pauses the timer
+  - breaks come from the plan
+  - quiet mode
+- **Microphone:** push-to-talk only. STT through an interface (the Web Speech API by default; the app says which vendor receives the audio).
+  Answers stream back over SSE and are spoken sentence by sentence; speech should start within 2.5 s.
+- **Risk:** background-tab throttling. Spike S1 tests a Worker + `MediaStreamTrackProcessor`, Document Picture-in-Picture and Tauri.
+
+## Scheduling
+
+- **Planner:** `services/planning/` is a pure function: (availability, assessments, workload, mastery, past-paper importance,
+  block length) → plan blocks + a feasibility report.
+  - Priority = importance × (1 − mastery) × urgency.
+  - Each topic gets at least 2 spaced sessions and a final review where time allows.
+  - Daily caps apply, and the next 24 h stay fixed.
+- **Re-planning:** on a new assessment or material, a skipped or finished block, a mastery change, and nightly.
+- **Timers:** live in the browser and are based on start and end timestamps, so a reload or throttling can't drift them. Every change is logged as a server event.
+- **Reminders:** Web Push (VAPID + `pywebpush`), in-app notifications and a private ICS feed.
+
+## Privacy and security
+
+- **Camera and microphone:**
+  - off by default and asked per session
+  - a visible indicator and a one-click pause
+  - both turn off automatically at the end of the session
+- **Retention:** per-minute camera summaries for 90 days, then reduced to session totals. Deleting a material deletes its chunks and embeddings. Export and delete are available for everything.
+- **Security:**
+  - every query is scoped by `user_id`, with cross-user tests
+  - keys are encrypted
+  - AI endpoints are rate-limited
+  - uploads are validated
+- **Before multi-user launch:** a POPIA review.
+
+## Local development
+
+- **Prerequisites:** Git, `uv` (it fetches Python 3.12), Node LTS and Docker Desktop.
+- **`npm run dev`:** starts Postgres, migrates, seeds, then runs uvicorn (:8000, reload) and Vite (:5173).
+- **Secrets:** `apps/api/.env` and `apps/web/.env`, never committed. `.env.example` files document each setting.
+
+## Testing and CI
+
+- **Back end:** pytest against real Postgres (`studysensei_test`). The planner, mastery, metrics and budget get unit and Hypothesis property tests, and ingestion gets fixture files.
+- **Front end:** Vitest + Testing Library. `timer.ts`, `signals.ts` and `interventions.ts` are tested against recorded landmark traces. Playwright covers the main flows (later).
+- **AI quality:** `apps/api/evals/` runs before and after every prompt or model change.
+- **CI** (`.github/workflows/ci.yml`), on PRs and pushes to main or rebuild:
+  - **api:** ruff, ruff format, mypy (strict), alembic upgrade, pytest (pgvector service) and an OpenAPI-staleness check
+  - **web:** eslint, prettier, tsc, vitest and vite build
+- **Hosting from Phase 9:** an API and worker image on Fly.io/Railway/Hetzner, Supabase, and Cloudflare Pages for the web app.

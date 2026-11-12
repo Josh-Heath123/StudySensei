@@ -1,41 +1,37 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-*.egg-info/
-dist/
-build/
-
-# Virtual Environment
 .venv/
 venv/
-ENV/
-env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
-# IDE
+# Node
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.vite/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Local data (uploads, course material) never goes in git
+data/
+storage/
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# IDE / OS
 .vscode/
 .idea/
 *.swp
-*.swo
-*~
-
-# Database
-*.db
-*.db-shm
-*.db-wal
-
-# Calibration files (user-specific)
-posture_calibration.json
-
-# ML Models
-*.joblib
-*.pkl
-
-# OS
 .DS_Store
 Thumbs.db
-
-# Streamlit
-.streamlit/
