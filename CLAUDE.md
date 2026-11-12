@@ -66,15 +66,23 @@ docs/           PRODUCT · ARCHITECTURE · ROADMAP · PROGRESS · decisions/ · 
 - Every schema change needs an Alembic migration. Never edit a migration that's already merged.
 - Routers stay thin: validate with Pydantic, call a service, return a schema. Business logic lives in `app/services/`.
 - Settings come from `app/core/config.py` (`get_settings()`), never `os.environ` directly.
-- Tests hit real Postgres (no DB mocks). Use `httpx.AsyncClient` + `ASGITransport` for endpoint tests.
+- Tests hit real Postgres (no DB mocks). Endpoint tests use the `client_as(user)` / `alice_api` / `bob_api` fixtures
+  in `tests/api/conftest.py`; every new endpoint gets a cross-user case in `tests/api/test_cross_user_api.py`.
+- PATCH schemas extend `_Update` and list clearable fields in `nullable`; explicit null elsewhere is a 422.
+- Raise `NotFound` / `Conflict` / `Invalid` from services; `app/api/errors.py` maps them to 404 / 409 / 422.
+  Let unique constraints decide conflicts (catch `IntegrityError` in a `begin_nested()` savepoint), not "exists?" queries.
 - Use `logging`, never `print` (except in CLI scripts like `seed.py`).
 
 ### TypeScript (apps/web)
 - Strict TS with `noUncheckedIndexedAccess`. Use the `@/` alias for `src/`.
 - Call the server only through `api` in `src/lib/api/client.ts` (typed from OpenAPI). Never hand-write response types.
+  Query and mutation hooks live in `features/<area>/api.ts` and wrap calls in `unwrap()` (`lib/api/errors.ts`),
+  which throws `ApiError` with a readable message.
 - Server state goes in TanStack Query. Zustand is only for client-only state that must outlive a component.
 - Feature code lives in `src/features/<area>/`. Shared primitives go in `src/ui/` (shadcn style, `cn()` for classes).
-- Tests sit next to the code (`*.test.tsx`), using Testing Library queries by role or label and stubbing `fetch` with `vi.stubGlobal`.
+- Tests sit next to the code (`*.test.tsx`), using Testing Library queries by role or label. Stub the API with
+  `mockApi({"GET /modules/:id": ...})` from `src/test/mockApi.ts`; it records `calls` and fails on unknown routes.
+- Only components are exported from `.tsx` files (fast refresh); shared constants and helpers go in `.ts` files.
 - Deterministic logic (`session-engine/`, `vision/signals.ts`) is written as pure functions, tests first.
 
 ### Git
@@ -91,6 +99,10 @@ docs/           PRODUCT · ARCHITECTURE · ROADMAP · PROGRESS · decisions/ · 
   reset, checkout…) still asks.
 
 ## Gotchas
+
+- pytest treats module-level functions named `setup_module` / `teardown_module` as hooks. Don't use those names for helpers.
+- The shadcn CLI may import `cn` from an npm package called `cn`. After `shadcn add`, make sure components import
+  `cn` from `@/lib/utils`, and that no `cn` dependency was added.
 
 - Windows: use the asyncpg driver (`postgresql+asyncpg://`). psycopg's async mode fails on the default Proactor event loop.
 - `.gitattributes` forces LF. Don't fight it with editor settings.

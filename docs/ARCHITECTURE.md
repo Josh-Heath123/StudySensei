@@ -73,6 +73,25 @@ the web app calls the API through the typed `openapi-fetch` client. CI fails if 
 
 `GET /health` returns `{status, api, database, database_error}`: 200 when Postgres answers `SELECT 1` within 2 s, otherwise 503.
 
+**Endpoints so far:**
+
+| Area | Routes |
+| --- | --- |
+| Modules | `GET/POST /modules`, `GET/PATCH/DELETE /modules/{id}` |
+| Topics | `GET /modules/{id}/topics` (nested tree), `POST /modules/{id}/topics`, `PATCH/DELETE /topics/{id}`, `POST /topics/{id}/move` `{parent_id, position}` |
+
+Topic `position` is the index among siblings. New topics append, and moves/deletes renumber the siblings to 0..n-1.
+
+**Errors** always use `{"detail": ...}`:
+
+| Status | Meaning | `detail` |
+| --- | --- | --- |
+| 404 | Not found, **or another user's row** (deliberately indistinguishable) | a string |
+| 409 | Uniqueness conflict, e.g. a duplicate module code (case-insensitive) | a string |
+| 422 | Invalid input: Pydantic validation, an explicit `null` for a required field, or a disallowed operation (e.g. moving a topic into its own subtree) | a list of issues for validation, a string otherwise |
+
+PATCH bodies only change the fields sent. `null` is accepted only for clearable fields (each `*Update` schema's `nullable` set).
+
 ## Data model
 
 Every table has:

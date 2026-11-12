@@ -42,7 +42,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 **Depends on:** Phase 0.
 
 - [x] Models and migrations: `modules`, `topics` (tree), `assessments`, `assessment_topics`, `tasks`, with API tests for `user_id` scoping (data layer; each endpoint task adds HTTP-level cross-user tests)
-- [ ] Modules and topics REST endpoints and the Modules UI (create, edit, delete; code, name, colour, semester; manual topic tree)
+- [x] Modules and topics REST endpoints and the Modules UI (create, edit, delete; code, name, colour, semester; manual topic tree)
 - [ ] Assessments and tasks endpoints and UI (date, weight, scope)
 - [ ] Today page: upcoming deadlines and empty states
 - [ ] `study_sessions` + `session_events` models and endpoints
