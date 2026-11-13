@@ -20,7 +20,7 @@ export function ModulesPage() {
       <PageHeader
         title="Modules"
         description="The subjects you're studying this semester."
-        actions={
+        aside={
           <Button onClick={() => setCreating(true)}>
             <Plus aria-hidden /> New module
           </Button>

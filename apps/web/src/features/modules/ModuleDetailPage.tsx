@@ -64,7 +64,7 @@ export function ModuleDetailPage() {
           </span>
         }
         description={[data.name, data.semester].filter(Boolean).join(" · ")}
-        actions={
+        aside={
           <>
             <Button variant="outline" onClick={() => setEditing(true)}>
               <Pencil aria-hidden /> Edit
