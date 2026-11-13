@@ -61,8 +61,8 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 **Objective:** StudySensei understands a module from its files.
 **Depends on:** Phase 1, a Gemini API key, and the COS330 files (read-only, never copied into the repo).
 
-- [ ] `Storage` interface (local folder in dev), `materials` model, upload endpoint (50 MB limit, type allow-list, SHA-256 dedupe)
-- [ ] `jobs` table and worker (`FOR UPDATE SKIP LOCKED`), added to `npm run dev`
+- [x] `Storage` interface (local folder in dev), `materials` model, upload endpoint (50 MB limit, type allow-list, SHA-256 dedupe)
+- [x] `jobs` table and worker (`FOR UPDATE SKIP LOCKED`), added to `npm run dev`
 - [ ] Extractors: PDF (`pypdfium2`), PPTX, DOCX, plus a scanned-page flag, with fixture tests
 - [ ] Chunker, `fastembed` (bge-small-en-v1.5, 384 dims), `tsvector`, hybrid search endpoint (RRF)
 - [ ] `LLMClient` with **one OpenAI-compatible adapter** (Gemini primary, Groq fallback, optional Ollama; see decision 0002), `ai_usage` logging, budget and rate-limit backoff

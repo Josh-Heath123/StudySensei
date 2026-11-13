@@ -28,7 +28,7 @@ Web rebuild of a retired PyQt prototype (tag `v0-pyqt-prototype`). Product: `doc
 | Command | What it does |
 | --- | --- |
 | `npm install` | Install web and root JS deps (first time) |
-| `npm run dev` | Postgres (docker) → migrate → seed → API on :8000 + web on :5173 |
+| `npm run dev` | Postgres (docker) → migrate → seed → API on :8000 + job worker + web on :5173 |
 | `npm run check` | Everything CI runs: ruff, ruff format, prettier, eslint, mypy, tsc, pytest, vitest (not e2e) |
 | `npm run e2e` | Playwright against the real stack on its own ports (API :8001, web :5174, db `studysensei_e2e`, rebuilt each run). First time: `npx playwright install chromium` |
 | `npm run format` | Auto-fix formatting (ruff + prettier) |
@@ -40,6 +40,7 @@ API only (`cd apps/api`):
 - `uv run pytest -k health` to run some tests
 - `uv run alembic revision --autogenerate -m "add modules"` for a new migration (check the file it writes)
 - `uv run uvicorn app.main:app --reload`
+- `uv run python -m app.jobs.worker` runs the job worker alone (uploads stay "Waiting to be processed" without it)
 
 Web only: `npm run test:watch -w apps/web`, `npm run build -w apps/web`.
 

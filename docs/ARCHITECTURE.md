@@ -25,7 +25,7 @@ background work. **Camera frames and audio never leave the browser.**
 | Front end | React + TypeScript + Vite, Tailwind v4 + shadcn/ui, React Router, TanStack Query, Zustand | Largest ecosystem; no SSR needed |
 | Back end | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 (async, asyncpg) + Alembic, `uv` | Best document and ML libraries; Pydantic validates AI output |
 | Database | Postgres 16 + pgvector + built-in full-text search | One service for relational data, vectors, keywords and jobs |
-| Background jobs | Worker polling a `jobs` table with `FOR UPDATE SKIP LOCKED` (Phase 2) | No Redis; jobs survive restarts |
+| Background jobs | Worker polling a `jobs` table with `FOR UPDATE SKIP LOCKED` (decision 0004) | No Redis; jobs survive restarts |
 | Embeddings | Local `fastembed`, `BAAI/bge-small-en-v1.5` (384 dims, CPU) | Free, private, fast enough |
 | LLM access | Our own `LLMClient` with **one OpenAI-compatible adapter** | ~200 lines we control ([0002](decisions/0002-free-ai-providers.md)) |
 | Models | Gemini Flash (tutor, topic maps, scanned pages), Gemini Flash-Lite (bulk classification), Groq fallback | Zero cost |
@@ -46,7 +46,8 @@ apps/api/            FastAPI service (+ worker from Phase 2), one Python package
   app/schemas/       Pydantic request/response + AI output schemas
   app/services/      planning/, mastery/, profile/, ingestion/, pastpapers/
   app/ai/            llm_client.py, adapters/, prompts/, retrieval.py, budget.py
-  app/jobs/          worker.py, tasks/
+  app/jobs/          queue.py (enqueue, claim, retry), worker.py, tasks/ (count_pages, …)
+  app/storage/       Storage interface + LocalStorage (data/materials), keys {user_id}/{sha256}
   alembic/           migrations
   tests/             pytest against real Postgres (studysensei_test)
   evals/             fixed AI test sets + results/
@@ -83,6 +84,7 @@ the web app calls the API through the typed `openapi-fetch` client. CI fails if 
 | Assessments | `GET/POST /modules/{id}/assessments`, `GET /assessments?status=` (all modules), `GET/PATCH/DELETE /assessments/{id}` (responses include `topic_ids`; sending `topic_ids` replaces the whole set) |
 | Tasks | `GET/POST /modules/{id}/tasks`, `GET /tasks?status=` (all modules), `GET/PATCH/DELETE /tasks/{id}` (`status: "done"` sets `completed_at`) |
 | Sessions | `POST /sessions`, `GET /sessions/active`, `GET/DELETE /sessions/{id}`, `POST /sessions/{id}/events`, `PUT /sessions/{id}/reflection`, `GET /modules/{id}/sessions?limit=&offset=` (a page `{items, total, limit, offset}`: the open session first, then newest first; limit 1–100, default 20), `GET /modules/{id}/sessions/summary?week_start=` (session count and active seconds, all time and since `week_start`) |
+| Materials | `POST /modules/{id}/materials` (multipart: `file`, `kind`, `title?`, `allow_ai`; 413 over 50 MB, 415 wrong type, 409 same file in the module), `GET /modules/{id}/materials`, `GET/PATCH/DELETE /materials/{id}` (PATCH: title, kind, allow_ai), `POST /materials/{id}/retry` (failed only) |
 
 Notes on these endpoints:
 - A module's own lists live under `/modules/{id}/…` and return 404 if the module isn't yours. The top-level
@@ -117,7 +119,7 @@ Derived tables can always be rebuilt from source tables.
 | --- | --- | --- |
 | People and settings | `users`, `ai_credentials`, `consents`, `push_subscriptions` | Keys Fernet-encrypted; consent per feature with timestamps |
 | Academic structure | `modules`, `topics` (tree via `parent_id`), `assessments`, `assessment_topics`, `tasks` | `topics.source` is `ai` or `user`; user edits never overwritten |
-| Materials | `materials`, `chunks` (text, page range, `embedding vector(384)`, `tsv tsvector`), `chunk_topics` | `materials.kind`: slides, notes, guide, tutorial, past paper, test, assignment, outline; SHA-256 dedupe |
+| Materials | `materials`, `chunks` (text, page range, `embedding vector(384)`, `tsv tsvector`), `chunk_topics` | `materials.kind`: slides, notes, study_guide, tutorial, past_paper, test, assignment, outline, other; `status`, `error`, `page_count`, `allow_ai`; `UNIQUE (module_id, sha256)` |
 | Past papers | `past_questions`, `past_question_topics` | Profile computed by queries, never stored as AI output |
 | Planning | `availability_rules`, `availability_exceptions`, `plan_blocks` | `plan_version` on each block |
 | Sessions | `study_sessions`, `session_events`, `session_minutes` | No images or audio, ever |
@@ -184,7 +186,12 @@ Scoping by `user_id` is enforced twice: by the services and by Postgres.
 
 ## Document pipeline
 
-1. **Upload:** 50 MB limit and a type allow-list. Stored through the `Storage` interface (local folder in dev), with a hash recorded.
+1. **Upload:** 50 MB limit and a type allow-list checked by content. Stored through the `Storage` interface (local folder
+   in dev) under `{user_id}/{sha256}`, so a re-upload is detected and a file shared by two modules is stored once
+   (decision 0004). The material and its first job are created in one transaction; the worker counts pages and marks it ready.
+   - **Status:** `uploaded` → `processing` → `ready`, or `failed` with a readable reason once retries run out
+     (retrying meanwhile).
+   - **`allow_ai`:** each material has this flag (default on); AI steps skip materials where it is off.
 2. **Extract:** text per page or slide, with titles and speaker notes. Pages with no text layer are flagged as scanned.
 3. **Chunk:** along page and slide boundaries, ~400–800 tokens, keeping the page reference.
 4. **Index:** local embeddings plus `tsvector`.
@@ -256,7 +263,9 @@ Scoping by `user_id` is enforced twice: by the services and by Postgres.
 ## Local development
 
 - **Prerequisites:** Git, `uv` (it fetches Python 3.12), Node LTS and Docker Desktop.
-- **`npm run dev`:** starts Postgres, migrates, seeds, then runs uvicorn (:8000, reload) and Vite (:5173).
+- **`npm run dev`:** starts Postgres, migrates, seeds, then runs uvicorn (:8000, reload), the job worker and Vite (:5173).
+- **Worker:** `uv run python -m app.jobs.worker` polls `jobs` every second (`WORKER_POLL_SECONDS`). Jobs retry after 30 s,
+  2 min and 8 min, then fail; a job locked for more than 10 minutes is taken back.
 - **Same-origin API in development:** the web app calls `/api/*` on its own origin, and Vite proxies it to the API
   (`API_PROXY_TARGET`, default `http://localhost:8000`). The browser makes no cross-origin requests, so a
   browser-driving agent can test the UI as-is.

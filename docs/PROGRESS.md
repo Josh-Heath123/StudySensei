@@ -2,6 +2,40 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-13: Phase 2, tasks 1–2 (material uploads, storage, job worker)
+
+- **Done:**
+  - **API:**
+    - a `Storage` interface with `LocalStorage` (`data/materials`, atomic writes, keys `{user_id}/{sha256}` validated against path escapes)
+    - `materials` and `jobs` (migration 0005)
+    - upload: 50 MB (413), an allow-list checked by content (415), and the same file twice in a module is a 409 naming the original. Files are shared across a user's modules and deleted with the last material that uses them, module deletes included.
+    - list, get, PATCH (title, kind, allow_ai), delete and retry
+  - **Jobs:**
+    - `claim_next` with `FOR UPDATE SKIP LOCKED`, which also takes back stale locks after 10 minutes
+    - retries after 30 s, 2 min and 8 min, then failed; readable reasons on the material while it retries
+    - `count_pages` (pypdfium2 for PDF, PPTX slides, DOCX `<Pages>`, images 1, text none) marks the material ready
+    - the worker runs in `npm run dev`
+  - **Web:** a Materials tab on the module page:
+    - drag-and-drop or Choose files, checked locally
+    - each file staged with a guessed kind, a title and "Allow AI processing", uploaded one by one with its own result
+    - a live list (polls every 2 s while anything is in flight) with status, the AI switch, Retry and Delete
+  - **Tests:**
+    - API 308 (storage, file types, upload validation and dedupe, the job lifecycle including a retried failure, a stale lock, SKIP LOCKED on two connections, page counts, cross-user)
+    - web 246
+    - e2e 2: a real-browser upload processed by the real worker, plus the duplicate message
+  - ADR 0004
+- **Decided:**
+  - blobs are per user (never shared across accounts) and keyed by hash
+  - duplicates within a module are refused; across modules they share the blob
+  - the type is checked by content, not trusted from the name
+  - jobs carry `user_id`, and handlers scope by it
+  - `allow_ai` defaults on and is switched off by hand; nothing is guessed from filenames
+  - e2e runs use their own storage folder (`data/e2e-materials`, cleared each run) and start the real worker themselves
+- **Known gaps:**
+  - Starlette spools a multipart upload before the endpoint sees it; the 50 MB check happens from `Content-Length` and while hashing, not at the socket
+  - a blob delete racing an upload of the same file is possible but unlikely (ADR 0004)
+- **Next:** Phase 2 task 3: extractors (PDF with pypdfium2, PPTX, DOCX) and the scanned-page flag, as jobs that replace `count_pages`.
+
 ## 2026-11-13: Phase 1, task 8 (session history per module)
 
 - **Done:**
