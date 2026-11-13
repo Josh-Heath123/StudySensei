@@ -1,0 +1,211 @@
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { vi } from "vitest";
+
+import { json, mockApi, noContent } from "@/test/mockApi";
+import { renderApp } from "@/test/render";
+
+import { aModule } from "../fixtures";
+import type { Material } from "./api";
+
+function aMaterial(overrides: Partial<Material> = {}): Material {
+  return {
+    id: "mat1",
+    module_id: "m1",
+    kind: "slides",
+    title: "Week 3 slides",
+    original_filename: "Week 3 slides.pdf",
+    content_type: "application/pdf",
+    size_bytes: 2 * 1024 * 1024,
+    sha256: "a".repeat(64),
+    page_count: null,
+    status: "uploaded",
+    error: null,
+    retrying: false,
+    allow_ai: true,
+    created_at: "2026-11-13T10:00:00Z",
+    updated_at: "2026-11-13T10:00:00Z",
+    ...overrides,
+  };
+}
+
+const file = (name: string, size = 1024) =>
+  new File([new Uint8Array(size)], name, { type: "application/octet-stream" });
+
+/** The API, with the materials list served from `list` (tests change it as time passes). */
+function serve(list: Material[], routes: Parameters<typeof mockApi>[0] = {}) {
+  return mockApi({
+    "GET /modules/:id": () => aModule(),
+    "GET /sessions/active": () => null,
+    "GET /modules/:id/materials": () => list,
+    ...routes,
+  });
+}
+
+const openTab = () => renderApp("/modules/m1?tab=materials");
+
+test("with nothing uploaded, says so", async () => {
+  serve([]);
+  openTab();
+
+  expect(await screen.findByText(/No materials yet/)).toBeInTheDocument();
+});
+
+test("chosen files are staged with a guessed kind and title; bad ones are refused", async () => {
+  serve([]);
+  openTab();
+  await screen.findByText(/No materials yet/);
+
+  fireEvent.drop(screen.getByTestId("drop-zone"), {
+    dataTransfer: {
+      files: [file("COS330 Exam 2024.pdf"), file("setup.exe"), file("huge.pdf", 51 * 1024 * 1024)],
+    },
+  });
+
+  const staged = within(screen.getByRole("list", { name: "Files to upload" }));
+  const row = staged.getByRole("listitem", { name: "COS330 Exam 2024.pdf" });
+  expect(within(row).getByLabelText("Title")).toHaveValue("COS330 Exam 2024");
+  expect(within(row).getByLabelText("Kind")).toHaveValue("past_paper");
+  expect(within(row).getByRole("checkbox", { name: "Allow AI processing" })).toBeChecked();
+  expect(staged.getAllByRole("listitem")).toHaveLength(1);
+
+  const refused = screen.getByRole("alert");
+  expect(refused).toHaveTextContent(".exe files can't be uploaded");
+  expect(refused).toHaveTextContent("huge.pdf is 51.0 MB; files can be at most 50 MB.");
+  expect(screen.getByRole("button", { name: "Upload 1 file" })).toBeInTheDocument();
+});
+
+test("uploads each file as multipart with its kind, title and AI flag, then follows processing", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  try {
+    const list: Material[] = [];
+    const { calls } = serve(list, {
+      "POST /modules/:id/materials": () => {
+        list.push(aMaterial({ title: "My assignment", kind: "assignment", allow_ai: false }));
+        return json(list[0], 201);
+      },
+    });
+    openTab();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await screen.findByText(/No materials yet/);
+
+    await user.upload(screen.getByLabelText("Files to upload"), file("submission.docx", 2048));
+    const row = screen.getByRole("listitem", { name: "submission.docx" });
+    await user.clear(within(row).getByLabelText("Title"));
+    await user.type(within(row).getByLabelText("Title"), "My assignment");
+    await user.selectOptions(within(row).getByLabelText("Kind"), "assignment");
+    await user.click(within(row).getByRole("checkbox", { name: "Allow AI processing" }));
+    await user.click(screen.getByRole("button", { name: "Upload 1 file" }));
+
+    const uploaded = await screen.findByRole("listitem", { name: "My assignment" });
+    // jsdom drops the part's filename on the way through; e2e/materials.spec.ts checks it
+    // in a real browser.
+    expect(calls.find((c) => c.method === "POST")?.body).toEqual({
+      file: { name: expect.any(String), size: 2048 },
+      kind: "assignment",
+      title: "My assignment",
+      allow_ai: "false",
+    });
+    expect(screen.queryByRole("list", { name: "Files to upload" })).not.toBeInTheDocument();
+    expect(within(uploaded).getByRole("status")).toHaveTextContent("Waiting to be processed…");
+
+    // The worker picks it up; the list refreshes every 2 s while anything is in flight.
+    list[0] = aMaterial({ ...list[0], status: "processing" });
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(within(uploaded).getByRole("status")).toHaveTextContent("Processing…");
+
+    list[0] = aMaterial({ ...list[0], status: "ready", page_count: 12 });
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(within(uploaded).getByRole("status")).toHaveTextContent("Ready");
+    expect(uploaded).toHaveTextContent("12 pages");
+
+    // Nothing in flight: no more polling.
+    const before = calls.length;
+    await act(() => vi.advanceTimersByTimeAsync(10_000));
+    expect(calls.length).toBe(before);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("a duplicate stays staged with the reason", async () => {
+  serve([], {
+    "POST /modules/:id/materials": () =>
+      json({ detail: "This file is already in the module as “Week 3 slides”." }, 409),
+  });
+  openTab();
+  const user = userEvent.setup();
+  await screen.findByText(/No materials yet/);
+
+  await user.upload(screen.getByLabelText("Files to upload"), file("week3.pdf"));
+  await user.click(screen.getByRole("button", { name: "Upload 1 file" }));
+
+  const row = screen.getByRole("listitem", { name: "week3.pdf" });
+  expect(await within(row).findByRole("alert")).toHaveTextContent(
+    "Not uploaded: This file is already in the module as “Week 3 slides”.",
+  );
+});
+
+test("the AI switch, retry and delete act on the material", async () => {
+  const list = [
+    aMaterial({ id: "ok", title: "Week 1", status: "ready", page_count: 1 }),
+    aMaterial({
+      id: "bad",
+      title: "Scanned memo",
+      status: "failed",
+      error: "The PDF couldn't be opened. It may be damaged or password-protected.",
+    }),
+    aMaterial({
+      id: "slow",
+      title: "Week 2",
+      status: "processing",
+      error: "Something went wrong while processing this file. It will be retried.",
+      retrying: true,
+    }),
+  ];
+  const { calls } = serve(list, {
+    "PATCH /materials/:id": ({ params, body }) => ({
+      ...list.find((m) => m.id === params.id),
+      ...(body as object),
+    }),
+    "POST /materials/:id/retry": ({ params }) => ({
+      ...list.find((m) => m.id === params.id),
+      status: "uploaded",
+      error: null,
+    }),
+    "DELETE /materials/:id": () => noContent(),
+  });
+  openTab();
+  const user = userEvent.setup();
+
+  const ok = await screen.findByRole("listitem", { name: "Week 1" });
+  const bad = screen.getByRole("listitem", { name: "Scanned memo" });
+  const slow = screen.getByRole("listitem", { name: "Week 2" });
+  expect(within(ok).getByRole("status")).toHaveTextContent("Ready");
+  expect(within(ok).getByText("1 page")).toBeInTheDocument();
+  expect(within(bad).getByRole("status")).toHaveTextContent(
+    "Failed: The PDF couldn't be opened. It may be damaged or password-protected.",
+  );
+  expect(within(slow).getByRole("status")).toHaveTextContent("Retrying: Something went wrong");
+  expect(within(ok).queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
+
+  await user.click(within(ok).getByRole("checkbox", { name: "Allow AI" }));
+  await waitFor(() =>
+    expect(calls.find((c) => c.method === "PATCH")).toEqual({
+      method: "PATCH",
+      path: "/materials/ok",
+      body: { allow_ai: false },
+    }),
+  );
+
+  await user.click(within(bad).getByRole("button", { name: "Retry" }));
+  await waitFor(() =>
+    expect(calls.some((c) => c.method === "POST" && c.path === "/materials/bad/retry")).toBe(true),
+  );
+
+  await user.click(within(ok).getByRole("button", { name: "Delete Week 1" }));
+  await user.click(await screen.findByRole("button", { name: "Delete material" }));
+  await waitFor(() =>
+    expect(calls.some((c) => c.method === "DELETE" && c.path === "/materials/ok")).toBe(true),
+  );
+});

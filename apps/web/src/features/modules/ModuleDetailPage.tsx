@@ -14,6 +14,7 @@ import { useDeleteModule, useModule, useUpdateModule } from "./api";
 import { StartSessionButton } from "../session/StartSessionButton";
 import { ModuleForm } from "./ModuleForm";
 import { AssessmentsTab } from "./assessments/AssessmentsTab";
+import { MaterialsTab } from "./materials/MaterialsTab";
 import { SessionsTab } from "./sessions/SessionsTab";
 import { TasksTab } from "./tasks/TasksTab";
 import { TopicTree } from "./TopicTree";
@@ -116,6 +117,7 @@ const TABS = [
   { value: "assessments", label: "Assessments", Panel: AssessmentsTab },
   { value: "tasks", label: "Tasks", Panel: TasksTab },
   { value: "topics", label: "Topics", Panel: TopicTree },
+  { value: "materials", label: "Materials", Panel: MaterialsTab },
   { value: "sessions", label: "Sessions", Panel: SessionsTab },
 ];
 

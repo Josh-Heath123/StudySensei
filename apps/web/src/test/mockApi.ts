@@ -28,8 +28,7 @@ export function mockApi(routes: Record<string, Handler>) {
   const fetchMock = vi.fn(async (request: Request) => {
     // Route keys are API paths, so drop the client's base path (e.g. "/api").
     const path = new URL(request.url).pathname.slice(new URL(API_URL).pathname.length) || "/";
-    const text = await request.text();
-    const call: ApiCall = { method: request.method, path, body: text ? JSON.parse(text) : null };
+    const call: ApiCall = { method: request.method, path, body: await readBody(request) };
     calls.push(call);
 
     for (const route of table) {
@@ -59,3 +58,18 @@ export function json(body: unknown, status = 200) {
 }
 
 export const noContent = () => new Response(null, { status: 204 });
+
+/** JSON bodies as values; multipart forms as objects, with files as { name, size }. */
+async function readBody(request: Request): Promise<unknown> {
+  if (request.headers.get("content-type")?.startsWith("multipart/form-data")) {
+    const form = await request.formData();
+    const fields: Record<string, unknown> = {};
+    form.forEach((value, key) => {
+      fields[key] =
+        typeof value === "string" ? value : { name: (value as File).name, size: value.size };
+    });
+    return fields;
+  }
+  const text = await request.text();
+  return text ? JSON.parse(text) : null;
+}

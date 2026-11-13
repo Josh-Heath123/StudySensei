@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+import { E2E_DATABASE_URL, E2E_STORAGE_DIR } from "./e2e/env";
+
 /**
  * End-to-end tests against the real stack, on their own ports and database so
  * they never touch `npm run dev` (:8000 / :5173, db `studysensei`). Run them with
@@ -7,9 +9,6 @@ import { defineConfig, devices } from "@playwright/test";
  */
 const API_PORT = 8001;
 const WEB_PORT = 5174;
-const DATABASE_URL =
-  process.env.E2E_DATABASE_URL ??
-  "postgresql+asyncpg://studysensei:studysensei@localhost:5433/studysensei_e2e";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -27,7 +26,7 @@ export default defineConfig({
     {
       command: `uv run --directory ../api uvicorn app.main:app --port ${API_PORT}`,
       url: `http://localhost:${API_PORT}/health`,
-      env: { DATABASE_URL },
+      env: { DATABASE_URL: E2E_DATABASE_URL, STORAGE_DIR: E2E_STORAGE_DIR },
       reuseExistingServer: false,
       timeout: 60_000,
     },
