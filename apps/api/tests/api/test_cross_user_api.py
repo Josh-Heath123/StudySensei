@@ -65,6 +65,8 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("PUT", "/sessions/{session}/reflection", {"focus_rating": 1}),
     ("DELETE", "/sessions/{session}", None),
     ("GET", "/modules/{module}/sessions", None),
+    ("GET", "/modules/{module}/sessions?limit=5&offset=0", None),
+    ("GET", "/modules/{module}/sessions/summary?week_start=2026-11-09T00:00:00Z", None),
     ("POST", "/sessions", {"module_id": "{module}", "start": START}),
     # His session on her topic, and his reflection rating her topic.
     ("POST", "/sessions", {"module_id": "{my_module}", "topic_id": "{topic}", "start": START}),
@@ -185,7 +187,12 @@ async def test_bob_never_sees_alices_open_session(
 
     assert (await bob_api.get("/sessions/active")).json() is None
     history = (await bob_api.get(f"/modules/{bob.module.id}/sessions")).json()
-    assert [s["id"] for s in history] == [str(bob.study_session.id)]
+    assert [s["id"] for s in history["items"]] == [str(bob.study_session.id)]
+    assert history["total"] == 1
+    summary = await bob_api.get(
+        f"/modules/{bob.module.id}/sessions/summary", params={"week_start": "2026-01-01T00:00Z"}
+    )
+    assert summary.json()["session_count"] == 1
     # Her open session doesn't stop him starting one.
     mine = await bob_api.post("/sessions", json={"module_id": str(bob.module.id), "start": start})
     assert mine.status_code == 201

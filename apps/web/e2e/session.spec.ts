@@ -84,7 +84,8 @@ test("start → pause → resume → reload → break → end → reflect → su
   await expect(page.getByText("Measured · from 6 timer events").first()).toBeVisible();
 
   // The server has the whole session and its reflection.
-  const sessions = await (await request.get(`/api/modules/${module.id}/sessions`)).json();
+  const history = await (await request.get(`/api/modules/${module.id}/sessions`)).json();
+  const sessions = history.items;
   expect(sessions).toHaveLength(1);
   expect(sessions[0]).toMatchObject({
     state: "ended",

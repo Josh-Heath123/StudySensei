@@ -108,3 +108,22 @@ class SessionDetailOut(SessionOut):
     """A session with its events in timeline order, for resuming the timer."""
 
     events: list[EventOut]
+
+
+class SessionPage(BaseModel):
+    """One page of a module's sessions: the open one first, then newest first."""
+
+    items: list[SessionOut]
+    total: int
+    limit: int
+    offset: int
+
+
+class ModuleSessionSummary(BaseModel):
+    """Measured study time for a module (active time only; breaks aren't study time)."""
+
+    session_count: int
+    active_seconds: float
+    # Sessions that started at or after week_start (the client's local start of the week).
+    week_start: datetime
+    week_active_seconds: float

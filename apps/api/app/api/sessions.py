@@ -1,6 +1,8 @@
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, Query, Response, status
+from pydantic import AwareDatetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import CurrentUser
@@ -9,10 +11,12 @@ from app.models import StudySession
 from app.schemas.sessions import (
     EventBatch,
     EventOut,
+    ModuleSessionSummary,
     ReflectionIn,
     SessionDetailOut,
     SessionFields,
     SessionOut,
+    SessionPage,
     SessionStart,
     TopicRatingOut,
 )
@@ -100,10 +104,36 @@ async def delete_session(session_id: uuid.UUID, session: SessionDep, user: Curre
     await sessions.delete_session(session, session_id, user_id=user.id)
 
 
-@router.get("/modules/{module_id}/sessions", response_model=list[SessionOut])
+@router.get("/modules/{module_id}/sessions", response_model=SessionPage)
 async def list_module_sessions(
-    module_id: uuid.UUID, session: SessionDep, user: CurrentUser
-) -> list[SessionOut]:
-    """The module's sessions, newest first."""
-    items = await sessions.list_module_sessions(session, module_id, user_id=user.id)
-    return await _out(session, items, user_id=user.id)
+    module_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> SessionPage:
+    """A page of the module's sessions: the open one first, then newest first."""
+    items, total = await sessions.list_module_sessions(
+        session, module_id, user_id=user.id, limit=limit, offset=offset
+    )
+    out = await _out(session, items, user_id=user.id)
+    return SessionPage(items=out, total=total, limit=limit, offset=offset)
+
+
+@router.get("/modules/{module_id}/sessions/summary", response_model=ModuleSessionSummary)
+async def module_session_summary(
+    module_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    week_start: Annotated[AwareDatetime, Query()],
+) -> ModuleSessionSummary:
+    """Measured study time for the module: all time, and since `week_start` (your local week)."""
+    totals = await sessions.module_session_totals(
+        session, module_id, user_id=user.id, week_start=week_start
+    )
+    return ModuleSessionSummary(
+        session_count=totals.session_count,
+        active_seconds=totals.active_seconds,
+        week_start=week_start,
+        week_active_seconds=totals.week_active_seconds,
+    )

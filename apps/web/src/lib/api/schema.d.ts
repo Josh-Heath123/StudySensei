@@ -369,9 +369,29 @@ export interface paths {
     };
     /**
      * List Module Sessions
-     * @description The module's sessions, newest first.
+     * @description A page of the module's sessions: the open one first, then newest first.
      */
     get: operations["list_module_sessions_modules__module_id__sessions_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/modules/{module_id}/sessions/summary": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Module Session Summary
+     * @description Measured study time for the module: all time, and since `week_start` (your local week).
+     */
+    get: operations["module_session_summary_modules__module_id__sessions_summary_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -577,6 +597,23 @@ export interface components {
        */
       updated_at: string;
     };
+    /**
+     * ModuleSessionSummary
+     * @description Measured study time for a module (active time only; breaks aren't study time).
+     */
+    ModuleSessionSummary: {
+      /** Session Count */
+      session_count: number;
+      /** Active Seconds */
+      active_seconds: number;
+      /**
+       * Week Start
+       * Format: date-time
+       */
+      week_start: string;
+      /** Week Active Seconds */
+      week_active_seconds: number;
+    };
     /** ModuleUpdate */
     ModuleUpdate: {
       /** Code */
@@ -713,6 +750,20 @@ export interface components {
       updated_at: string;
       /** Topic Ratings */
       topic_ratings: components["schemas"]["TopicRatingOut"][];
+    };
+    /**
+     * SessionPage
+     * @description One page of a module's sessions: the open one first, then newest first.
+     */
+    SessionPage: {
+      /** Items */
+      items: components["schemas"]["SessionOut"][];
+      /** Total */
+      total: number;
+      /** Limit */
+      limit: number;
+      /** Offset */
+      offset: number;
     };
     /** SessionStart */
     SessionStart: {
@@ -1844,7 +1895,10 @@ export interface operations {
   };
   list_module_sessions_modules__module_id__sessions_get: {
     parameters: {
-      query?: never;
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
       header?: never;
       path: {
         module_id: string;
@@ -1859,7 +1913,40 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["SessionOut"][];
+          "application/json": components["schemas"]["SessionPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  module_session_summary_modules__module_id__sessions_summary_get: {
+    parameters: {
+      query: {
+        week_start: string;
+      };
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModuleSessionSummary"];
         };
       };
       /** @description Validation Error */

@@ -1,9 +1,10 @@
 import uuid
 from collections.abc import Collection, Iterable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,16 +45,60 @@ async def get_active_session(session: AsyncSession, *, user_id: uuid.UUID) -> St
 
 
 async def list_module_sessions(
-    session: AsyncSession, module_id: uuid.UUID, *, user_id: uuid.UUID
-) -> list[StudySession]:
-    """The module's sessions, newest first."""
+    session: AsyncSession,
+    module_id: uuid.UUID,
+    *,
+    user_id: uuid.UUID,
+    limit: int,
+    offset: int = 0,
+) -> tuple[list[StudySession], int]:
+    """A page of the module's sessions: the open one first, then newest first. Also the total."""
     await get_module(session, module_id, user_id=user_id)
+    mine = (StudySession.user_id == user_id, StudySession.module_id == module_id)
+    total = await session.scalar(select(func.count()).select_from(StudySession).where(*mine))
     result = await session.scalars(
         select(StudySession)
-        .where(StudySession.user_id == user_id, StudySession.module_id == module_id)
-        .order_by(StudySession.started_at.desc())
+        .where(*mine)
+        .order_by(
+            StudySession.ended_at.is_(None).desc(),
+            StudySession.started_at.desc(),
+            StudySession.id.desc(),
+        )
+        .limit(limit)
+        .offset(offset)
     )
-    return list(result)
+    return list(result), total or 0
+
+
+@dataclass(frozen=True)
+class ModuleSessionTotals:
+    session_count: int
+    active_seconds: float
+    week_active_seconds: float
+
+
+async def module_session_totals(
+    session: AsyncSession, module_id: uuid.UUID, *, user_id: uuid.UUID, week_start: datetime
+) -> ModuleSessionTotals:
+    """Measured study time for a module: all time, and for sessions started since `week_start`.
+
+    An open session counts up to its last event (the cached totals); a session that
+    started before `week_start` counts wholly in the earlier week.
+    """
+    await get_module(session, module_id, user_id=user_id)
+    this_week = StudySession.started_at >= week_start
+    row = (
+        await session.execute(
+            select(
+                func.count(),
+                func.coalesce(func.sum(StudySession.active_seconds), 0.0),
+                func.coalesce(func.sum(StudySession.active_seconds).filter(this_week), 0.0),
+            ).where(StudySession.user_id == user_id, StudySession.module_id == module_id)
+        )
+    ).one()
+    return ModuleSessionTotals(
+        session_count=int(row[0]), active_seconds=float(row[1]), week_active_seconds=float(row[2])
+    )
 
 
 async def events_of(
