@@ -12,6 +12,7 @@ from app.models import Base
 NO_USER_ID = {
     "users",
     "assessment_topics",  # (assessment_id, module_id) and (topic_id, module_id) FKs
+    "session_topic_ratings",  # (session_id, module_id) and (topic_id, module_id) FKs
 }
 
 

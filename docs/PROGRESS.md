@@ -2,6 +2,21 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-13: Phase 1, task 5 (study sessions and session events)
+
+- **Done:**
+  - migration 0003: `study_sessions`, `session_events` (append-only, PK `(user_id, id)`), `session_topic_ratings`
+  - pure `timeline.replay()` (state + active/break seconds from events), written tests first
+  - endpoints: `POST /sessions` (idempotent start), `GET /sessions/active`, `GET|DELETE /sessions/{id}`,
+    `POST /sessions/{id}/events` (batch), `PUT /sessions/{id}/reflection`, `GET /modules/{id}/sessions`
+  - tests: API 188 (timeline 24, service 25, endpoints 11, plus new cross-user cases), web 61
+- **Decided (ADR 0003):**
+  - events are the source of truth, and the client never sends durations
+  - totals run to the last event, so the server and client clocks never mix
+  - resent events are no-ops, and late offline batches are merged in time order and re-validated
+  - one open session per user via a partial unique index
+- **Next:** Phase 1 task 6: `session-engine/timer.ts` on top of these events (tests first).
+
 ## 2026-11-13: Phase 1, task 4 (Today page) + dev port check
 
 - **Done:**

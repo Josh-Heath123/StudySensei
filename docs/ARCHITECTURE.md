@@ -127,6 +127,23 @@ Derived tables can always be rebuilt from source tables.
 **Built so far:**
 - `users` + the `vector` extension (migration 0001)
 - `modules`, `topics`, `assessments`, `assessment_topics`, `tasks` (0002)
+- `study_sessions`, `session_events`, `session_topic_ratings` (0003)
+
+### Session events
+
+Decision 0003. `session_events` is an append-only log and the source of truth. The client never sends durations.
+
+- **Events:** `start`, `pause`, `resume`, `break_start`, `break_end`, `end`. Each has a client UUID and a client-clock
+  `occurred_at`.
+- **Replay:** `services/sessions/timeline.py` is a pure reducer from events to state (`active`, `paused`, `on_break`,
+  `ended`) and to `active_seconds` / `break_seconds`. Those are cached on `study_sessions` and computed up to
+  `last_event_at`. The timer adds the live tail on the client clock.
+- **Idempotent:** resent events are no-ops, and offline batches are merged in time order and re-validated as a whole.
+  Event PK `(user_id, id)`.
+- **One open session per user:** a partial unique index. `GET /sessions/active` returns it after a reload.
+- **Reflection:** focus 1–5 and what was covered on the session; confidence 1–5 per topic in `session_topic_ratings`.
+  It's personal data, so it never goes into prompts.
+- `plan_block_id` is nullable until Phase 4 adds `plan_blocks`.
 
 ### User isolation
 
@@ -140,7 +157,7 @@ Scoping by `user_id` is enforced twice: by the services and by Postgres.
   - Children reference parents through **composite foreign keys** that include `user_id` or `module_id`, for example
     `topics (module_id, user_id) → modules (id, user_id)` and `topics (parent_id, module_id) → topics (id, module_id)`.
   - So even code that forgets a check can't link a row to another user's data, or to another module.
-- **Join tables** (`assessment_topics`) carry `module_id` with composite FKs to both sides instead of `user_id`.
+- **Join tables** (`assessment_topics`, `session_topic_ratings`) carry `module_id` with composite FKs to both sides instead of `user_id`.
 - **Guard test:** `tests/test_schema_guards.py` fails if a new table lacks `user_id` without being allow-listed.
 
 ## AI integration

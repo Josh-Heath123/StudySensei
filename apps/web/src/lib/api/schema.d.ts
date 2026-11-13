@@ -256,6 +256,130 @@ export interface paths {
     patch: operations["update_task_tasks__task_id__patch"];
     trace?: never;
   };
+  "/sessions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Start Session
+     * @description Open a session with its start event (201).
+     *
+     *     Resending the same start event returns the existing session (200). Only one
+     *     session can be open at a time (409).
+     */
+    post: operations["start_session_sessions_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sessions/active": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Active Session
+     * @description Your open session with its events (to resume the timer after a reload), or null.
+     */
+    get: operations["get_active_session_sessions_active_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sessions/{session_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Session */
+    get: operations["get_session_sessions__session_id__get"];
+    put?: never;
+    post?: never;
+    /** Delete Session */
+    delete: operations["delete_session_sessions__session_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sessions/{session_id}/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Add Events
+     * @description Add timer events, in any order. Already-stored ids are skipped if unchanged (409 if not).
+     *
+     *     The whole log is replayed: an impossible sequence (e.g. resume while active) is a
+     *     422 and nothing in the batch is saved.
+     */
+    post: operations["add_events_sessions__session_id__events_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sessions/{session_id}/reflection": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Set Reflection
+     * @description Save the end-of-session reflection, replacing any earlier one (ended sessions only).
+     */
+    put: operations["set_reflection_sessions__session_id__reflection_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/modules/{module_id}/sessions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Module Sessions
+     * @description The module's sessions, newest first.
+     */
+    get: operations["list_module_sessions_modules__module_id__sessions_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -344,6 +468,50 @@ export interface components {
       /** Topic Ids */
       topic_ids?: string[] | null;
     };
+    /**
+     * EventBatch
+     * @description Events to add, in any order. Ids already stored are skipped if unchanged.
+     */
+    EventBatch: {
+      /** Events */
+      events: components["schemas"]["EventIn"][];
+    };
+    /** EventIn */
+    EventIn: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Type
+       * @enum {string}
+       */
+      type: "pause" | "resume" | "break_start" | "break_end" | "end";
+      /**
+       * Occurred At
+       * Format: date-time
+       */
+      occurred_at: string;
+    };
+    /** EventOut */
+    EventOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Type
+       * @enum {string}
+       */
+      type: "start" | "pause" | "resume" | "break_start" | "break_end" | "end";
+      /**
+       * Occurred At
+       * Format: date-time
+       */
+      occurred_at: string;
+    };
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
@@ -419,6 +587,156 @@ export interface components {
       colour?: string | null;
       /** Semester */
       semester?: string | null;
+    };
+    /** ReflectionIn */
+    ReflectionIn: {
+      /** Focus Rating */
+      focus_rating: number;
+      /** Covered Notes */
+      covered_notes?: string | null;
+      /** Topic Ratings */
+      topic_ratings?: components["schemas"]["TopicRatingIn"][];
+    };
+    /**
+     * SessionDetailOut
+     * @description A session with its events in timeline order, for resuming the timer.
+     */
+    SessionDetailOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Module Id
+       * Format: uuid
+       */
+      module_id: string;
+      /** Topic Id */
+      topic_id: string | null;
+      /** Plan Block Id */
+      plan_block_id: string | null;
+      /**
+       * State
+       * @enum {string}
+       */
+      state: "active" | "paused" | "on_break" | "ended";
+      /**
+       * Started At
+       * Format: date-time
+       */
+      started_at: string;
+      /** Ended At */
+      ended_at: string | null;
+      /**
+       * Last Event At
+       * Format: date-time
+       */
+      last_event_at: string;
+      /** Active Seconds */
+      active_seconds: number;
+      /** Break Seconds */
+      break_seconds: number;
+      /** Focus Rating */
+      focus_rating: number | null;
+      /** Covered Notes */
+      covered_notes: string | null;
+      /** Reflected At */
+      reflected_at: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Topic Ratings */
+      topic_ratings: components["schemas"]["TopicRatingOut"][];
+      /** Events */
+      events: components["schemas"]["EventOut"][];
+    };
+    /** SessionOut */
+    SessionOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Module Id
+       * Format: uuid
+       */
+      module_id: string;
+      /** Topic Id */
+      topic_id: string | null;
+      /** Plan Block Id */
+      plan_block_id: string | null;
+      /**
+       * State
+       * @enum {string}
+       */
+      state: "active" | "paused" | "on_break" | "ended";
+      /**
+       * Started At
+       * Format: date-time
+       */
+      started_at: string;
+      /** Ended At */
+      ended_at: string | null;
+      /**
+       * Last Event At
+       * Format: date-time
+       */
+      last_event_at: string;
+      /** Active Seconds */
+      active_seconds: number;
+      /** Break Seconds */
+      break_seconds: number;
+      /** Focus Rating */
+      focus_rating: number | null;
+      /** Covered Notes */
+      covered_notes: string | null;
+      /** Reflected At */
+      reflected_at: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Topic Ratings */
+      topic_ratings: components["schemas"]["TopicRatingOut"][];
+    };
+    /** SessionStart */
+    SessionStart: {
+      /**
+       * Module Id
+       * Format: uuid
+       */
+      module_id: string;
+      /** Topic Id */
+      topic_id?: string | null;
+      start: components["schemas"]["StartEvent"];
+    };
+    /** StartEvent */
+    StartEvent: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Occurred At
+       * Format: date-time
+       */
+      occurred_at: string;
     };
     /** TaskCreate */
     TaskCreate: {
@@ -565,6 +883,26 @@ export interface components {
        * @enum {string}
        */
       source: "user" | "ai";
+    };
+    /** TopicRatingIn */
+    TopicRatingIn: {
+      /**
+       * Topic Id
+       * Format: uuid
+       */
+      topic_id: string;
+      /** Confidence */
+      confidence: number;
+    };
+    /** TopicRatingOut */
+    TopicRatingOut: {
+      /**
+       * Topic Id
+       * Format: uuid
+       */
+      topic_id: string;
+      /** Confidence */
+      confidence: number;
     };
     /** TopicUpdate */
     TopicUpdate: {
@@ -1308,6 +1646,220 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["TaskOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  start_session_sessions_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SessionStart"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SessionDetailOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_active_session_sessions_active_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SessionDetailOut"] | null;
+        };
+      };
+    };
+  };
+  get_session_sessions__session_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        session_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SessionDetailOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_session_sessions__session_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        session_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  add_events_sessions__session_id__events_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        session_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EventBatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SessionDetailOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  set_reflection_sessions__session_id__reflection_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        session_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReflectionIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SessionOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_module_sessions_modules__module_id__sessions_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SessionOut"][];
         };
       };
       /** @description Validation Error */
