@@ -78,7 +78,7 @@ test("edits a module from its page", async () => {
   const { calls } = mockApi({
     "GET /modules/:id": () => module,
     "GET /modules/:id/topics": () => [],
-    "GET /assessments": () => [],
+    "GET /modules/:id/assessments": () => [],
     "PATCH /modules/:id": ({ body }) => (module = { ...module, ...(body as object) }),
     "GET /modules": () => [module],
   });
@@ -101,7 +101,7 @@ test("deletes a module after confirming, then returns to the list", async () => 
   const { calls } = mockApi({
     "GET /modules/:id": () => aModule(),
     "GET /modules/:id/topics": () => [],
-    "GET /assessments": () => [],
+    "GET /modules/:id/assessments": () => [],
     "DELETE /modules/:id": () => noContent(),
     "GET /modules": () => [],
   });

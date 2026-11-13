@@ -22,8 +22,8 @@ import { AssessmentForm } from "./AssessmentForm";
 export function AssessmentsTab({ moduleId }: { moduleId: string }) {
   const assessments = useAssessments(moduleId);
   const create = useCreateAssessment(moduleId);
-  const update = useUpdateAssessment(moduleId);
-  const remove = useDeleteAssessment(moduleId);
+  const update = useUpdateAssessment();
+  const remove = useDeleteAssessment();
   // null = closed, "new" = create dialog, otherwise the assessment being edited.
   const [editing, setEditing] = useState<Assessment | "new" | null>(null);
   const [toDelete, setToDelete] = useState<Assessment | null>(null);

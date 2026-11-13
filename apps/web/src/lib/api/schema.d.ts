@@ -132,7 +132,9 @@ export interface paths {
     };
     /**
      * List Assessments
-     * @description Your assessments, soonest first (undated last), optionally for one module.
+     * @description Your assessments across all modules, soonest first (undated last).
+     *
+     *     Repeat ``status`` to keep only those statuses, e.g. ``?status=upcoming``.
      */
     get: operations["list_assessments_assessments_get"];
     put?: never;
@@ -150,7 +152,11 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /**
+     * List Module Assessments
+     * @description The module's assessments, soonest first (undated last).
+     */
+    get: operations["list_module_assessments_modules__module_id__assessments_get"];
     put?: never;
     /** Create Assessment */
     post: operations["create_assessment_modules__module_id__assessments_post"];
@@ -194,7 +200,9 @@ export interface paths {
     };
     /**
      * List Tasks
-     * @description Your tasks, soonest due first (undated last), optionally filtered.
+     * @description Your tasks across all modules, soonest due first (undated last).
+     *
+     *     Repeat ``status`` to keep only those statuses, e.g. ``?status=todo&status=in_progress``.
      */
     get: operations["list_tasks_tasks_get"];
     put?: never;
@@ -212,7 +220,11 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /**
+     * List Module Tasks
+     * @description The module's tasks, soonest due first (undated last).
+     */
+    get: operations["list_module_tasks_modules__module_id__tasks_get"];
     put?: never;
     /** Create Task */
     post: operations["create_task_modules__module_id__tasks_post"];
@@ -928,10 +940,41 @@ export interface operations {
   list_assessments_assessments_get: {
     parameters: {
       query?: {
-        module_id?: string | null;
+        status?: ("upcoming" | "completed" | "cancelled")[];
       };
       header?: never;
       path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssessmentOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_module_assessments_modules__module_id__assessments_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
       cookie?: never;
     };
     requestBody?: never;
@@ -1089,11 +1132,41 @@ export interface operations {
   list_tasks_tasks_get: {
     parameters: {
       query?: {
-        module_id?: string | null;
-        assessment_id?: string | null;
+        status?: ("todo" | "in_progress" | "done")[];
       };
       header?: never;
       path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_module_tasks_modules__module_id__tasks_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
       cookie?: never;
     };
     requestBody?: never;

@@ -2,6 +2,20 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-13: Phase 1, task 4 (Today page) + dev port check
+
+- **Done:**
+  - Today: upcoming assessments and open tasks across modules, grouped Overdue / Today / Next 7 days / Later; overdue flagged; tick tasks done, mark overdue assessments completed
+  - empty states for no modules and for nothing dated
+  - API: `GET /modules/{id}/assessments|tasks` (404 if not yours); `/assessments` and `/tasks` are cross-module with `?status=`
+  - (PR #5) `npm run dev` refuses to start if :8000 or :5173 already answers, naming the holder
+  - tests: API 118, web 61
+- **Decided:**
+  - undated items aren't deadlines; Today counts undated open tasks instead
+  - the old `module_id` / `assessment_id` query filters are removed (one way to list a module's rows)
+  - list mutations invalidate the whole `assessments` / `tasks` query prefix, so Today and module tabs stay in sync
+- **Next:** Phase 1 task 5: `study_sessions` + `session_events` models and endpoints.
+
 ## 2026-11-12: Phase 1, task 3 (dev proxy, assessments and tasks)
 
 - **Done:**

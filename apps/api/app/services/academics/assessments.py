@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Collection
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,12 +11,23 @@ from app.services.errors import Invalid, NotFound
 
 
 async def list_assessments(
-    session: AsyncSession, *, user_id: uuid.UUID, module_id: uuid.UUID | None = None
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    module_id: uuid.UUID | None = None,
+    statuses: Collection[str] = (),
 ) -> list[Assessment]:
-    """The user's assessments, soonest first (undated ones last)."""
+    """The user's assessments, soonest first (undated ones last).
+
+    With ``module_id``, only that module's (NotFound if it isn't the user's);
+    with ``statuses``, only those statuses.
+    """
     query = select(Assessment).where(Assessment.user_id == user_id)
     if module_id is not None:
+        await get_module(session, module_id, user_id=user_id)
         query = query.where(Assessment.module_id == module_id)
+    if statuses:
+        query = query.where(Assessment.status.in_(statuses))
     result = await session.scalars(
         query.order_by(Assessment.due_at.asc().nulls_last(), Assessment.title)
     )

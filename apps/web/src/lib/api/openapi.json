@@ -476,24 +476,25 @@
           "assessments"
         ],
         "summary": "List Assessments",
-        "description": "Your assessments, soonest first (undated last), optionally for one module.",
+        "description": "Your assessments across all modules, soonest first (undated last).\n\nRepeat ``status`` to keep only those statuses, e.g. ``?status=upcoming``.",
         "operationId": "list_assessments_assessments_get",
         "parameters": [
           {
-            "name": "module_id",
+            "name": "status",
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Module Id"
+              "type": "array",
+              "items": {
+                "enum": [
+                  "upcoming",
+                  "completed",
+                  "cancelled"
+                ],
+                "type": "string"
+              },
+              "default": [],
+              "title": "Status"
             }
           }
         ],
@@ -526,6 +527,52 @@
       }
     },
     "/modules/{module_id}/assessments": {
+      "get": {
+        "tags": [
+          "assessments"
+        ],
+        "summary": "List Module Assessments",
+        "description": "The module's assessments, soonest first (undated last).",
+        "operationId": "list_module_assessments_modules__module_id__assessments_get",
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssessmentOut"
+                  },
+                  "title": "Response List Module Assessments Modules  Module Id  Assessments Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
           "assessments"
@@ -714,41 +761,25 @@
           "tasks"
         ],
         "summary": "List Tasks",
-        "description": "Your tasks, soonest due first (undated last), optionally filtered.",
+        "description": "Your tasks across all modules, soonest due first (undated last).\n\nRepeat ``status`` to keep only those statuses, e.g. ``?status=todo&status=in_progress``.",
         "operationId": "list_tasks_tasks_get",
         "parameters": [
           {
-            "name": "module_id",
+            "name": "status",
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Module Id"
-            }
-          },
-          {
-            "name": "assessment_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Assessment Id"
+              "type": "array",
+              "items": {
+                "enum": [
+                  "todo",
+                  "in_progress",
+                  "done"
+                ],
+                "type": "string"
+              },
+              "default": [],
+              "title": "Status"
             }
           }
         ],
@@ -781,6 +812,52 @@
       }
     },
     "/modules/{module_id}/tasks": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "List Module Tasks",
+        "description": "The module's tasks, soonest due first (undated last).",
+        "operationId": "list_module_tasks_modules__module_id__tasks_get",
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskOut"
+                  },
+                  "title": "Response List Module Tasks Modules  Module Id  Tasks Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
           "tasks"

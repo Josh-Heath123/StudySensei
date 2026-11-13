@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Collection
 from datetime import UTC, datetime
 
 from sqlalchemy import select
@@ -16,14 +17,19 @@ async def list_tasks(
     *,
     user_id: uuid.UUID,
     module_id: uuid.UUID | None = None,
-    assessment_id: uuid.UUID | None = None,
+    statuses: Collection[str] = (),
 ) -> list[Task]:
-    """The user's tasks, soonest due first (undated ones last)."""
+    """The user's tasks, soonest due first (undated ones last).
+
+    With ``module_id``, only that module's (NotFound if it isn't the user's);
+    with ``statuses``, only those statuses.
+    """
     query = select(Task).where(Task.user_id == user_id)
     if module_id is not None:
+        await get_module(session, module_id, user_id=user_id)
         query = query.where(Task.module_id == module_id)
-    if assessment_id is not None:
-        query = query.where(Task.assessment_id == assessment_id)
+    if statuses:
+        query = query.where(Task.status.in_(statuses))
     result = await session.scalars(query.order_by(Task.due_at.asc().nulls_last(), Task.title))
     return list(result)
 
