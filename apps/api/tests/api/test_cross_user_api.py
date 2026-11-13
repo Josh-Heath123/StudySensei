@@ -27,6 +27,7 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     # Using her topic as a parent, from Bob's own side.
     ("POST", "/topics/{my_topic}/move", {"parent_id": "{topic}", "position": 0}),
     # Assessments
+    ("GET", "/modules/{module}/assessments", None),
     ("GET", "/assessments/{assessment}", None),
     ("PATCH", "/assessments/{assessment}", {"title": "Hacked"}),
     ("DELETE", "/assessments/{assessment}", None),
@@ -39,6 +40,7 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ),
     ("PATCH", "/assessments/{my_assessment}", {"topic_ids": ["{topic}"]}),
     # Tasks
+    ("GET", "/modules/{module}/tasks", None),
     ("GET", "/tasks/{task}", None),
     ("PATCH", "/tasks/{task}", {"status": "done"}),
     ("DELETE", "/tasks/{task}", None),
@@ -46,13 +48,6 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     # His task on her assessment (on create and on update).
     ("POST", "/modules/{my_module}/tasks", {"title": "X", "assessment_id": "{assessment}"}),
     ("PATCH", "/tasks/{my_task}", {"assessment_id": "{assessment}"}),
-]
-
-# List filters with her IDs must look exactly like filters with random IDs: empty.
-LIST_FILTERS = [
-    "/assessments?module_id={module}",
-    "/tasks?module_id={module}",
-    "/tasks?assessment_id={assessment}",
 ]
 
 
@@ -116,17 +111,26 @@ async def test_bob_gets_the_same_404_as_for_a_missing_id(
     assert (await snapshot(alice_api, alice), await snapshot(bob_api, bob)) == before
 
 
-@pytest.mark.parametrize("path", LIST_FILTERS)
-async def test_filtering_by_her_ids_returns_nothing(
-    bob_api: AsyncClient, alice: Rows, bob: Rows, path: str
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/assessments",
+        "/assessments?status=upcoming",
+        "/tasks",
+        "/tasks?status=todo&status=in_progress",
+    ],
+)
+async def test_cross_module_lists_hold_only_your_own_rows(
+    alice_api: AsyncClient, bob_api: AsyncClient, alice: Rows, bob: Rows, path: str
 ) -> None:
-    hers, missing = ids_of(alice, bob)
+    def ids(rows: list[dict[str, Any]]) -> set[str]:
+        return {row["id"] for row in rows}
 
-    attempt = await bob_api.get(fill(path, hers))
-    baseline = await bob_api.get(fill(path, missing))
+    his = ids((await bob_api.get(path)).json())
+    hers = ids((await alice_api.get(path)).json())
 
-    assert (attempt.status_code, attempt.json()) == (200, [])
-    assert (baseline.status_code, baseline.json()) == (200, [])
+    assert his == {str(bob.assessment.id)} or his == {str(bob.task.id)}
+    assert hers == {str(alice.assessment.id)} or hers == {str(alice.task.id)}
 
 
 async def test_lists_never_include_the_other_users_modules(

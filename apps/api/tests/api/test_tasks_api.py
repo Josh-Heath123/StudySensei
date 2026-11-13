@@ -3,8 +3,8 @@ from typing import Any
 from httpx import AsyncClient
 
 
-async def module_and_assignment(api: AsyncClient) -> tuple[str, str]:
-    module = (await api.post("/modules", json={"code": "COS330", "name": "Architecture"})).json()
+async def module_and_assignment(api: AsyncClient, code: str = "COS330") -> tuple[str, str]:
+    module = (await api.post("/modules", json={"code": code, "name": "Architecture"})).json()
     exam = (
         await api.post(
             f"/modules/{module['id']}/assessments", json={"title": "A1", "kind": "assignment"}
@@ -52,23 +52,39 @@ async def test_task_crud_and_status(alice_api: AsyncClient) -> None:
     assert (await alice_api.get(url)).status_code == 404
 
 
-async def test_filters_and_order(alice_api: AsyncClient) -> None:
+def titles(response: Any) -> list[str]:
+    assert response.status_code == 200, response.text
+    return [t["title"] for t in response.json()]
+
+
+async def test_module_list_is_sorted_and_scoped(alice_api: AsyncClient) -> None:
     module, assignment = await module_and_assignment(alice_api)
+    other, _ = await module_and_assignment(alice_api, code="COS301")
     await create(alice_api, module, title="Undated")
     await create(
         alice_api, module, title="Later", due_at="2026-12-01T10:00:00Z", assessment_id=assignment
     )
     await create(alice_api, module, title="Sooner", due_at="2026-11-20T10:00:00Z")
+    await create(alice_api, other, title="Elsewhere")
 
-    def titles(response: Any) -> list[str]:
-        return [t["title"] for t in response.json()]
+    assert titles(await alice_api.get(f"/modules/{module}/tasks")) == ["Sooner", "Later", "Undated"]
+    assert titles(await alice_api.get(f"/modules/{other}/tasks")) == ["Elsewhere"]
 
-    assert titles(await alice_api.get(f"/tasks?module_id={module}")) == [
-        "Sooner",
-        "Later",
-        "Undated",
+
+async def test_cross_module_list_filters_by_status(alice_api: AsyncClient) -> None:
+    first, _ = await module_and_assignment(alice_api)
+    second, _ = await module_and_assignment(alice_api, code="COS301")
+    await create(alice_api, first, title="Todo", due_at="2026-11-21T10:00:00Z")
+    await create(alice_api, second, title="Started", status="in_progress")
+    await create(alice_api, second, title="Finished", status="done", due_at="2026-11-20T10:00:00Z")
+
+    assert titles(await alice_api.get("/tasks")) == ["Finished", "Todo", "Started"]
+    assert titles(await alice_api.get("/tasks?status=todo&status=in_progress")) == [
+        "Todo",
+        "Started",
     ]
-    assert titles(await alice_api.get(f"/tasks?assessment_id={assignment}")) == ["Later"]
+    assert titles(await alice_api.get("/tasks?status=done")) == ["Finished"]
+    assert (await alice_api.get("/tasks?status=nope")).status_code == 422
 
 
 async def test_invalid_tasks_are_422(alice_api: AsyncClient) -> None:

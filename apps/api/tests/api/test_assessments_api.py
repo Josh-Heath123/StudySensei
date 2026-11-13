@@ -44,7 +44,12 @@ async def test_assessment_crud_with_topics(alice_api: AsyncClient) -> None:
     assert (await alice_api.get(url)).status_code == 404
 
 
-async def test_list_is_sorted_and_filterable(alice_api: AsyncClient) -> None:
+def titles(response: Any) -> list[str]:
+    assert response.status_code == 200, response.text
+    return [a["title"] for a in response.json()]
+
+
+async def test_module_list_is_sorted_and_scoped(alice_api: AsyncClient) -> None:
     module, _ = await module_with_topics(alice_api)
     other = (await alice_api.post("/modules", json={"code": "COS301", "name": "Other"})).json()
     await create(alice_api, module, title="Undated")
@@ -52,9 +57,29 @@ async def test_list_is_sorted_and_filterable(alice_api: AsyncClient) -> None:
     await create(alice_api, module, title="Sooner", due_at="2026-11-20T07:00:00Z")
     await create(alice_api, other["id"], title="Elsewhere")
 
-    titles = [a["title"] for a in (await alice_api.get(f"/assessments?module_id={module}")).json()]
+    assert titles(await alice_api.get(f"/modules/{module}/assessments")) == [
+        "Sooner",
+        "Later",
+        "Undated",
+    ]
+    assert titles(await alice_api.get(f"/modules/{other['id']}/assessments")) == ["Elsewhere"]
 
-    assert titles == ["Sooner", "Later", "Undated"]
+
+async def test_cross_module_list_filters_by_status(alice_api: AsyncClient) -> None:
+    module, _ = await module_with_topics(alice_api)
+    other = (await alice_api.post("/modules", json={"code": "COS301", "name": "Other"})).json()
+    await create(alice_api, module, title="Exam", due_at="2026-11-28T07:00:00Z")
+    await create(alice_api, other["id"], title="Essay", due_at="2026-11-20T07:00:00Z")
+    await create(alice_api, other["id"], title="Old test", status="completed")
+    await create(alice_api, module, title="Dropped quiz", status="cancelled")
+
+    assert titles(await alice_api.get("/assessments?status=upcoming")) == ["Essay", "Exam"]
+    assert titles(await alice_api.get("/assessments?status=completed&status=cancelled")) == [
+        "Dropped quiz",
+        "Old test",
+    ]
+    assert len(titles(await alice_api.get("/assessments"))) == 4
+    assert (await alice_api.get("/assessments?status=nope")).status_code == 422
 
 
 async def test_invalid_assessments_are_422(alice_api: AsyncClient) -> None:

@@ -102,13 +102,12 @@ async def test_lists_only_return_own_rows(session: AsyncSession, alice: Rows, bo
         assert ids(await assessments.list_assessments(session, user_id=uid)) == {me.assessment.id}
         assert ids(await tasks.list_tasks(session, user_id=uid)) == {me.task.id}
 
-        # Filtering by the other user's module returns nothing (or NotFound for its topics).
+        # Listing the other user's module is NotFound, as for a missing one.
         other_module = other.module.id
-        assert (
-            await assessments.list_assessments(session, user_id=uid, module_id=other_module) == []
-        )
-        assert await tasks.list_tasks(session, user_id=uid, module_id=other_module) == []
-        assert await tasks.list_tasks(session, user_id=uid, assessment_id=other.assessment.id) == []
+        with pytest.raises(NotFound):
+            await assessments.list_assessments(session, user_id=uid, module_id=other_module)
+        with pytest.raises(NotFound):
+            await tasks.list_tasks(session, user_id=uid, module_id=other_module)
         with pytest.raises(NotFound):
             await topics.list_topics(session, other_module, user_id=uid)
         with pytest.raises(NotFound):
