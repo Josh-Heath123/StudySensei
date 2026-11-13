@@ -1,3 +1,4 @@
+import { StartSessionButton } from "../session/StartSessionButton";
 import { NO_PLAN_YET } from "./copy";
 
 /**
@@ -12,6 +13,9 @@ export function NextUpCard() {
         Nothing planned yet
       </h2>
       <p className="text-on-dark-muted mt-3">{NO_PLAN_YET}</p>
+      <div className="mt-6">
+        <StartSessionButton />
+      </div>
     </section>
   );
 }
