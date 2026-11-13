@@ -1,0 +1,278 @@
+{
+  "description": "Session event logs and their replayed totals. Run by apps/api/tests/sessions/test_shared_timelines.py AND apps/web/src/session-engine/timer.test.ts, so the server and browser replays can't drift apart. 'at' is seconds after t0; 'seq' breaks ties between equal times. Times in 'expect' are seconds after t0 too.",
+  "t0": "2026-11-13T08:00:00.000Z",
+  "cases": [
+    {
+      "name": "start only",
+      "events": [{ "type": "start", "at": 0, "seq": 0 }],
+      "expect": {
+        "state": "active",
+        "active_seconds": 0,
+        "break_seconds": 0,
+        "last_event_at": 0,
+        "ended_at": null
+      }
+    },
+    {
+      "name": "start then end",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "end", "at": 3000, "seq": 1 }
+      ],
+      "expect": {
+        "state": "ended",
+        "active_seconds": 3000,
+        "break_seconds": 0,
+        "last_event_at": 3000,
+        "ended_at": 3000
+      }
+    },
+    {
+      "name": "paused time counts as neither active nor break",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "pause", "at": 600, "seq": 1 },
+        { "type": "resume", "at": 900, "seq": 2 },
+        { "type": "pause", "at": 1200, "seq": 3 },
+        { "type": "resume", "at": 1260, "seq": 4 },
+        { "type": "end", "at": 1800, "seq": 5 }
+      ],
+      "expect": {
+        "state": "ended",
+        "active_seconds": 1440,
+        "break_seconds": 0,
+        "last_event_at": 1800,
+        "ended_at": 1800
+      }
+    },
+    {
+      "name": "a break is counted separately",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "break_start", "at": 1500, "seq": 1 },
+        { "type": "break_end", "at": 1800, "seq": 2 },
+        { "type": "end", "at": 3300, "seq": 3 }
+      ],
+      "expect": {
+        "state": "ended",
+        "active_seconds": 3000,
+        "break_seconds": 300,
+        "last_event_at": 3300,
+        "ended_at": 3300
+      }
+    },
+    {
+      "name": "ending during a break closes the break",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "break_start", "at": 1500, "seq": 1 },
+        { "type": "end", "at": 1920, "seq": 2 }
+      ],
+      "expect": {
+        "state": "ended",
+        "active_seconds": 1500,
+        "break_seconds": 420,
+        "last_event_at": 1920,
+        "ended_at": 1920
+      }
+    },
+    {
+      "name": "ending while paused adds nothing after the pause",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "pause", "at": 600, "seq": 1 },
+        { "type": "end", "at": 2400, "seq": 2 }
+      ],
+      "expect": {
+        "state": "ended",
+        "active_seconds": 600,
+        "break_seconds": 0,
+        "last_event_at": 2400,
+        "ended_at": 2400
+      }
+    },
+    {
+      "name": "an open break counts up to the last event",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "break_start", "at": 1500, "seq": 1 }
+      ],
+      "expect": {
+        "state": "on_break",
+        "active_seconds": 1500,
+        "break_seconds": 0,
+        "last_event_at": 1500,
+        "ended_at": null
+      }
+    },
+    {
+      "name": "sub-second precision is kept",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "pause", "at": 1.25, "seq": 1 }
+      ],
+      "expect": {
+        "state": "paused",
+        "active_seconds": 1.25,
+        "break_seconds": 0,
+        "last_event_at": 1.25,
+        "ended_at": null
+      }
+    },
+    {
+      "name": "a full session with pauses, a break and milliseconds",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "pause", "at": 600.5, "seq": 1 },
+        { "type": "resume", "at": 700.25, "seq": 2 },
+        { "type": "break_start", "at": 3000, "seq": 3 },
+        { "type": "break_end", "at": 3600, "seq": 4 },
+        { "type": "pause", "at": 4000, "seq": 5 },
+        { "type": "end", "at": 4100, "seq": 6 }
+      ],
+      "expect": {
+        "state": "ended",
+        "active_seconds": 3300.25,
+        "break_seconds": 600,
+        "last_event_at": 4100,
+        "ended_at": 4100
+      }
+    },
+    {
+      "name": "out-of-order events are replayed in time order",
+      "events": [
+        { "type": "end", "at": 2400, "seq": 0 },
+        { "type": "resume", "at": 900, "seq": 1 },
+        { "type": "start", "at": 0, "seq": 2 },
+        { "type": "pause", "at": 600, "seq": 3 }
+      ],
+      "expect": {
+        "state": "ended",
+        "active_seconds": 2100,
+        "break_seconds": 0,
+        "last_event_at": 2400,
+        "ended_at": 2400
+      }
+    },
+    {
+      "name": "equal timestamps keep their seq order",
+      "events": [
+        { "type": "resume", "at": 600, "seq": 2 },
+        { "type": "pause", "at": 600, "seq": 1 },
+        { "type": "start", "at": 0, "seq": 0 }
+      ],
+      "expect": {
+        "state": "active",
+        "active_seconds": 600,
+        "break_seconds": 0,
+        "last_event_at": 600,
+        "ended_at": null
+      }
+    },
+    { "name": "an empty log", "events": [], "expect": { "invalid": true } },
+    {
+      "name": "an event before the start",
+      "events": [
+        { "type": "pause", "at": 0, "seq": 0 },
+        { "type": "start", "at": 60, "seq": 1 }
+      ],
+      "expect": { "invalid": true }
+    },
+    {
+      "name": "a second start",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "start", "at": 300, "seq": 1 }
+      ],
+      "expect": { "invalid": true }
+    },
+    {
+      "name": "an event after the end",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "end", "at": 600, "seq": 1 },
+        { "type": "resume", "at": 660, "seq": 2 }
+      ],
+      "expect": { "invalid": true }
+    },
+    {
+      "name": "resume while active",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "resume", "at": 60, "seq": 1 }
+      ],
+      "expect": { "invalid": true }
+    },
+    {
+      "name": "break_end while active",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "break_end", "at": 60, "seq": 1 }
+      ],
+      "expect": { "invalid": true }
+    },
+    {
+      "name": "pause while paused",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "pause", "at": 60, "seq": 1 },
+        { "type": "pause", "at": 120, "seq": 2 }
+      ],
+      "expect": { "invalid": true }
+    },
+    {
+      "name": "break_start while paused",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "pause", "at": 60, "seq": 1 },
+        { "type": "break_start", "at": 120, "seq": 2 }
+      ],
+      "expect": { "invalid": true }
+    },
+    {
+      "name": "break_end while paused",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "pause", "at": 60, "seq": 1 },
+        { "type": "break_end", "at": 120, "seq": 2 }
+      ],
+      "expect": { "invalid": true }
+    },
+    {
+      "name": "pause during a break",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "break_start", "at": 60, "seq": 1 },
+        { "type": "pause", "at": 120, "seq": 2 }
+      ],
+      "expect": { "invalid": true }
+    },
+    {
+      "name": "resume during a break",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "break_start", "at": 60, "seq": 1 },
+        { "type": "resume", "at": 120, "seq": 2 }
+      ],
+      "expect": { "invalid": true }
+    },
+    {
+      "name": "break_start during a break",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "break_start", "at": 60, "seq": 1 },
+        { "type": "break_start", "at": 120, "seq": 2 }
+      ],
+      "expect": { "invalid": true }
+    },
+    {
+      "name": "a second end",
+      "events": [
+        { "type": "start", "at": 0, "seq": 0 },
+        { "type": "end", "at": 60, "seq": 1 },
+        { "type": "end", "at": 120, "seq": 2 }
+      ],
+      "expect": { "invalid": true }
+    }
+  ]
+}
