@@ -19,3 +19,11 @@ class Conflict(Exception):
 
 class Invalid(Exception):
     """The request is well-formed but not allowed (e.g. a topic moved under itself). Maps to 422."""
+
+
+class TooLarge(Exception):
+    """An upload is over the size limit. Maps to 413."""
+
+
+class Unsupported(Exception):
+    """An upload's type isn't allowed, or its content doesn't match its name. Maps to 415."""

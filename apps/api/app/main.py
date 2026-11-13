@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import assessments, health, modules, sessions, tasks, topics
+from app.api import assessments, health, materials, modules, sessions, tasks, topics
 from app.api.errors import add_error_handlers
 from app.core.config import get_settings
 
@@ -21,6 +21,7 @@ def create_app() -> FastAPI:
     app.include_router(assessments.router)
     app.include_router(tasks.router)
     app.include_router(sessions.router)
+    app.include_router(materials.router)
     return app
 
 
