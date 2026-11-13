@@ -79,10 +79,13 @@ the web app calls the API through the typed `openapi-fetch` client. CI fails if 
 | --- | --- |
 | Modules | `GET/POST /modules`, `GET/PATCH/DELETE /modules/{id}` |
 | Topics | `GET /modules/{id}/topics` (nested tree), `POST /modules/{id}/topics`, `PATCH/DELETE /topics/{id}`, `POST /topics/{id}/move` `{parent_id, position}` |
-| Assessments | `GET /assessments?module_id=`, `POST /modules/{id}/assessments`, `GET/PATCH/DELETE /assessments/{id}` (responses include `topic_ids`; sending `topic_ids` replaces the whole set) |
-| Tasks | `GET /tasks?module_id=&assessment_id=`, `POST /modules/{id}/tasks`, `GET/PATCH/DELETE /tasks/{id}` (`status: "done"` sets `completed_at`) |
+| Assessments | `GET/POST /modules/{id}/assessments`, `GET /assessments?status=` (all modules), `GET/PATCH/DELETE /assessments/{id}` (responses include `topic_ids`; sending `topic_ids` replaces the whole set) |
+| Tasks | `GET/POST /modules/{id}/tasks`, `GET /tasks?status=` (all modules), `GET/PATCH/DELETE /tasks/{id}` (`status: "done"` sets `completed_at`) |
 
 Notes on these endpoints:
+- A module's own lists live under `/modules/{id}/…` and return 404 if the module isn't yours. The top-level
+  `/assessments` and `/tasks` are cross-module lists (used by Today); repeat `status` to filter, e.g.
+  `?status=todo&status=in_progress`.
 - Dates (`due_at`) must include a timezone; a bare local time is a 422.
 - Lists come soonest first, with undated items last.
 - List filters with someone else's ID return `[]`, exactly like a non-existent ID.
