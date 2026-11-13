@@ -24,8 +24,8 @@ export function TasksTab({ moduleId }: { moduleId: string }) {
   const tasks = useTasks(moduleId);
   const assessments = useAssessments(moduleId);
   const create = useCreateTask(moduleId);
-  const update = useUpdateTask(moduleId);
-  const remove = useDeleteTask(moduleId);
+  const update = useUpdateTask();
+  const remove = useDeleteTask();
   const [showDone, setShowDone] = useState(false);
   const [editing, setEditing] = useState<Task | "new" | null>(null);
   const [toDelete, setToDelete] = useState<Task | null>(null);

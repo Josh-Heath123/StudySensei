@@ -41,8 +41,8 @@ const ASSIGNMENT = {
 function renderTab(tasks: Task[]) {
   const api = mockApi({
     "GET /modules/:id": () => aModule(),
-    "GET /tasks": () => tasks,
-    "GET /assessments": () => [ASSIGNMENT],
+    "GET /modules/:id/tasks": () => tasks,
+    "GET /modules/:id/assessments": () => [ASSIGNMENT],
     "POST /modules/:id/tasks": (call) => json(aTask(call.body as object), 201),
     "PATCH /tasks/:id": (call) => aTask(call.body as object),
     "DELETE /tasks/:id": () => noContent(),

@@ -31,7 +31,7 @@ function renderTab(assessments: Assessment[], reply?: (call: ApiCall) => unknown
   const api = mockApi({
     "GET /modules/:id": () => aModule(),
     "GET /modules/:id/topics": () => TREE,
-    "GET /assessments": () => assessments,
+    "GET /modules/:id/assessments": () => assessments,
     "POST /modules/:id/assessments": (call) =>
       reply?.(call) ?? json(anAssessment(call.body as object), 201),
     "PATCH /assessments/:id": (call) => reply?.(call) ?? anAssessment(call.body as object),

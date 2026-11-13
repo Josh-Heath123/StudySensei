@@ -10,8 +10,8 @@ function api() {
   return mockApi({
     "GET /modules/:id": () => aModule(),
     "GET /modules/:id/topics": () => [],
-    "GET /assessments": () => [],
-    "GET /tasks": () => [],
+    "GET /modules/:id/assessments": () => [],
+    "GET /modules/:id/tasks": () => [],
   });
 }
 
