@@ -65,6 +65,8 @@ async def claim_next(session: AsyncSession, now: datetime) -> Job | None:
     job.locked_at = now
     job.attempts += 1
     await session.commit()
+    # Detached: the handler's rollbacks can't expire it (complete/fail update by id).
+    session.expunge(job)
     return job
 
 

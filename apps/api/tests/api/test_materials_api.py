@@ -1,7 +1,9 @@
 """Material endpoints: upload validation, dedupe, edit, delete and retry."""
 
 import uuid
-from datetime import timedelta
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -10,6 +12,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.jobs.worker import run_once
 from app.models import Job, Material
 from app.storage.base import blob_key
 from app.storage.local import LocalStorage
@@ -241,3 +244,25 @@ async def test_only_a_failed_material_can_be_retried(
     assert (retried.json()["status"], retried.json()["error"]) == ("uploaded", None)
     jobs = await session.scalars(select(Job.kind).where(Job.user_id == alice.user.id))
     assert list(jobs) == ["count_pages", "count_pages"]
+
+
+async def test_the_worker_makes_an_upload_ready(
+    alice_api: AsyncClient, alice: Rows, session: AsyncSession, storage: LocalStorage
+) -> None:
+    material = (await upload(alice_api, alice.module.id, "deck.pptx", samples.pptx(5))).json()
+
+    @asynccontextmanager
+    async def sessions() -> AsyncIterator[AsyncSession]:
+        yield session
+
+    # Later than the test transaction's now(), which stamped the job's run_after.
+    later = datetime.now(UTC) + timedelta(hours=1)
+    assert await run_once(sessions, storage, now=lambda: later)
+
+    got = (await alice_api.get(f"/materials/{material['id']}")).json()
+    assert (got["status"], got["page_count"], got["error"], got["retrying"]) == (
+        "ready",
+        5,
+        None,
+        False,
+    )
