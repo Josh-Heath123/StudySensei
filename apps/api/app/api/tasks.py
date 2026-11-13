@@ -1,11 +1,12 @@
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 
 from app.api.deps import CurrentUser
 from app.core.db import SessionDep
 from app.models import Task
-from app.schemas.academics import TaskCreate, TaskOut, TaskUpdate
+from app.schemas.academics import TaskCreate, TaskOut, TaskStatus, TaskUpdate
 from app.services.academics import tasks
 
 router = APIRouter(tags=["tasks"])
@@ -15,13 +16,21 @@ router = APIRouter(tags=["tasks"])
 async def list_tasks(
     session: SessionDep,
     user: CurrentUser,
-    module_id: uuid.UUID | None = None,
-    assessment_id: uuid.UUID | None = None,
+    status: Annotated[list[TaskStatus], Query()] = [],  # noqa: B006 (FastAPI copies it)
 ) -> list[Task]:
-    """Your tasks, soonest due first (undated last), optionally filtered."""
-    return await tasks.list_tasks(
-        session, user_id=user.id, module_id=module_id, assessment_id=assessment_id
-    )
+    """Your tasks across all modules, soonest due first (undated last).
+
+    Repeat ``status`` to keep only those statuses, e.g. ``?status=todo&status=in_progress``.
+    """
+    return await tasks.list_tasks(session, user_id=user.id, statuses=status)
+
+
+@router.get("/modules/{module_id}/tasks", response_model=list[TaskOut])
+async def list_module_tasks(
+    module_id: uuid.UUID, session: SessionDep, user: CurrentUser
+) -> list[Task]:
+    """The module's tasks, soonest due first (undated last)."""
+    return await tasks.list_tasks(session, user_id=user.id, module_id=module_id)
 
 
 @router.post(

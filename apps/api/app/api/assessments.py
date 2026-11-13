@@ -1,6 +1,7 @@
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import CurrentUser
@@ -10,6 +11,7 @@ from app.schemas.academics import (
     AssessmentCreate,
     AssessmentFields,
     AssessmentOut,
+    AssessmentStatus,
     AssessmentUpdate,
 )
 from app.services.academics import assessments
@@ -35,9 +37,23 @@ async def _one(session: AsyncSession, item: Assessment, *, user_id: uuid.UUID) -
 
 @router.get("/assessments", response_model=list[AssessmentOut])
 async def list_assessments(
-    session: SessionDep, user: CurrentUser, module_id: uuid.UUID | None = None
+    session: SessionDep,
+    user: CurrentUser,
+    status: Annotated[list[AssessmentStatus], Query()] = [],  # noqa: B006 (FastAPI copies it)
 ) -> list[AssessmentOut]:
-    """Your assessments, soonest first (undated last), optionally for one module."""
+    """Your assessments across all modules, soonest first (undated last).
+
+    Repeat ``status`` to keep only those statuses, e.g. ``?status=upcoming``.
+    """
+    items = await assessments.list_assessments(session, user_id=user.id, statuses=status)
+    return await _with_topics(session, items, user_id=user.id)
+
+
+@router.get("/modules/{module_id}/assessments", response_model=list[AssessmentOut])
+async def list_module_assessments(
+    module_id: uuid.UUID, session: SessionDep, user: CurrentUser
+) -> list[AssessmentOut]:
+    """The module's assessments, soonest first (undated last)."""
     items = await assessments.list_assessments(session, user_id=user.id, module_id=module_id)
     return await _with_topics(session, items, user_id=user.id)
 
