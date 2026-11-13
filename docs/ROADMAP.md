@@ -45,7 +45,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 - [x] Modules and topics REST endpoints and the Modules UI (create, edit, delete; code, name, colour, semester; manual topic tree)
 - [x] Assessments and tasks endpoints and UI (date, weight, scope)
 - [x] Today page: upcoming deadlines and empty states
-- [ ] `study_sessions` + `session_events` models and endpoints
+- [x] `study_sessions` + `session_events` models and endpoints
 - [ ] `session-engine/timer.ts`: timestamp-based focus and break cycles, pause/resume, `localStorage` + server events. **Tests first:** pause and resume arithmetic, reload, sleep
 - [ ] Session screen: timer UI, breaks, end, 20-second reflection (focus 1–5, what was covered, confidence per topic)
 - [ ] Session history per module
