@@ -35,7 +35,7 @@ function startWorker() {
   });
 }
 
-test("upload a file from the Materials tab; the worker makes it ready", async ({
+test("upload a file from the Materials tab; the worker extracts its text", async ({
   page,
   request,
 }) => {
@@ -70,6 +70,15 @@ test("upload a file from the Materials tab; the worker makes it ready", async ({
 
   startWorker();
   await expect(row.getByRole("status")).toHaveText("Ready", { timeout: 30_000 });
+  await expect(row).toContainText("1 page");
+
+  // The extracted text, as the chunker will read it.
+  await row.getByRole("button", { name: "View text" }).click();
+  const viewer = page.getByRole("dialog", { name: "Week 3 notes" });
+  await expect(viewer.getByRole("region", { name: "Page 1 text" })).toContainText(
+    "- pipes and filters",
+  );
+  await page.keyboard.press("Escape");
 
   // The same file again is refused, and says why.
   await page.getByLabel("Files to upload").setInputFiles({
