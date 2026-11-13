@@ -54,7 +54,7 @@ class _Update(_Input):
 class ModuleCreate(_Input):
     code: Code
     name: Name
-    colour: Colour = "#007AFF"
+    colour: Colour = "#FF7A3D"  # Orange, the design-system default
     semester: Semester | None = None
 
 

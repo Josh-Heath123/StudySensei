@@ -37,10 +37,10 @@ export function AssessmentsTab({ moduleId }: { moduleId: string }) {
     <section aria-labelledby="assessments-heading" className="max-w-3xl">
       <div className="mb-4 flex items-center justify-between gap-4">
         <div>
-          <h2 id="assessments-heading" className="text-lg font-semibold tracking-tight">
+          <h2 id="assessments-heading" className="type-h3">
             Assessments
           </h2>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted text-sm">
             Exams, tests and assignments, with their dates, weights and the topics they cover.
           </p>
         </div>
@@ -49,21 +49,21 @@ export function AssessmentsTab({ moduleId }: { moduleId: string }) {
         </Button>
       </div>
 
-      {assessments.isPending && <p className="text-muted-foreground text-sm">Loading…</p>}
+      {assessments.isPending && <p className="text-muted text-sm">Loading…</p>}
       {assessments.isError && (
-        <p role="alert" className="text-destructive text-sm">
+        <p role="alert" className="text-danger text-sm">
           Couldn't load assessments: {assessments.error.message}
         </p>
       )}
       {assessments.data?.length === 0 && (
-        <p className="text-muted-foreground rounded-lg border border-dashed p-6 text-center text-sm">
+        <p className="text-muted border-line rounded-lg border-2 p-6">
           No assessments yet. Add the module's exams, tests and assignments from the study guide.
         </p>
       )}
 
       {items.length > 0 && (
         <>
-          <ul aria-label="Assessments" className="divide-y rounded-lg border">
+          <ul aria-label="Assessments" className="divide-line border-line divide-y border-y">
             {items.map((assessment) => (
               <AssessmentRow
                 key={assessment.id}
@@ -74,8 +74,8 @@ export function AssessmentsTab({ moduleId }: { moduleId: string }) {
             ))}
           </ul>
           {weighted.length > 0 && (
-            <p className="text-muted-foreground mt-2 text-right text-sm">
-              Weights total <span className="text-foreground font-medium">{total}%</span>
+            <p className="text-muted mt-2 text-right text-sm">
+              Weights total <span className="text-ink font-medium">{total}%</span>
               {total !== 100 && " (not 100%)"}
             </p>
           )}
@@ -134,7 +134,7 @@ function AssessmentRow({
   const topics = topic_ids.length;
 
   return (
-    <li className={cn("flex items-center gap-3 px-4 py-3", done && "opacity-60")}>
+    <li className={cn("flex items-center gap-3 py-3", done && "opacity-60")}>
       <Badge variant="secondary" className="w-24 shrink-0">
         {KIND_LABELS[kind]}
       </Badge>
@@ -142,7 +142,7 @@ function AssessmentRow({
         <p className={cn("truncate font-medium", status === "cancelled" && "line-through")}>
           {title}
         </p>
-        <p className="text-muted-foreground flex flex-wrap items-center gap-x-3 text-xs">
+        <p className="text-muted flex flex-wrap items-center gap-x-3 text-xs">
           <span className="inline-flex items-center gap-1">
             <CalendarClock className="size-3.5" aria-hidden />
             {due_at ? (

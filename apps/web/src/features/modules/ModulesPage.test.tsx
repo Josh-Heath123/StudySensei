@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { json, mockApi, noContent } from "@/test/mockApi";
@@ -40,17 +40,41 @@ test("creates a module and shows it in the list", async () => {
   const dialog = await screen.findByRole("dialog", { name: "New module" });
   await user.type(within(dialog).getByLabelText("Code"), "cos330");
   await user.type(within(dialog).getByLabelText("Name"), "Software Architecture");
-  await user.click(within(dialog).getByRole("button", { name: "Colour #34C759" }));
+  await user.click(within(dialog).getByRole("button", { name: "Mint" }));
   await user.click(within(dialog).getByRole("button", { name: "Create module" }));
 
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   expect(calls.find((c) => c.method === "POST")?.body).toEqual({
     code: "cos330",
     name: "Software Architecture",
-    colour: "#34C759",
+    colour: "#5EE0B0",
     semester: null,
   });
   expect(await screen.findByRole("link", { name: /Software Architecture/ })).toBeInTheDocument();
+});
+
+test("won't save a custom colour too dark for black text", async () => {
+  const { calls } = mockApi({ "GET /modules": () => [] });
+  renderApp("/modules");
+  const user = userEvent.setup();
+
+  await user.click(await screen.findByRole("button", { name: "Add your first module" }));
+  const dialog = await screen.findByRole("dialog", { name: "New module" });
+  await user.type(within(dialog).getByLabelText("Code"), "COS330");
+  await user.type(within(dialog).getByLabelText("Name"), "Software Architecture");
+  const custom = within(dialog).getByLabelText("Custom");
+  fireEvent.change(custom, { target: { value: "#5856d6" } });
+
+  expect(within(dialog).getByRole("alert")).toHaveTextContent(
+    "Too dark for black text (3.3:1; needs 4.5:1)",
+  );
+  expect(custom).toHaveAttribute("aria-invalid", "true");
+  expect(within(dialog).getByRole("button", { name: "Create module" })).toBeDisabled();
+
+  fireEvent.change(custom, { target: { value: "#ffd23f" } });
+  expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+  expect(within(dialog).getByRole("button", { name: "Create module" })).toBeEnabled();
+  expect(calls.some((c) => c.method === "POST")).toBe(false);
 });
 
 test("shows a duplicate code (409) under the code field and keeps the dialog open", async () => {

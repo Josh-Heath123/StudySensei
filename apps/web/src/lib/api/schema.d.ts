@@ -545,7 +545,7 @@ export interface components {
       name: string;
       /**
        * Colour
-       * @default #007AFF
+       * @default #FF7A3D
        */
       colour: string;
       /** Semester */

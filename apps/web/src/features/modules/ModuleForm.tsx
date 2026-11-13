@@ -1,13 +1,16 @@
 import { useState, type FormEvent } from "react";
 
+import { Check } from "lucide-react";
+
 import { ApiError } from "@/lib/api/errors";
+import { contrastRatio, formatRatio, INK, MIN_CONTRAST } from "@/lib/contrast";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";
 
 import type { Module, ModuleInput } from "./api";
-import { COLOUR_PRESETS } from "./colours";
+import { DEFAULT_MODULE_COLOUR, MODULE_SWATCHES } from "./colours";
 
 type Props = {
   initial?: Module;
@@ -20,7 +23,7 @@ export function ModuleForm({ initial, submitLabel, onSubmit, onCancel }: Props) 
   const [code, setCode] = useState(initial?.code ?? "");
   const [name, setName] = useState(initial?.name ?? "");
   const [semester, setSemester] = useState(initial?.semester ?? "");
-  const [colour, setColour] = useState(initial?.colour ?? COLOUR_PRESETS[0]!);
+  const [colour, setColour] = useState(initial?.colour ?? DEFAULT_MODULE_COLOUR);
   const [error, setError] = useState<ApiError | Error | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -41,6 +44,13 @@ export function ModuleForm({ initial, submitLabel, onSubmit, onCancel }: Props) 
       setSaving(false);
     }
   }
+
+  // Module colours sit behind ink text, so a colour that's too dark can't be saved.
+  const ratio = contrastRatio(colour, INK);
+  const colourError =
+    ratio < MIN_CONTRAST
+      ? `Too dark for black text (${formatRatio(ratio)}; needs ${MIN_CONTRAST}:1). Pick a lighter colour.`
+      : null;
 
   // A 409 is always about the code, so show it right under that field.
   const codeError = error instanceof ApiError && error.status === 409 ? error.message : null;
@@ -74,7 +84,7 @@ export function ModuleForm({ initial, submitLabel, onSubmit, onCancel }: Props) 
           />
         </div>
         {codeError && (
-          <p id="module-code-error" role="alert" className="text-destructive col-span-2 text-sm">
+          <p id="module-code-error" role="alert" className="text-danger col-span-2 text-sm">
             {codeError}
           </p>
         )}
@@ -82,7 +92,7 @@ export function ModuleForm({ initial, submitLabel, onSubmit, onCancel }: Props) 
 
       <div className="grid gap-1.5">
         <Label htmlFor="module-semester">
-          Semester <span className="text-muted-foreground font-normal">(optional)</span>
+          Semester <span className="text-muted font-normal">(optional)</span>
         </Label>
         <Input
           id="module-semester"
@@ -94,37 +104,49 @@ export function ModuleForm({ initial, submitLabel, onSubmit, onCancel }: Props) 
       </div>
 
       <fieldset className="grid gap-2">
-        <legend className="mb-1.5 text-sm font-medium">Colour</legend>
+        <legend className="mb-1.5 text-sm font-semibold">Colour</legend>
         <div className="flex flex-wrap items-center gap-2">
-          {COLOUR_PRESETS.map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              aria-label={`Colour ${preset}`}
-              aria-pressed={colour.toUpperCase() === preset}
-              onClick={() => setColour(preset)}
-              className={cn(
-                "size-7 rounded-full border-2 border-transparent transition",
-                colour.toUpperCase() === preset &&
-                  "border-foreground ring-background ring-2 ring-inset",
-              )}
-              style={{ backgroundColor: preset }}
-            />
-          ))}
-          <label className="text-muted-foreground ml-1 flex items-center gap-2 text-sm">
+          {MODULE_SWATCHES.map(({ name, value }) => {
+            const selected = colour.toUpperCase() === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                aria-label={name}
+                title={name}
+                aria-pressed={selected}
+                onClick={() => setColour(value)}
+                className={cn(
+                  "text-ink flex size-9 cursor-pointer items-center justify-center rounded-md border-2",
+                  selected ? "border-ink" : "border-transparent",
+                )}
+                style={{ backgroundColor: value }}
+              >
+                {selected && <Check className="size-4" aria-hidden />}
+              </button>
+            );
+          })}
+          <label className="text-muted ml-1 flex items-center gap-2 text-sm">
             Custom
             <input
               type="color"
               value={colour}
               onChange={(e) => setColour(e.target.value.toUpperCase())}
-              className="size-7 cursor-pointer rounded border bg-transparent"
+              aria-invalid={colourError ? true : undefined}
+              aria-describedby={colourError ? "module-colour-error" : undefined}
+              className="border-line size-9 cursor-pointer rounded-md border-2 bg-transparent"
             />
           </label>
         </div>
+        {colourError && (
+          <p id="module-colour-error" role="alert" className="text-danger text-sm">
+            {colourError}
+          </p>
+        )}
       </fieldset>
 
       {formError && (
-        <p role="alert" className="text-destructive text-sm">
+        <p role="alert" className="text-danger text-sm">
           {formError}
         </p>
       )}
@@ -133,7 +155,10 @@ export function ModuleForm({ initial, submitLabel, onSubmit, onCancel }: Props) 
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={saving || !code.trim() || !name.trim()}>
+        <Button
+          type="submit"
+          disabled={saving || !code.trim() || !name.trim() || colourError !== null}
+        >
           {saving ? "Saving…" : submitLabel}
         </Button>
       </div>

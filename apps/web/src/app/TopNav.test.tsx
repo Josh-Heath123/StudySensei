@@ -6,7 +6,7 @@ beforeEach(() => {
   stubHealth();
 });
 
-test("sidebar links to all six sections", () => {
+test("the top navigation links to all six sections", () => {
   renderApp();
   const nav = screen.getByRole("navigation", { name: "Main" });
   for (const label of ["Today", "Modules", "Plan", "Practice", "Insights", "Settings"]) {
@@ -19,4 +19,11 @@ test("clicking a link shows that page", async () => {
   await userEvent.click(screen.getByRole("link", { name: "Plan" }));
   expect(screen.getByRole("heading", { name: "Plan" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Plan" })).toHaveAttribute("aria-current", "page");
+});
+
+test("marks only the current section as active", () => {
+  renderApp("/modules");
+  const nav = screen.getByRole("navigation", { name: "Main" });
+  const current = nav.querySelectorAll('[aria-current="page"]');
+  expect([...current].map((link) => link.textContent)).toEqual(["Modules"]);
 });

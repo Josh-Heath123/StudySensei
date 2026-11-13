@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import { PageHeader } from "@/app/PageHeader";
 import { Button } from "@/ui/button";
 import { Card, CardContent } from "@/ui/card";
+import { ModuleBadge } from "@/ui/module-badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/ui/dialog";
 
 import { useCreateModule, useModules, type Module } from "./api";
@@ -20,24 +21,24 @@ export function ModulesPage() {
       <PageHeader
         title="Modules"
         description="The subjects you're studying this semester."
-        actions={
+        aside={
           <Button onClick={() => setCreating(true)}>
             <Plus aria-hidden /> New module
           </Button>
         }
       />
 
-      {modules.isPending && <p className="text-muted-foreground text-sm">Loading modules…</p>}
+      {modules.isPending && <p className="text-muted text-sm">Loading modules…</p>}
       {modules.isError && (
-        <p role="alert" className="text-destructive text-sm">
+        <p role="alert" className="text-danger text-sm">
           Couldn't load modules: {modules.error.message}
         </p>
       )}
       {modules.data?.length === 0 && (
         <Card className="max-w-md">
           <CardContent className="grid gap-3">
-            <p className="font-medium">No modules yet</p>
-            <p className="text-muted-foreground text-sm">
+            <p className="font-semibold">No modules yet</p>
+            <p className="text-muted text-sm">
               Add each module you're taking. Topics, assessments and study plans hang off them.
             </p>
             <Button className="justify-self-start" onClick={() => setCreating(true)}>
@@ -47,7 +48,7 @@ export function ModulesPage() {
         </Card>
       )}
       {modules.data && modules.data.length > 0 && (
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {modules.data.map((module) => (
             <li key={module.id}>
               <ModuleCard module={module} />
@@ -81,20 +82,11 @@ function ModuleCard({ module }: { module: Module }) {
     <Link
       to={`/modules/${module.id}`}
       aria-label={[`${module.code}: ${module.name}`, module.semester].filter(Boolean).join(", ")}
-      className="bg-card hover:border-primary/50 focus-visible:ring-ring flex items-center gap-3 rounded-xl border p-4 shadow-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
+      className="bg-paper border-line hover:border-ink flex h-full flex-col items-start gap-3 rounded-lg border-2 p-5 transition-colors"
     >
-      <span
-        aria-hidden
-        className="size-3 shrink-0 rounded-full"
-        style={{ backgroundColor: module.colour }}
-      />
-      <span className="min-w-0">
-        <span className="block font-semibold tracking-tight">{module.code}</span>
-        <span className="text-muted-foreground block truncate text-sm">{module.name}</span>
-      </span>
-      {module.semester && (
-        <span className="text-muted-foreground ml-auto text-xs">{module.semester}</span>
-      )}
+      <ModuleBadge colour={module.colour}>{module.code}</ModuleBadge>
+      <span className="type-h3 max-w-full truncate">{module.name}</span>
+      {module.semester && <span className="text-muted text-sm">{module.semester}</span>}
     </Link>
   );
 }

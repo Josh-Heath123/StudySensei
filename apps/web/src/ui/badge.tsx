@@ -1,19 +1,21 @@
-import { Slot } from "radix-ui";
 import { cva, type VariantProps } from "class-variance-authority";
+import { Slot } from "radix-ui";
 import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+// Square status chips. Colour never carries meaning alone: the text always says it.
 const badgeVariants = cva(
-  "inline-flex items-center justify-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+  "inline-flex items-center justify-center gap-1 rounded-sm border px-2 py-0.5 text-xs font-semibold whitespace-nowrap",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground border-transparent",
-        secondary: "bg-secondary text-secondary-foreground border-transparent",
-        success: "bg-success/10 text-success border-success/30",
-        destructive: "bg-destructive/10 text-destructive border-destructive/30",
-        outline: "text-foreground",
+        default: "border-ink bg-ink text-paper",
+        secondary: "border-line bg-surface text-ink",
+        success: "border-success text-success bg-paper",
+        warning: "border-warning text-warning bg-paper",
+        destructive: "border-danger text-danger bg-paper",
+        outline: "border-ink text-ink bg-paper",
       },
     },
     defaultVariants: { variant: "default" },

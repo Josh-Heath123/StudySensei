@@ -52,13 +52,13 @@ apps/api/            FastAPI service (+ worker from Phase 2), one Python package
   evals/             fixed AI test sets + results/
   scripts/           export_openapi.py
 apps/web/            React app
-  src/app/           routes, layout, sidebar, providers
+  src/app/           routes, layout, top navigation, providers
   src/features/      today/, modules/, session/, plan/, practice/, insights/, settings/
   src/vision/        camera.ts, vision.worker.ts, signals.ts, calibration.ts, rollup.ts   (Phase 7)
   src/voice/         stt.ts, tts.ts                                                       (Phase 3)
   src/session-engine/ timer.ts, interventions.ts                                         (Phase 1/7)
   src/lib/api/       openapi.json, generated schema.d.ts, typed client (openapi-fetch)
-  src/ui/            design-system components (shadcn/ui)
+  src/ui/            design-system components (shadcn/ui restyled to docs/DESIGN.md; tokens in src/index.css)
 infra/db/init.sql    creates studysensei_test
 docker-compose.yml   Postgres 16 + pgvector on host port 5433
 scripts/dev.mjs      `npm run dev`: db → migrate → seed → api + web
@@ -128,6 +128,7 @@ Derived tables can always be rebuilt from source tables.
 - `users` + the `vector` extension (migration 0001)
 - `modules`, `topics`, `assessments`, `assessment_topics`, `tasks` (0002)
 - `study_sessions`, `session_events`, `session_topic_ratings` (0003)
+- 0004 is data only: existing module colours mapped to the design-system swatches (nearest hue)
 
 ### Session events
 

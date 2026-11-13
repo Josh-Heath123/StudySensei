@@ -103,7 +103,7 @@ export function TaskForm({ initial, assessments, submitLabel, onSubmit, onCancel
 
       <div className="grid gap-1.5">
         <Label htmlFor="task-notes">
-          Notes <span className="text-muted-foreground font-normal">(optional)</span>
+          Notes <span className="text-muted font-normal">(optional)</span>
         </Label>
         <Textarea
           id="task-notes"
@@ -114,7 +114,7 @@ export function TaskForm({ initial, assessments, submitLabel, onSubmit, onCancel
       </div>
 
       {error && (
-        <p role="alert" className="text-destructive text-sm">
+        <p role="alert" className="text-danger text-sm">
           {error}
         </p>
       )}
