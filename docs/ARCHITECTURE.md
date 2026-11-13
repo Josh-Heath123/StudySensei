@@ -59,6 +59,7 @@ apps/web/            React app
   src/session-engine/ timer.ts, interventions.ts                                         (Phase 1/7)
   src/lib/api/       openapi.json, generated schema.d.ts, typed client (openapi-fetch)
   src/ui/            design-system components (shadcn/ui restyled to docs/DESIGN.md; tokens in src/index.css)
+apps/web/e2e/        Playwright specs
 infra/db/init.sql    creates studysensei_test
 docker-compose.yml   Postgres 16 + pgvector on host port 5433
 scripts/dev.mjs      `npm run dev`: db → migrate → seed → api + web
@@ -225,6 +226,13 @@ Scoping by `user_id` is enforced twice: by the services and by Postgres.
     tick after sleep) asks "keep that time, or stop the clock when you left?". Stopping posts a pause or end at the last-active
     time; during a break it first posts `break_end` at that time.
   - "Break due" is only shown. The engine never starts or ends a break by itself.
+  - **Session screen** (`src/features/session/`, route `/session`, outside the top-nav layout): one `SessionProvider` per app
+    holds a `controller.ts` around the engine. The controller restores the open session once per page load
+    (`GET /sessions/active`, or the local queue when offline), keeps an ended session in localStorage until its reflection
+    is saved (so a reload lands back on the reflection), and reports sync status and refused events. `display.ts` is a pure
+    function from a snapshot to numerals, eyebrow, progress, segments and the tab title. `useSessionClock` redraws every
+    second (calling `tick()`), flushes on `online` and when the tab becomes visible, and retries every 30 s while events are
+    queued. Only the "you were away" question is a dialog; everything else is an in-page banner.
 - **Reminders:** Web Push (VAPID + `pywebpush`), in-app notifications and a private ICS feed.
 
 ## Privacy and security
@@ -255,9 +263,13 @@ Scoping by `user_id` is enforced twice: by the services and by Postgres.
 ## Testing and CI
 
 - **Back end:** pytest against real Postgres (`studysensei_test`). The planner, mastery, metrics and budget get unit and Hypothesis property tests, and ingestion gets fixture files.
-- **Front end:** Vitest + Testing Library. `timer.ts`, `signals.ts` and `interventions.ts` are tested against recorded landmark traces. Playwright covers the main flows (later).
+- **Front end:** Vitest + Testing Library. `timer.ts`, `signals.ts` and `interventions.ts` are tested against recorded landmark traces. Session flows are component-tested with a fake clock.
+- **End to end:** Playwright (`apps/web/e2e/`, `npm run e2e`) runs against a real API on :8001 and Vite on :5174 with the
+  `studysensei_e2e` database, rebuilt each run, so it never touches the dev servers. The browser clock is installed three
+  hours back and paused, so `runFor` gives exact times and no event is in the server's future.
 - **AI quality:** `apps/api/evals/` runs before and after every prompt or model change.
 - **CI** (`.github/workflows/ci.yml`), on PRs and pushes to main or rebuild:
   - **api:** ruff, ruff format, mypy (strict), alembic upgrade, pytest (pgvector service) and an OpenAPI-staleness check
   - **web:** eslint, prettier, tsc, vitest and vite build
+  - **e2e:** Playwright (Chromium) with a pgvector service holding `studysensei_e2e`; the report is uploaded on failure
 - **Hosting from Phase 9:** an API and worker image on Fly.io/Railway/Hetzner, Supabase, and Cloudflare Pages for the web app.
