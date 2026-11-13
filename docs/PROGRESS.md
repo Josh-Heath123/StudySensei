@@ -2,6 +2,34 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-13: Phase 1, task 9 (design system v1 "Planner"), moved ahead of task 7
+
+- **Done:**
+  - committed `docs/DESIGN.md` (direction B) and implemented it:
+    - `@theme` tokens, type styles (`type-display` … `type-label`) and the shadcn variable mapping in `index.css`
+    - self-hosted Inter and Space Grotesk, so no Google Fonts calls
+    - no shadow utilities
+  - shared UI restyled:
+    - buttons (primary, module, outline, quiet, on-dark), segmented tabs, cards, fields, badges, dialogs
+    - new `ModuleBadge`
+  - a top navigation replaces the sidebar
+  - restyled Today, Modules and module detail. Module detail sets `--module` on its root.
+  - Today:
+    - the date header, with countdown tiles from real upcoming assessments
+    - the day timeline (hour grid + NOW) and the ink next-up card are honest empty states: "Your plan appears here once the planner is built"
+  - module colours:
+    - 8 swatches; the custom picker refuses colours below 4.5:1 against ink
+    - `lib/contrast.ts` + tests (swatches, plus the spec's token ratios)
+    - migration 0004 maps existing colours to the nearest swatch by hue
+    - the API default is Orange
+  - tests: API 231, web 181
+- **Decided:**
+  - the spec's `muted` token is a text colour; `text-muted-foreground` aliases it, and backgrounds use `surface`
+  - colours are matched by hue, not plain Lab distance, which would turn iOS blue into lilac
+  - "Reviews due" and the weekly bars wait for real data (Phase 5, session history)
+  - only one old preset (#5856D6) actually failed against ink; the others are remapped anyway, as the spec asks
+- **Next:** Phase 1 task 7: the session screen, built on the session engine in this design.
+
 ## 2026-11-13: Phase 1, task 6 (session engine: timer, offline queue, away detection)
 
 - **Done:**
