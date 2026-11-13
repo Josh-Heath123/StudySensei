@@ -2,7 +2,12 @@
 // Plain Node so it behaves the same in PowerShell, cmd and Git Bash.
 import { execSync, spawn } from "node:child_process";
 
+import { requireFreePorts } from "./ports.mjs";
+
 const run = (cmd) => execSync(cmd, { stdio: "inherit" });
+
+// A stale server on either port would be served silently, so refuse to start instead.
+await requireFreePorts({ 8000: "API (uvicorn)", 5173: "web app (Vite)" });
 
 console.log("Starting Postgres (docker compose)…");
 try {

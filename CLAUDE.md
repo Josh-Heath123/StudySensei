@@ -92,6 +92,14 @@ docs/           PRODUCT · ARCHITECTURE · ROADMAP · PROGRESS · decisions/ · 
 - Decisions go in `docs/decisions/NNNN-title.md` (context, decision, alternatives, consequences). They're never edited afterwards; supersede them with a new one.
 - Update `PRODUCT.md` / `ARCHITECTURE.md` in the same PR as a change that alters them.
 
+## Pull requests (do this without asking)
+- When a task's work is committed on its `phase-N/<task>` branch: push it (`git push -u origin <branch>`), open the PR with `gh pr create` (or update the existing one), then watch CI with `gh pr checks --watch`.
+- If CI fails, fix it, commit, push and watch again until it's green. Finish by reporting the PR link and the CI result.
+- Never push to main, never force-push, never merge a PR. Malcolm merges after review.
+
+## Dev servers
+- Don't start `npm run dev` yourself. Malcolm runs it in his own terminal. If you need the running app and nothing answers on :5173, say so instead of starting it.
+
 ## Hooks and permissions (`.claude/settings.json`)
 
 - **Stop hook:** when `git status --porcelain` shows changes, `scripts/stop-check.mjs` runs `npm run check`. A failure
@@ -104,6 +112,8 @@ docs/           PRODUCT · ARCHITECTURE · ROADMAP · PROGRESS · decisions/ · 
 - pytest treats module-level functions named `setup_module` / `teardown_module` as hooks. Don't use those names for helpers.
 - On Windows, stopping a background `npm run dev`/`vite`/`uvicorn` task can leave its child process holding the port.
   This sandbox's `netstat -ano` shows listening sockets as `CLOSED` with their PID.
+  uvicorn's `SO_REUSEADDR` lets a second server bind a busy port on Windows while the old one keeps answering,
+  so `npm run dev` connects to :8000 and :5173 first and refuses to start, naming the holder (`scripts/ports.mjs`).
 - The shadcn CLI (every time so far) imports `cn` from an npm package called `cn`; ESLint now rejects that import.
   After `shadcn add`: `npm uninstall -w apps/web cn`, and import `cn` from `@/lib/utils` in the new component.
 
