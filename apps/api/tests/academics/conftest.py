@@ -1,11 +1,15 @@
+import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Assessment, Module, Task, Topic, User
+from app.models import Assessment, Module, StudySession, Task, Topic, User
 from app.schemas.academics import AssessmentCreate, ModuleCreate, TaskCreate, TopicCreate
+from app.schemas.sessions import EventBatch, ReflectionIn, SessionStart
 from app.services.academics import assessments, modules, tasks, topics
+from app.services.sessions import sessions
 
 
 @dataclass
@@ -17,6 +21,9 @@ class Rows:
     topic: Topic
     assessment: Assessment
     task: Task
+    # Ended an hour ago, with a reflection rating ``topic``.
+    study_session: StudySession
+    start_event_id: uuid.UUID
 
 
 async def make_rows(session: AsyncSession, user: User, code: str = "COS330") -> Rows:
@@ -37,7 +44,40 @@ async def make_rows(session: AsyncSession, user: User, code: str = "COS330") -> 
         TaskCreate(title="Read chapter 4", assessment_id=assessment.id),
         user_id=uid,
     )
-    return Rows(user, module, topic, assessment, task)
+    start_event_id = uuid.uuid4()
+    started = datetime.now(UTC) - timedelta(hours=2)
+    study = await make_ended_session(session, user, module, topic, start_event_id, started)
+    return Rows(user, module, topic, assessment, task, study, start_event_id)
+
+
+async def make_ended_session(
+    session: AsyncSession,
+    user: User,
+    module: Module,
+    topic: Topic,
+    start_event_id: uuid.UUID,
+    started: datetime,
+) -> StudySession:
+    """A 50-minute session on ``topic`` (one 5-minute break), ended and reflected on."""
+    uid = user.id
+    start = {"id": start_event_id, "occurred_at": started}
+    study, _ = await sessions.start_session(
+        session,
+        SessionStart.model_validate({"module_id": module.id, "topic_id": topic.id, "start": start}),
+        user_id=uid,
+    )
+    steps = [("break_start", 25), ("break_end", 30), ("end", 55)]
+    events = [
+        {"id": uuid.uuid4(), "type": kind, "occurred_at": started + timedelta(minutes=minutes)}
+        for kind, minutes in steps
+    ]
+    await sessions.add_events(
+        session, study.id, EventBatch.model_validate({"events": events}), user_id=uid
+    )
+    reflection = {"focus_rating": 4, "topic_ratings": [{"topic_id": topic.id, "confidence": 3}]}
+    return await sessions.set_reflection(
+        session, study.id, ReflectionIn.model_validate(reflection), user_id=uid
+    )
 
 
 @pytest.fixture
