@@ -214,6 +214,16 @@ Scoping by `user_id` is enforced twice: by the services and by Postgres.
   - Daily caps apply, and the next 24 h stay fixed.
 - **Re-planning:** on a new assessment or material, a skipped or finished block, a mastery change, and nightly.
 - **Timers:** live in the browser and are based on start and end timestamps, so a reload or throttling can't drift them. Every change is logged as a server event.
+  - `src/session-engine/`: `timer.ts` holds pure functions of the events and an injected `now`: replay, live totals, focus/break
+    cycle (default 50/10) and away detection. `engine.ts` drives it for the screen and owns no timers. A display tick only redraws.
+  - **No drift from the server:** `fixtures/session-timelines.json` holds event logs with their expected totals. Both pytest
+    (`timeline.py`) and vitest (`timer.ts`) run it.
+  - **Offline:** events are queued in localStorage (`outbox.ts`) with their client UUIDs and keyed by the start event's id.
+    The queue is flushed when the API answers. A resent event is a 200, so retries are safe, and a 409/422 is set aside for the screen.
+  - **Away:** a last-active heartbeat is written every 15 s. A gap of more than 2 min while the clock runs (a page load or a
+    tick after sleep) asks "keep that time, or stop the clock when you left?". Stopping posts a pause or end at the last-active
+    time; during a break it first posts `break_end` at that time.
+  - "Break due" is only shown. The engine never starts or ends a break by itself.
 - **Reminders:** Web Push (VAPID + `pywebpush`), in-app notifications and a private ICS feed.
 
 ## Privacy and security

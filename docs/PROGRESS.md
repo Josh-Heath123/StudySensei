@@ -2,6 +2,32 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-13: Phase 1, task 6 (session engine: timer, offline queue, away detection)
+
+- **Done:**
+  - `apps/web/src/session-engine/`:
+    - `timer.ts`: pure replay, totals, 50/10 cycles, away detection, stop-the-clock events
+    - `outbox.ts`: localStorage queue and flush
+    - `heartbeat.ts`, `store.ts` (safe localStorage), `format.ts`
+    - `engine.ts`: commands, restore after reload, tick and away prompt, snapshot
+  - `fixtures/session-timelines.json`: 25 shared cases run by pytest and vitest. Changing one expected number fails both suites.
+  - tests: web 96 in session-engine, covering:
+    - pause and resume
+    - a reload with an event still queued offline
+    - a session started offline
+    - laptop sleep, including during a break
+    - a closed tab, with keep and end
+    - a duplicate retry after a lost reply
+    - a rejected batch
+    - breaks due but not forced
+- **Decided:**
+  - totals come only from event times on the client clock
+  - the queue is keyed by the start event's id, so a session can start offline
+  - 409/422 replies are set aside and not retried
+  - an unanswered away prompt survives a reload: the heartbeat isn't refreshed while the prompt is open
+  - on a break, "stop the clock" posts `break_end` + `pause` at the last-active time
+- **Next:** Phase 1 task 7: the session screen (timer UI, breaks, end, reflection), wiring `tick`, the `online` event and a 30 s flush, plus the real 50-minute clock check.
+
 ## 2026-11-13: Phase 1, task 5 (study sessions and session events)
 
 - **Done:**
