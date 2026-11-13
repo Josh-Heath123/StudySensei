@@ -471,6 +471,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/materials/{material_id}/pages": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Pages
+     * @description The extracted pages (without their text), in order. Empty until extraction has run.
+     */
+    get: operations["list_pages_materials__material_id__pages_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/materials/{material_id}/pages/{page_number}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Page
+     * @description One page's extracted text.
+     */
+    get: operations["get_page_materials__material_id__pages__page_number__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -695,6 +735,8 @@ export interface components {
       sha256: string;
       /** Page Count */
       page_count: number | null;
+      /** Scanned Page Count */
+      scanned_page_count: number | null;
       /**
        * Status
        * @enum {string}
@@ -808,6 +850,36 @@ export interface components {
       colour?: string | null;
       /** Semester */
       semester?: string | null;
+    };
+    /**
+     * PageOut
+     * @description One page's extracted text, as stored.
+     */
+    PageOut: {
+      /** Page Number */
+      page_number: number;
+      /** Title */
+      title: string | null;
+      /** Char Count */
+      char_count: number;
+      /** Is Scanned */
+      is_scanned: boolean;
+      /** Text */
+      text: string;
+    };
+    /**
+     * PageSummary
+     * @description A page in the list (no text): for choosing one to open.
+     */
+    PageSummary: {
+      /** Page Number */
+      page_number: number;
+      /** Title */
+      title: string | null;
+      /** Char Count */
+      char_count: number;
+      /** Is Scanned */
+      is_scanned: boolean;
     };
     /** ReflectionIn */
     ReflectionIn: {
@@ -2323,6 +2395,69 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["MaterialOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_pages_materials__material_id__pages_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        material_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PageSummary"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_page_materials__material_id__pages__page_number__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        material_id: string;
+        page_number: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PageOut"];
         };
       };
       /** @description Validation Error */

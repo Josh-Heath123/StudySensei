@@ -1690,6 +1690,108 @@
           }
         }
       }
+    },
+    "/materials/{material_id}/pages": {
+      "get": {
+        "tags": [
+          "materials"
+        ],
+        "summary": "List Pages",
+        "description": "The extracted pages (without their text), in order. Empty until extraction has run.",
+        "operationId": "list_pages_materials__material_id__pages_get",
+        "parameters": [
+          {
+            "name": "material_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Material Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PageSummary"
+                  },
+                  "title": "Response List Pages Materials  Material Id  Pages Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/materials/{material_id}/pages/{page_number}": {
+      "get": {
+        "tags": [
+          "materials"
+        ],
+        "summary": "Get Page",
+        "description": "One page's extracted text.",
+        "operationId": "get_page_materials__material_id__pages__page_number__get",
+        "parameters": [
+          {
+            "name": "material_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Material Id"
+            }
+          },
+          {
+            "name": "page_number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Page Number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2243,6 +2345,17 @@
             ],
             "title": "Page Count"
           },
+          "scanned_page_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scanned Page Count"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -2296,6 +2409,7 @@
           "size_bytes",
           "sha256",
           "page_count",
+          "scanned_page_count",
           "status",
           "error",
           "allow_ai",
@@ -2538,6 +2652,83 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ModuleUpdate"
+      },
+      "PageOut": {
+        "properties": {
+          "page_number": {
+            "type": "integer",
+            "title": "Page Number"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "char_count": {
+            "type": "integer",
+            "title": "Char Count"
+          },
+          "is_scanned": {
+            "type": "boolean",
+            "title": "Is Scanned"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "page_number",
+          "title",
+          "char_count",
+          "is_scanned",
+          "text"
+        ],
+        "title": "PageOut",
+        "description": "One page's extracted text, as stored."
+      },
+      "PageSummary": {
+        "properties": {
+          "page_number": {
+            "type": "integer",
+            "title": "Page Number"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "char_count": {
+            "type": "integer",
+            "title": "Char Count"
+          },
+          "is_scanned": {
+            "type": "boolean",
+            "title": "Is Scanned"
+          }
+        },
+        "type": "object",
+        "required": [
+          "page_number",
+          "title",
+          "char_count",
+          "is_scanned"
+        ],
+        "title": "PageSummary",
+        "description": "A page in the list (no text): for choosing one to open."
       },
       "ReflectionIn": {
         "properties": {
