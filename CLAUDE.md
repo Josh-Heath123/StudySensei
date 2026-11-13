@@ -108,6 +108,10 @@ docs/           PRODUCT · ARCHITECTURE · DESIGN · ROADMAP · PROGRESS · deci
 
 - **Stop hook:** when `git status --porcelain` shows changes, `scripts/stop-check.mjs` runs `npm run check`. A failure
   blocks the session from finishing once; if it still fails after that retry, the session stops with a warning.
+- **Check lock:** `npm run check` runs through `scripts/with-lock.mjs`, which holds `.locks/check.lock` (gitignored, the PID).
+  A second check waits for the first (up to 10 minutes; the hook's timeout is 1500 s to allow for that), because two
+  runs at once would both rebuild `studysensei_test`. A lock whose PID is gone is removed. Run the steps without the lock
+  with `npm run check:steps`.
 - **Allowlisted without prompts:** `uv run`, `npm run`, `git status/diff/log/add/commit`. Everything else (push, tag,
   reset, checkout…) still asks.
 
