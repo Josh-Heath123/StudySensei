@@ -23,8 +23,8 @@ coverage/
 !.env.example
 
 # Local data (uploads, course material) never goes in git
-data/
-storage/
+/data/
+/storage/
 
 # Claude Code local settings
 .claude/settings.local.json
