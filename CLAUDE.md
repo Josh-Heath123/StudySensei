@@ -41,6 +41,7 @@ API only (`cd apps/api`):
 - `uv run alembic revision --autogenerate -m "add modules"` for a new migration (check the file it writes)
 - `uv run uvicorn app.main:app --reload`
 - `uv run python -m app.jobs.worker` runs the job worker alone (uploads stay "Waiting to be processed" without it)
+- `uv run python -m tests.fixtures.make_fixtures` regenerates the small synthetic PDF/PPTX/DOCX test files (never use course material as fixtures)
 
 Web only: `npm run test:watch -w apps/web`, `npm run build -w apps/web`.
 

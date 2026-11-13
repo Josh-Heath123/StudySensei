@@ -2,6 +2,30 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-13: Phase 2, task 3 (text extraction)
+
+- **Done:**
+  - `extract_text` replaces `count_pages`. Pages go into `material_pages` (migration 0006: page number, title, text, char count, is_scanned), and `scanned_page_count` is stored on the material.
+  - Readers:
+    - PDF (pypdfium2)
+    - PPTX (python-pptx): title, body and tables, then speaker notes; one page per slide
+    - DOCX (python-docx): split at headings or ~800 words, tables included
+    - MD (split at `#` headings), TXT (~800 words)
+    - images: one empty, scanned page
+  - Scanned means fewer than 20 non-space characters.
+  - Damaged and password-protected files fail at once, with a readable reason (new `JobError(retry=False)`).
+  - The migration queues extraction for every material uploaded before it, renaming waiting `count_pages` jobs instead of duplicating them.
+  - API: `GET /materials/{id}/pages` and `/pages/{n}`, with cross-user cases.
+  - Web: "Ready · 4 of 12 pages scanned"; pages and scanned pages in the details; "View text" opens a plain page-by-page viewer.
+  - Fixtures: small generated files in `apps/api/tests/fixtures` (`make_fixtures.py`, using pikepdf as a dev dependency for the encrypted PDF): a 3-page PDF with an image-only page, a password-protected PDF, a 3-slide PPTX with notes and a picture-only slide, and a DOCX with headings, a table and a long section.
+  - Tests: API 322, web 251, e2e 2 (the upload test now reads the extracted text in the viewer).
+- **Decided:**
+  - one row per page, replaced on re-extraction
+  - speaker notes are part of the slide's text, after a "Speaker notes:" label
+  - the 20-character threshold counts non-whitespace characters, including notes
+  - retries are for transient errors only; a file that can't be read fails immediately
+- **Next:** Phase 2 task 4: the chunker (reading `material_pages`), fastembed embeddings, `tsvector` and hybrid search.
+
 ## 2026-11-13: Phase 2, tasks 1–2 (material uploads, storage, job worker)
 
 - **Done:**
