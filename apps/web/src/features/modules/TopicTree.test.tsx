@@ -30,7 +30,7 @@ function renderTree(tree: TopicNode[] = TREE) {
     "POST /topics/:id/move": () => aTopic("x", "x"),
     "DELETE /topics/:id": () => noContent(),
   });
-  renderApp("/modules/m1");
+  renderApp("/modules/m1?tab=topics");
   return { ...api, user: userEvent.setup() };
 }
 
@@ -139,7 +139,7 @@ test("shows the server's message when a move fails", async () => {
     "POST /topics/:id/move": () =>
       json({ detail: "A topic can't be moved under itself or one of its subtopics" }, 422),
   });
-  renderApp("/modules/m1");
+  renderApp("/modules/m1?tab=topics");
 
   await userEvent.click(await screen.findByRole("button", { name: "Indent: Queues" }));
 

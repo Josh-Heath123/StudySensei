@@ -48,3 +48,16 @@ def test_omitted_fields_stay_unset() -> None:
 def test_module_codes_are_upper_cased() -> None:
     assert ModuleCreate(code=" cos330 ", name="X").code == "COS330"
     assert ModuleUpdate(code="cos301").code == "COS301"
+
+
+def test_topic_ids_cannot_be_null_but_can_be_empty() -> None:
+    with pytest.raises(ValidationError, match="topic_ids cannot be null"):
+        AssessmentUpdate.model_validate({"topic_ids": None})
+    assert AssessmentUpdate.model_validate({"topic_ids": []}).topic_ids == []
+
+
+@pytest.mark.parametrize("schema", [AssessmentUpdate, TaskUpdate])
+def test_dates_need_a_timezone(schema: type[BaseModel]) -> None:
+    with pytest.raises(ValidationError, match="timezone"):
+        schema.model_validate({"due_at": "2026-11-28T09:00:00"})
+    assert schema.model_validate({"due_at": "2026-11-28T09:00:00+02:00"})

@@ -1,15 +1,18 @@
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { PageHeader } from "@/app/PageHeader";
 import { ApiError } from "@/lib/api/errors";
 import { Button } from "@/ui/button";
 import { ConfirmDialog } from "@/ui/confirm-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs";
 
 import { useDeleteModule, useModule, useUpdateModule } from "./api";
 import { ModuleForm } from "./ModuleForm";
+import { AssessmentsTab } from "./assessments/AssessmentsTab";
+import { TasksTab } from "./tasks/TasksTab";
 import { TopicTree } from "./TopicTree";
 
 export function ModuleDetailPage() {
@@ -73,7 +76,7 @@ export function ModuleDetailPage() {
         }
       />
 
-      <TopicTree moduleId={moduleId} />
+      <ModuleTabs moduleId={moduleId} />
 
       <Dialog open={editing} onOpenChange={setEditing}>
         <DialogContent>
@@ -104,5 +107,39 @@ export function ModuleDetailPage() {
         }}
       />
     </>
+  );
+}
+
+// The first tab is the default. The open tab lives in ?tab= so reloads and links keep it.
+const TABS = [
+  { value: "assessments", label: "Assessments", Panel: AssessmentsTab },
+  { value: "tasks", label: "Tasks", Panel: TasksTab },
+  { value: "topics", label: "Topics", Panel: TopicTree },
+];
+
+function ModuleTabs({ moduleId }: { moduleId: string }) {
+  const [params, setParams] = useSearchParams();
+  const requested = params.get("tab");
+  const current = TABS.some((t) => t.value === requested) ? requested! : TABS[0]!.value;
+
+  return (
+    <Tabs
+      value={current}
+      onValueChange={(tab) => setParams({ tab }, { replace: true })}
+      className="mt-2"
+    >
+      <TabsList>
+        {TABS.map(({ value, label }) => (
+          <TabsTrigger key={value} value={value}>
+            {label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      {TABS.map(({ value, Panel }) => (
+        <TabsContent key={value} value={value} className="pt-4">
+          <Panel moduleId={moduleId} />
+        </TabsContent>
+      ))}
+    </Tabs>
   );
 }

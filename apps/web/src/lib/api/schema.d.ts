@@ -123,10 +123,215 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/assessments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Assessments
+     * @description Your assessments, soonest first (undated last), optionally for one module.
+     */
+    get: operations["list_assessments_assessments_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/modules/{module_id}/assessments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Assessment */
+    post: operations["create_assessment_modules__module_id__assessments_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/assessments/{assessment_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Assessment */
+    get: operations["get_assessment_assessments__assessment_id__get"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete Assessment
+     * @description Deletes the assessment; its tasks are kept, unlinked.
+     */
+    delete: operations["delete_assessment_assessments__assessment_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Assessment
+     * @description Change the fields sent; ``topic_ids`` replaces the whole set ([] clears it).
+     */
+    patch: operations["update_assessment_assessments__assessment_id__patch"];
+    trace?: never;
+  };
+  "/tasks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Tasks
+     * @description Your tasks, soonest due first (undated last), optionally filtered.
+     */
+    get: operations["list_tasks_tasks_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/modules/{module_id}/tasks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Task */
+    post: operations["create_task_modules__module_id__tasks_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/tasks/{task_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Task */
+    get: operations["get_task_tasks__task_id__get"];
+    put?: never;
+    post?: never;
+    /** Delete Task */
+    delete: operations["delete_task_tasks__task_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Task
+     * @description Setting status to "done" records completed_at; any other status clears it.
+     */
+    patch: operations["update_task_tasks__task_id__patch"];
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AssessmentCreate */
+    AssessmentCreate: {
+      /** Title */
+      title: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "exam" | "test" | "assignment" | "quiz" | "project" | "other";
+      /** Due At */
+      due_at?: string | null;
+      /** Weight */
+      weight?: number | string | null;
+      /**
+       * Status
+       * @default upcoming
+       * @enum {string}
+       */
+      status: "upcoming" | "completed" | "cancelled";
+      /** Notes */
+      notes?: string | null;
+      /** Topic Ids */
+      topic_ids?: string[];
+    };
+    /** AssessmentOut */
+    AssessmentOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Module Id
+       * Format: uuid
+       */
+      module_id: string;
+      /** Title */
+      title: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "exam" | "test" | "assignment" | "quiz" | "project" | "other";
+      /** Due At */
+      due_at: string | null;
+      /** Weight */
+      weight: number | null;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "upcoming" | "completed" | "cancelled";
+      /** Notes */
+      notes: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Topic Ids */
+      topic_ids: string[];
+    };
+    /** AssessmentUpdate */
+    AssessmentUpdate: {
+      /** Title */
+      title?: string | null;
+      /** Kind */
+      kind?: ("exam" | "test" | "assignment" | "quiz" | "project" | "other") | null;
+      /** Due At */
+      due_at?: string | null;
+      /** Weight */
+      weight?: number | string | null;
+      /** Status */
+      status?: ("upcoming" | "completed" | "cancelled") | null;
+      /** Notes */
+      notes?: string | null;
+      /** Topic Ids */
+      topic_ids?: string[] | null;
+    };
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
@@ -202,6 +407,74 @@ export interface components {
       colour?: string | null;
       /** Semester */
       semester?: string | null;
+    };
+    /** TaskCreate */
+    TaskCreate: {
+      /** Title */
+      title: string;
+      /** Assessment Id */
+      assessment_id?: string | null;
+      /** Due At */
+      due_at?: string | null;
+      /**
+       * Status
+       * @default todo
+       * @enum {string}
+       */
+      status: "todo" | "in_progress" | "done";
+      /** Notes */
+      notes?: string | null;
+    };
+    /** TaskOut */
+    TaskOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Module Id
+       * Format: uuid
+       */
+      module_id: string;
+      /** Assessment Id */
+      assessment_id: string | null;
+      /** Title */
+      title: string;
+      /** Due At */
+      due_at: string | null;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "todo" | "in_progress" | "done";
+      /** Completed At */
+      completed_at: string | null;
+      /** Notes */
+      notes: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** TaskUpdate */
+    TaskUpdate: {
+      /** Title */
+      title?: string | null;
+      /** Assessment Id */
+      assessment_id?: string | null;
+      /** Due At */
+      due_at?: string | null;
+      /** Status */
+      status?: ("todo" | "in_progress" | "done") | null;
+      /** Notes */
+      notes?: string | null;
     };
     /** TopicCreate */
     TopicCreate: {
@@ -639,6 +912,329 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["TopicOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_assessments_assessments_get: {
+    parameters: {
+      query?: {
+        module_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssessmentOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_assessment_modules__module_id__assessments_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AssessmentCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssessmentOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_assessment_assessments__assessment_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        assessment_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssessmentOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_assessment_assessments__assessment_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        assessment_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_assessment_assessments__assessment_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        assessment_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AssessmentUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssessmentOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_tasks_tasks_get: {
+    parameters: {
+      query?: {
+        module_id?: string | null;
+        assessment_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_task_modules__module_id__tasks_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TaskCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_task_tasks__task_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        task_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_task_tasks__task_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        task_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_task_tasks__task_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        task_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TaskUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskOut"];
         };
       };
       /** @description Validation Error */
