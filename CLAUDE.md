@@ -29,7 +29,8 @@ Web rebuild of a retired PyQt prototype (tag `v0-pyqt-prototype`). Product: `doc
 | --- | --- |
 | `npm install` | Install web and root JS deps (first time) |
 | `npm run dev` | Postgres (docker) → migrate → seed → API on :8000 + web on :5173 |
-| `npm run check` | Everything CI runs: ruff, ruff format, prettier, eslint, mypy, tsc, pytest, vitest |
+| `npm run check` | Everything CI runs: ruff, ruff format, prettier, eslint, mypy, tsc, pytest, vitest (not e2e) |
+| `npm run e2e` | Playwright against the real stack on its own ports (API :8001, web :5174, db `studysensei_e2e`, rebuilt each run). First time: `npx playwright install chromium` |
 | `npm run format` | Auto-fix formatting (ruff + prettier) |
 | `npm run gen:api` | Re-export OpenAPI and regenerate the TS client types. Run after any API schema change |
 | `npm run db:up` / `db:down` | Start or stop Postgres only |
@@ -42,14 +43,15 @@ API only (`cd apps/api`):
 
 Web only: `npm run test:watch -w apps/web`, `npm run build -w apps/web`.
 
-Postgres runs on **localhost:5433** (user, password and db are all `studysensei`). pytest uses the `studysensei_test` database.
+Postgres runs on **localhost:5433** (user, password and db are all `studysensei`). pytest uses the `studysensei_test` database; `npm run e2e` uses `studysensei_e2e` (created on first run).
 
 ## Layout
 
 ```
 apps/api/app/   api/ (routers) · core/ (config, db) · models/ · schemas/ · services/ · ai/ · jobs/
 apps/api/       alembic/ · tests/ · evals/ · scripts/export_openapi.py
-apps/web/src/   app/ (routes, layout, sidebar) · features/<area>/ · lib/api/ (generated client) · ui/ (shadcn)
+apps/web/e2e/   Playwright specs (`npm run e2e`)
+apps/web/src/   app/ (routes, layout, top nav) · features/<area>/ · lib/api/ (generated client) · ui/ (shadcn)
 docs/           PRODUCT · ARCHITECTURE · DESIGN · ROADMAP · PROGRESS · decisions/ · legacy-notes · PLAN (frozen original)
 ```
 

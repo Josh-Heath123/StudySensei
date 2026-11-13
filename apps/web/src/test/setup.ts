@@ -5,4 +5,5 @@ import { afterEach, vi } from "vitest";
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  localStorage.clear(); // the session engine's queue and heartbeat live here
 });

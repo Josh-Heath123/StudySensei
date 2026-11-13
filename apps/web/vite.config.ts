@@ -26,5 +26,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    // Playwright owns e2e/ (npm run e2e).
+    include: ["src/**/*.test.{ts,tsx}"],
   },
 });

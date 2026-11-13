@@ -289,6 +289,35 @@ describe("session engine", () => {
     expect(engine.canRecord("start")).toBe(true);
   });
 
+  it("counts the recorded events, for the summary's sample size", async () => {
+    fakeSessionServer();
+    const { clock, page } = world();
+    const engine = page();
+    await engine.start("module-1");
+    run(engine, clock, 5 * MIN);
+    await engine.pause();
+    await engine.resume();
+
+    expect(engine.snapshot()?.eventCount).toBe(3);
+  });
+
+  it("keeps the server id after an ended session is synced and forgotten", async () => {
+    const server = fakeSessionServer();
+    server.setMode("offline");
+    const { store, clock, page } = world();
+    const engine = page();
+    await engine.start("module-1");
+    run(engine, clock, 5 * MIN);
+    await engine.end();
+    expect(engine.snapshot()?.sessionId).toBeNull();
+
+    server.setMode("online");
+    await engine.flush();
+
+    expect(engine.snapshot()).toMatchObject({ state: "ended", sessionId: "server-1" });
+    expect(pendingEvents(store, engine.snapshot()!.startId)).toEqual([]);
+  });
+
   it("doesn't start a second session while one is open", async () => {
     fakeSessionServer();
     const { page } = world();

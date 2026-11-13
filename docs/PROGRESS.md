@@ -2,6 +2,29 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-13: Phase 1, task 7 (session screen)
+
+- **Done:**
+  - `/session` (focus mode, no top nav):
+    - the header (← Today, module badge, topic, End session) and the 6 px progress line
+    - eyebrow, 128 px numerals, the segmented focus/break bar, Pause/Resume, Break now/End break
+    - honest Materials (Phase 2) and Tutor (Phase 3) placeholders
+  - remaining time in `document.title`
+  - Start session on Today (next-up card) and on each module page, with a module and optional topic. It becomes "Return to session" while one is open, and a reload lands back in it.
+  - break due, offline and refused-event notices are in-page banners; the away question is the only dialog
+  - the reflection (focus 1–5, what I covered, confidence 1–5 per ticked topic) is saved via `PUT /sessions/{id}/reflection`, then a summary (Measured, with the event count) links back to Today
+  - `controller.ts` + `display.ts` (pure, tests first); the engine snapshot gains `eventCount` and keeps the server id after an ended session syncs
+  - tests:
+    - web 212: display, controller, and a fake-clock flow covering start → pause → resume → break → end → reflect, plus reload, away, online and visible flushes, and the 30 s retry
+    - one Playwright test (`npm run e2e`) against the real API, with a reload mid-session
+  - new CI job `e2e`
+- **Decided:**
+  - Playwright runs on its own ports and database (:8001 / :5174 / `studysensei_e2e`) and stays out of `npm run check`, to keep the Stop hook fast
+  - the browser clock is paused three hours back so times are exact and never in the server's future
+  - an ended session waits in localStorage for its reflection, with a Skip, so a forgotten reflection never blocks the next session
+- **Known gap:** reloading while offline after the start was synced restores nothing until the API answers, because the engine only restores offline from a queued start.
+- **Next:** Phase 1 verify: a real 50-minute session with one reload and one break. Then Phase 1 task 8, session history per module.
+
 ## 2026-11-13: Phase 1, task 9 (design system v1 "Planner"), moved ahead of task 7
 
 - **Done:**

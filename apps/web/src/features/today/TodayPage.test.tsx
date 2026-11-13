@@ -31,6 +31,7 @@ function renderToday(
 ) {
   const api = mockApi({
     "GET /health": () => HEALTHY,
+    "GET /sessions/active": () => null,
     "GET /modules": () => data.modules ?? [aModule()],
     "GET /assessments": () => data.assessments ?? [],
     "GET /tasks": () => data.tasks ?? [],
@@ -171,6 +172,7 @@ test("a failed update is shown", async () => {
 test("a failed load is shown", async () => {
   mockApi({
     "GET /health": () => HEALTHY,
+    "GET /sessions/active": () => null,
     "GET /modules": () => [aModule()],
     "GET /assessments": () => [],
     "GET /tasks": () => new Response(JSON.stringify({ detail: "Boom" }), { status: 500 }),
@@ -222,6 +224,11 @@ test("the day timeline and next-up card say the plan isn't built yet, with no ma
 
   const nextUp = screen.getByRole("region", { name: "Nothing planned yet" });
   expect(nextUp).toHaveTextContent("Your plan appears here once the planner is built.");
-  expect(within(nextUp).queryByRole("button")).not.toBeInTheDocument();
+  // No made-up plan actions: the only button starts an unplanned session.
+  expect(
+    within(nextUp)
+      .getAllByRole("button")
+      .map((b) => b.textContent?.trim()),
+  ).toEqual(["Start session"]);
   expect(screen.queryByRole("list", { name: "Countdowns" })).not.toBeInTheDocument();
 });

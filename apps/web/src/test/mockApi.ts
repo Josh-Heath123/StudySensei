@@ -5,7 +5,9 @@ import { API_URL } from "@/lib/api/client";
 export type ApiCall = { method: string; path: string; body: unknown };
 
 type Reply = unknown | Response;
-type Handler = (call: ApiCall & { params: Record<string, string> }) => Reply | Promise<Reply>;
+export type Handler = (
+  call: ApiCall & { params: Record<string, string> },
+) => Reply | Promise<Reply>;
 
 /**
  * Stub fetch with a tiny router: keys look like "GET /modules/:moduleId".

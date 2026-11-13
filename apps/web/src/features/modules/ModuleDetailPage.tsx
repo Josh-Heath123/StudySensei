@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs";
 
 import { useDeleteModule, useModule, useUpdateModule } from "./api";
+import { StartSessionButton } from "../session/StartSessionButton";
 import { ModuleForm } from "./ModuleForm";
 import { AssessmentsTab } from "./assessments/AssessmentsTab";
 import { TasksTab } from "./tasks/TasksTab";
@@ -64,6 +65,7 @@ export function ModuleDetailPage() {
         title={data.name}
         aside={
           <>
+            <StartSessionButton moduleId={data.id} />
             <Button variant="outline" onClick={() => setEditing(true)}>
               <Pencil aria-hidden /> Edit
             </Button>

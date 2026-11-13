@@ -1,11 +1,18 @@
 import type { components } from "@/lib/api/schema";
 
-import { json, mockApi } from "./mockApi";
+import { json, mockApi, type Handler } from "./mockApi";
 
 type StartBody = components["schemas"]["SessionStart"];
 type EventBody = components["schemas"]["EventIn"];
 type StoredEvent = components["schemas"]["EventOut"];
-type StoredSession = { id: string; events: StoredEvent[] };
+type ReflectionBody = components["schemas"]["ReflectionIn"];
+type StoredSession = {
+  id: string;
+  module_id: string;
+  topic_id: string | null;
+  events: StoredEvent[];
+  reflection?: ReflectionBody;
+};
 
 /**
  * How the network behaves for the next requests:
@@ -15,12 +22,15 @@ type StoredSession = { id: string; events: StoredEvent[] };
  */
 export type NetworkMode = "online" | "offline" | "lose-response";
 
+const isOpen = (s: StoredSession) => s.events.at(-1)?.type !== "end";
+
 /**
  * A stand-in for the sessions API with the same idempotency rules as the server
  * (task 5): a resent start returns the same session (200), a resent event with
- * the same details is skipped, and the same id with other details is a 409.
+ * the same details is skipped, and the same id with other details is a 409. Only
+ * one session can be open at a time. `extra` adds routes (modules, topics, …).
  */
-export function fakeSessionServer() {
+export function fakeSessionServer(extra: Record<string, Handler> = {}) {
   const sessions = new Map<string, StoredSession>();
   let mode: NetworkMode = "online";
   let nextId = 1;
@@ -36,14 +46,24 @@ export function fakeSessionServer() {
     [...sessions.values()].find((s) => s.events[0]?.id === startId);
 
   const { calls } = mockApi({
+    ...extra,
+    "GET /sessions/active": () => {
+      network();
+      return reply([...sessions.values()].find(isOpen) ?? null, 200);
+    },
     "POST /sessions": ({ body }) => {
       network();
-      const { start } = body as StartBody;
+      const { start, module_id, topic_id } = body as StartBody;
       const existing = findByStart(start.id);
       if (existing) return reply(existing, 200);
-      const session = {
+      if ([...sessions.values()].some(isOpen)) {
+        return json({ detail: "Another session is still open; end it first" }, 409);
+      }
+      const session: StoredSession = {
         id: `server-${nextId++}`,
-        events: [{ id: start.id, type: "start" as const, occurred_at: start.occurred_at }],
+        module_id,
+        topic_id: topic_id ?? null,
+        events: [{ id: start.id, type: "start", occurred_at: start.occurred_at }],
       };
       sessions.set(session.id, session);
       return reply(session, 201);
@@ -60,6 +80,16 @@ export function fakeSessionServer() {
         if (!stored) session.events.push({ ...event });
       }
       session.events.sort((a, b) => Date.parse(a.occurred_at) - Date.parse(b.occurred_at));
+      return reply(session, 200);
+    },
+    "PUT /sessions/:id/reflection": ({ params, body }) => {
+      network();
+      const session = sessions.get(params.id!);
+      if (!session) return json({ detail: "Session not found" }, 404);
+      if (isOpen(session)) {
+        return json({ detail: "Reflect on a session once it has ended" }, 422);
+      }
+      session.reflection = body as ReflectionBody;
       return reply(session, 200);
     },
   });
