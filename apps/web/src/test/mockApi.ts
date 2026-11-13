@@ -6,7 +6,7 @@ export type ApiCall = { method: string; path: string; body: unknown };
 
 type Reply = unknown | Response;
 export type Handler = (
-  call: ApiCall & { params: Record<string, string> },
+  call: ApiCall & { params: Record<string, string>; query: URLSearchParams },
 ) => Reply | Promise<Reply>;
 
 /**
@@ -36,7 +36,11 @@ export function mockApi(routes: Record<string, Handler>) {
       const match = route.method === call.method && route.regex.exec(path);
       if (match) {
         const params = Object.fromEntries(route.names.map((name, i) => [name, match[i + 1]!]));
-        const reply = await route.handler({ ...call, params });
+        const reply = await route.handler({
+          ...call,
+          params,
+          query: new URL(request.url).searchParams,
+        });
         return reply instanceof Response ? reply : json(reply ?? null);
       }
     }

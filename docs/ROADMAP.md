@@ -49,7 +49,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 - [x] `session-engine/timer.ts`: timestamp-based focus and break cycles, pause/resume, `localStorage` + server events. **Tests first:** pause and resume arithmetic, reload, sleep
 - [x] Design system v1 (tokens, type scale, core components): `docs/DESIGN.md`, direction B "Planner" (done before the session screen so it's built in its final look)
 - [x] Session screen: timer UI, breaks, end, 20-second reflection (focus 1–5, what was covered, confidence per topic)
-- [ ] Session history per module
+- [x] Session history per module
 
 **Verify:** timer unit tests, then a real 50-minute session with one reload and one break, where the timer matches the clock within 1 s.
 **Done when:**

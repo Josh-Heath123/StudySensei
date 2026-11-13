@@ -82,6 +82,7 @@ the web app calls the API through the typed `openapi-fetch` client. CI fails if 
 | Topics | `GET /modules/{id}/topics` (nested tree), `POST /modules/{id}/topics`, `PATCH/DELETE /topics/{id}`, `POST /topics/{id}/move` `{parent_id, position}` |
 | Assessments | `GET/POST /modules/{id}/assessments`, `GET /assessments?status=` (all modules), `GET/PATCH/DELETE /assessments/{id}` (responses include `topic_ids`; sending `topic_ids` replaces the whole set) |
 | Tasks | `GET/POST /modules/{id}/tasks`, `GET /tasks?status=` (all modules), `GET/PATCH/DELETE /tasks/{id}` (`status: "done"` sets `completed_at`) |
+| Sessions | `POST /sessions`, `GET /sessions/active`, `GET/DELETE /sessions/{id}`, `POST /sessions/{id}/events`, `PUT /sessions/{id}/reflection`, `GET /modules/{id}/sessions?limit=&offset=` (a page `{items, total, limit, offset}`: the open session first, then newest first; limit 1–100, default 20), `GET /modules/{id}/sessions/summary?week_start=` (session count and active seconds, all time and since `week_start`) |
 
 Notes on these endpoints:
 - A module's own lists live under `/modules/{id}/…` and return 404 if the module isn't yours. The top-level
@@ -145,6 +146,9 @@ Decision 0003. `session_events` is an append-only log and the source of truth. T
 - **One open session per user:** a partial unique index. `GET /sessions/active` returns it after a reload.
 - **Reflection:** focus 1–5 and what was covered on the session; confidence 1–5 per topic in `session_topic_ratings`.
   It's personal data, so it never goes into prompts.
+- **History:** the module's Sessions tab pages through `GET /modules/{id}/sessions`. "This week" is the client's local
+  Monday 00:00, sent as an aware `week_start`; a session counts in the week it started. Study time is active time only
+  (breaks aren't study time), and an open session counts up to its last event on the server.
 - `plan_block_id` is nullable until Phase 4 adds `plan_blocks`.
 
 ### User isolation

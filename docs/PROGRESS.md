@@ -2,6 +2,26 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-13: Phase 1, task 8 (session history per module)
+
+- **Done:**
+  - API:
+    - `GET /modules/{id}/sessions` is now paginated (`limit`/`offset`, a page with `total`), with the open session first, then newest first
+    - new `GET /modules/{id}/sessions/summary?week_start=` for counts and active time, all time and this week
+    - HTTP cross-user cases for both
+  - web: a Sessions tab on each module page:
+    - a Measured summary (this week, all time, session count)
+    - sessions with date, topic, active and break time, focus and confidence per topic; the open one is at the top with Resume
+    - "Show older sessions" loads 20 at a time
+    - a detail dialog with the reflection and the event timeline
+  - `mockApi` handlers receive the query string
+  - tests: API 239, web 223, e2e 1
+- **Decided:**
+  - pagination is offset-based: history is small and append-mostly, and offsets keep "Show older" simple
+  - "this week" is the student's local week, Monday 00:00, sent by the client; a session counts in the week it started
+  - study time means active time; breaks are shown but never counted as study
+- **Next:** Phase 1 verify (a real 50-minute session with a reload and a break), then the Phase 1 gate: three real study days.
+
 ## 2026-11-13: Phase 1, task 7 (session screen)
 
 - **Done:**

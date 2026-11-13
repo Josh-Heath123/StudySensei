@@ -154,11 +154,105 @@ async def test_reflection_ratings_are_validated(alice_api: AsyncClient, alice: R
 async def test_module_history_is_newest_first(alice_api: AsyncClient, alice: Rows) -> None:
     newer = (await alice_api.post("/sessions", json=start_body(alice))).json()["id"]
 
-    history = (await alice_api.get(f"/modules/{alice.module.id}/sessions")).json()
+    page = (await alice_api.get(f"/modules/{alice.module.id}/sessions")).json()
 
+    assert (page["total"], page["limit"], page["offset"]) == (2, 20, 0)
+    history = page["items"]
     assert [s["id"] for s in history] == [newer, str(alice.study_session.id)]
     assert history[1]["topic_ratings"] == [{"topic_id": str(alice.topic.id), "confidence": 3}]
     assert "events" not in history[1]
+
+
+async def ended_session(api: AsyncClient, rows: Rows, started: datetime) -> str:
+    """A 30-minute session (no breaks) that started at `started`."""
+    body = {
+        "module_id": str(rows.module.id),
+        "start": {"id": str(uuid.uuid4()), "occurred_at": started.isoformat()},
+    }
+    session_id: str = (await api.post("/sessions", json=body)).json()["id"]
+    end = {
+        "id": str(uuid.uuid4()),
+        "type": "end",
+        "occurred_at": (started + timedelta(minutes=30)).isoformat(),
+    }
+    await api.post(f"/sessions/{session_id}/events", json={"events": [end]})
+    return session_id
+
+
+async def test_module_history_is_paginated(alice_api: AsyncClient, alice: Rows) -> None:
+    older = [await ended_session(alice_api, alice, T0 - timedelta(days=days)) for days in (3, 2, 1)]
+    path = f"/modules/{alice.module.id}/sessions"
+
+    first = (await alice_api.get(path, params={"limit": 2})).json()
+    second = (await alice_api.get(path, params={"limit": 2, "offset": 2})).json()
+
+    newest_first = [str(alice.study_session.id), *reversed(older)]
+    assert first["total"] == second["total"] == 4
+    assert [s["id"] for s in first["items"]] == newest_first[:2]
+    assert [s["id"] for s in second["items"]] == newest_first[2:]
+    assert second["offset"] == 2
+
+
+async def test_module_history_puts_the_open_session_first(
+    alice_api: AsyncClient, alice: Rows
+) -> None:
+    # An open session whose start (from an offline device) is older than an ended one.
+    body = start_body(alice)
+    body["start"]["occurred_at"] = (T0 - timedelta(days=1)).isoformat()
+    open_id = (await alice_api.post("/sessions", json=body)).json()["id"]
+
+    items = (await alice_api.get(f"/modules/{alice.module.id}/sessions")).json()["items"]
+
+    assert [(s["id"], s["state"]) for s in items] == [
+        (open_id, "active"),
+        (str(alice.study_session.id), "ended"),
+    ]
+
+
+async def test_module_history_rejects_bad_page_sizes(alice_api: AsyncClient, alice: Rows) -> None:
+    path = f"/modules/{alice.module.id}/sessions"
+    for params in ({"limit": 0}, {"limit": 101}, {"offset": -1}):
+        assert (await alice_api.get(path, params=params)).status_code == 422
+
+
+async def test_summary_measures_all_time_and_this_week(alice_api: AsyncClient, alice: Rows) -> None:
+    week_start = datetime.now(UTC) - timedelta(days=3)
+    await ended_session(alice_api, alice, week_start - timedelta(days=2))  # last week
+
+    response = await alice_api.get(
+        f"/modules/{alice.module.id}/sessions/summary",
+        params={"week_start": week_start.isoformat()},
+    )
+
+    assert response.status_code == 200
+    summary = response.json()
+    assert summary["session_count"] == 2
+    assert summary["active_seconds"] == (50 + 30) * 60
+    assert summary["week_active_seconds"] == 50 * 60  # only the fixture session (2 h ago)
+    assert datetime.fromisoformat(summary["week_start"]) == week_start
+
+
+async def test_summary_needs_a_timezone_aware_week_start(
+    alice_api: AsyncClient, alice: Rows
+) -> None:
+    path = f"/modules/{alice.module.id}/sessions/summary"
+    assert (await alice_api.get(path)).status_code == 422
+    naive = {"week_start": "2026-11-09T00:00:00"}
+    assert (await alice_api.get(path, params=naive)).status_code == 422
+
+
+async def test_summary_of_a_module_without_sessions_is_zero(alice_api: AsyncClient) -> None:
+    module = (await alice_api.post("/modules", json={"code": "NEW101", "name": "New"})).json()
+
+    summary = (
+        await alice_api.get(
+            f"/modules/{module['id']}/sessions/summary",
+            params={"week_start": "2026-11-09T00:00:00+02:00"},
+        )
+    ).json()
+
+    assert (summary["session_count"], summary["active_seconds"]) == (0, 0)
+    assert summary["week_active_seconds"] == 0
 
 
 async def test_delete_discards_the_session(alice_api: AsyncClient, alice: Rows) -> None:

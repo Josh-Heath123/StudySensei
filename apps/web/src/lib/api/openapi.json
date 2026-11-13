@@ -1302,7 +1302,7 @@
           "sessions"
         ],
         "summary": "List Module Sessions",
-        "description": "The module's sessions, newest first.",
+        "description": "A page of the module's sessions: the open one first, then newest first.",
         "operationId": "list_module_sessions_modules__module_id__sessions_get",
         "parameters": [
           {
@@ -1314,6 +1314,29 @@
               "format": "uuid",
               "title": "Module Id"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
           }
         ],
         "responses": {
@@ -1322,11 +1345,61 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SessionOut"
-                  },
-                  "title": "Response List Module Sessions Modules  Module Id  Sessions Get"
+                  "$ref": "#/components/schemas/SessionPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/modules/{module_id}/sessions/summary": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Module Session Summary",
+        "description": "Measured study time for the module: all time, and since `week_start` (your local week).",
+        "operationId": "module_session_summary_modules__module_id__sessions_summary_get",
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          },
+          {
+            "name": "week_start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Week Start"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleSessionSummary"
                 }
               }
             }
@@ -1884,6 +1957,36 @@
         ],
         "title": "ModuleOut"
       },
+      "ModuleSessionSummary": {
+        "properties": {
+          "session_count": {
+            "type": "integer",
+            "title": "Session Count"
+          },
+          "active_seconds": {
+            "type": "number",
+            "title": "Active Seconds"
+          },
+          "week_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Week Start"
+          },
+          "week_active_seconds": {
+            "type": "number",
+            "title": "Week Active Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_count",
+          "active_seconds",
+          "week_start",
+          "week_active_seconds"
+        ],
+        "title": "ModuleSessionSummary",
+        "description": "Measured study time for a module (active time only; breaks aren't study time)."
+      },
       "ModuleUpdate": {
         "properties": {
           "code": {
@@ -2283,6 +2386,38 @@
           "topic_ratings"
         ],
         "title": "SessionOut"
+      },
+      "SessionPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SessionOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "SessionPage",
+        "description": "One page of a module's sessions: the open one first, then newest first."
       },
       "SessionStart": {
         "properties": {

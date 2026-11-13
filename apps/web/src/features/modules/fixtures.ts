@@ -2,6 +2,7 @@ import { toIso } from "@/lib/dates";
 
 import type { Module, TopicNode } from "./api";
 import type { Assessment } from "./assessments/api";
+import type { SessionRow } from "./sessions/api";
 import type { Task } from "./tasks/api";
 
 export function aModule(overrides: Partial<Module> = {}): Module {
@@ -70,6 +71,28 @@ export function aTask(overrides: Partial<Task> = {}): Task {
     notes: null,
     created_at: "2026-11-12T10:00:00Z",
     updated_at: "2026-11-12T10:00:00Z",
+    ...overrides,
+  };
+}
+
+export function aSession(overrides: Partial<SessionRow> = {}): SessionRow {
+  return {
+    id: "s1",
+    module_id: "m1",
+    topic_id: null,
+    plan_block_id: null,
+    state: "ended",
+    started_at: "2026-11-12T08:00:00Z",
+    ended_at: "2026-11-12T09:00:00Z",
+    last_event_at: "2026-11-12T09:00:00Z",
+    active_seconds: 50 * 60,
+    break_seconds: 10 * 60,
+    focus_rating: 4,
+    covered_notes: null,
+    reflected_at: "2026-11-12T09:01:00Z",
+    topic_ratings: [],
+    created_at: "2026-11-12T08:00:00Z",
+    updated_at: "2026-11-12T09:01:00Z",
     ...overrides,
   };
 }
