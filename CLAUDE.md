@@ -1,7 +1,7 @@
 # StudySensei
 
 A study planner and tutor: modules → materials → topic map → past papers → plan → sessions → practice → mastery.
-Web rebuild of a retired PyQt prototype (tag `v0-pyqt-prototype`). Product: `docs/PRODUCT.md`. Design: `docs/ARCHITECTURE.md`.
+Web rebuild of a retired PyQt prototype (tag `v0-pyqt-prototype`). Product: `docs/PRODUCT.md`. Architecture: `docs/ARCHITECTURE.md`. Visual design: `docs/DESIGN.md`.
 
 ## Start every task here
 
@@ -50,7 +50,7 @@ Postgres runs on **localhost:5433** (user, password and db are all `studysensei`
 apps/api/app/   api/ (routers) · core/ (config, db) · models/ · schemas/ · services/ · ai/ · jobs/
 apps/api/       alembic/ · tests/ · evals/ · scripts/export_openapi.py
 apps/web/src/   app/ (routes, layout, sidebar) · features/<area>/ · lib/api/ (generated client) · ui/ (shadcn)
-docs/           PRODUCT · ARCHITECTURE · ROADMAP · PROGRESS · decisions/ · legacy-notes · PLAN (frozen original)
+docs/           PRODUCT · ARCHITECTURE · DESIGN · ROADMAP · PROGRESS · decisions/ · legacy-notes · PLAN (frozen original)
 ```
 
 ## Conventions
