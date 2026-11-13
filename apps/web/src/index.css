@@ -1,63 +1,177 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
 /*
- * Placeholder tokens until design system v1 (spike S3).
- * Accent comes from the prototype palette (docs/legacy-notes.md section 7).
+ * Design system v1, "Planner" (docs/DESIGN.md). Ink on paper; colour is rare and
+ * means something (a module's colour or a status). Flat and square: no shadows.
  */
+
+@theme {
+  /* Colour */
+  --color-ink: #111111;
+  --color-paper: #ffffff;
+  --color-muted: #5b5b5b; /* secondary TEXT (6.8:1 on paper), not a background */
+  --color-line: #e8e8e8;
+  --color-surface: #f0f0f0;
+  --color-danger: #c4161c;
+  --color-warning: #9a5b00;
+  --color-success: #1e7b46;
+  --color-on-dark-muted: #d4d4d4; /* eyebrows inside the ink card */
+  --color-on-dark-line: #737373; /* outline of buttons inside the ink card */
+
+  /* Type */
+  --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Inter Variable", system-ui, sans-serif;
+  --text-xs: 12px;
+  --text-xs--line-height: 1.2;
+  --text-sm: 13px;
+  --text-sm--line-height: 1.4;
+  --text-base: 15px;
+  --text-base--line-height: 1.5;
+
+  /* Shape: 3 for citation chips, 4 for controls, 6 for cards. Nothing rounder. */
+  --radius-xs: 3px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 6px;
+  --radius-2xl: 6px;
+
+  /* No shadows anywhere. */
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+}
+
+/* shadcn components read these names; they all point at the tokens above. */
 :root {
-  --radius: 0.75rem;
-  --background: #f5f5f7;
-  --foreground: #1d1d1f;
-  --card: #ffffff;
-  --card-foreground: #1d1d1f;
-  --muted: #ececf0;
-  --muted-foreground: #6e6e73;
-  --primary: #007aff;
-  --primary-foreground: #ffffff;
-  --secondary: #ececf0;
-  --secondary-foreground: #1d1d1f;
-  --accent: #e5f0ff;
-  --accent-foreground: #0051d5;
-  --destructive: #d70015;
-  --success: #248a3d;
-  --border: #d2d2d7;
-  --ring: #007aff;
-  --sidebar: #ffffff;
+  --radius: 4px;
+  --background: var(--color-paper);
+  --foreground: var(--color-ink);
+  --card: var(--color-paper);
+  --card-foreground: var(--color-ink);
+  --popover: var(--color-paper);
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-ink);
+  --primary-foreground: var(--color-paper);
+  --secondary: var(--color-surface);
+  --secondary-foreground: var(--color-ink);
+  --accent: var(--color-surface);
+  --accent-foreground: var(--color-ink);
+  --muted-foreground: var(--color-muted);
+  --destructive: var(--color-danger);
+  --border: var(--color-line);
+  --input: var(--color-line);
+  --ring: var(--color-ink);
+  /* A page sets this to its module's colour; components use bg-[var(--module)]. */
+  --module: #ff7a3d;
 }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-muted-foreground: var(--muted-foreground);
   --color-destructive: var(--destructive);
-  --color-success: var(--success);
   --color-border: var(--border);
+  --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-sidebar: var(--sidebar);
+}
+
+/* Type styles from the spec's type table. */
+@utility type-display {
+  font-family: var(--font-display);
+  font-size: 56px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+@utility type-timer {
+  font-family: var(--font-display);
+  font-size: 128px;
+  line-height: 0.9;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+@utility type-countdown {
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+@utility type-h1 {
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+@utility type-h2 {
+  font-family: var(--font-display);
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+@utility type-h3 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+@utility type-label {
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-line;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
   }
   body {
-    @apply bg-background text-foreground antialiased;
-    font-family:
-      -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    @apply bg-paper text-ink font-sans text-base antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  [role="tab"] {
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+  }
+  time,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
