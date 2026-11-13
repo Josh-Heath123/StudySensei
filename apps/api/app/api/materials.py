@@ -1,13 +1,19 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Path, Request, UploadFile, status
 
 from app.api.deps import CurrentUser
 from app.core.config import get_settings
 from app.core.db import SessionDep
-from app.models import Material
-from app.schemas.materials import MaterialKind, MaterialOut, MaterialUpdate
+from app.models import Material, MaterialPage
+from app.schemas.materials import (
+    MaterialKind,
+    MaterialOut,
+    MaterialUpdate,
+    PageOut,
+    PageSummary,
+)
 from app.services import materials
 from app.services.errors import TooLarge
 from app.storage.base import Storage
@@ -93,3 +99,22 @@ async def retry_material(
 ) -> Material:
     """Queue a failed material for processing again."""
     return await materials.retry_material(session, material_id, user_id=user.id)
+
+
+@router.get("/materials/{material_id}/pages", response_model=list[PageSummary])
+async def list_pages(
+    material_id: uuid.UUID, session: SessionDep, user: CurrentUser
+) -> list[MaterialPage]:
+    """The extracted pages (without their text), in order. Empty until extraction has run."""
+    return await materials.list_pages(session, material_id, user_id=user.id)
+
+
+@router.get("/materials/{material_id}/pages/{page_number}", response_model=PageOut)
+async def get_page(
+    material_id: uuid.UUID,
+    page_number: Annotated[int, Path(ge=1)],
+    session: SessionDep,
+    user: CurrentUser,
+) -> MaterialPage:
+    """One page's extracted text."""
+    return await materials.get_page(session, material_id, page_number, user_id=user.id)

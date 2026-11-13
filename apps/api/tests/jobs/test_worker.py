@@ -13,10 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.jobs import queue
 from app.jobs.context import Handler, JobContext
-from app.jobs.tasks import count_pages
+from app.jobs.tasks import extract_text
 from app.jobs.worker import GAVE_UP, HANDLERS, UNEXPECTED, SessionFactory, run_once
 from app.models import Job, Material, User
-from app.services.materials import COUNT_PAGES
+from app.services.materials import EXTRACT_TEXT
 from app.storage.base import blob_key
 from app.storage.local import LocalStorage
 from tests.academics.conftest import Rows
@@ -49,7 +49,7 @@ def sessions(session: AsyncSession) -> SessionFactory:
 async def a_material(
     session: AsyncSession, storage: LocalStorage, rows: Rows, data: bytes = samples.pdf(3)
 ) -> Material:
-    """A stored PDF with its count_pages job queued, as the upload endpoint leaves it."""
+    """A stored PDF with its extract_text job queued, as the upload endpoint leaves it."""
     sha256 = hashlib.sha256(data).hexdigest()
     source = storage.root.parent / f"src-{uuid.uuid4().hex}"
     source.write_bytes(data)
@@ -66,7 +66,7 @@ async def a_material(
     )
     session.add(material)
     await session.flush()
-    queue.enqueue(session, COUNT_PAGES, {"material_id": str(material.id)}, user_id=rows.user.id)
+    queue.enqueue(session, EXTRACT_TEXT, {"material_id": str(material.id)}, user_id=rows.user.id)
     await session.commit()
     return material
 
@@ -111,9 +111,9 @@ async def test_a_failed_attempt_is_retried_with_backoff_then_succeeds(
         calls += 1
         if calls == 1:
             raise ConnectionError("storage hiccup")
-        await count_pages.run(ctx)
+        await extract_text.run(ctx)
 
-    handlers = {COUNT_PAGES: Handler(run=flaky, on_failure=count_pages.on_failure)}
+    handlers = {EXTRACT_TEXT: Handler(run=flaky, on_failure=extract_text.on_failure)}
 
     assert await run_once(sessions, storage, now=lambda: T0, handlers=handlers)
 
@@ -147,7 +147,7 @@ async def test_after_the_last_attempt_the_job_and_material_fail(
     async def broken(ctx: JobContext) -> None:
         raise RuntimeError("boom")
 
-    handlers = {COUNT_PAGES: Handler(run=broken, on_failure=count_pages.on_failure)}
+    handlers = {EXTRACT_TEXT: Handler(run=broken, on_failure=extract_text.on_failure)}
     now = T0
     for attempt in (1, 2, 3):
         assert await run_once(sessions, storage, now=at(now), handlers=handlers)
@@ -167,16 +167,22 @@ async def test_after_the_last_attempt_the_job_and_material_fail(
     assert (material.status, material.error) == ("failed", GAVE_UP)
 
 
-async def test_an_expected_failure_shows_its_own_message(
+async def test_a_damaged_file_fails_at_once_with_its_own_message(
     session: AsyncSession, sessions: SessionFactory, storage: LocalStorage, alice: Rows
 ) -> None:
+    user_id = alice.user.id  # the worker's rollbacks expire alice.user
     material = await a_material(session, storage, alice, data=b"%PDF-1.7 broken")
 
     await run_once(sessions, storage, now=lambda: T0)
 
+    # Retrying can't fix a damaged file, so it isn't retried.
+    job = await the_job(session, user_id)
+    assert (job.status, job.attempts) == ("failed", 1)
     await session.refresh(material)
-    assert material.status == "processing"
-    assert material.error is not None and "damaged or password-protected" in material.error
+    assert material.status == "failed"
+    assert material.error == (
+        "The PDF couldn't be opened. It may be damaged; try saving it again and re-uploading."
+    )
 
 
 async def test_a_missing_file_is_reported(
@@ -208,7 +214,7 @@ async def test_a_handler_never_touches_another_users_material(
 ) -> None:
     hers = await a_material(session, storage, alice)
     # A job of Bob's that names Alice's material (it can't happen via the API; prove it's inert).
-    queue.enqueue(session, COUNT_PAGES, {"material_id": str(hers.id)}, user_id=bob.user.id)
+    queue.enqueue(session, EXTRACT_TEXT, {"material_id": str(hers.id)}, user_id=bob.user.id)
     await session.execute(delete(Job).where(Job.user_id == alice.user.id))
     await session.commit()
 
@@ -243,7 +249,7 @@ async def test_unknown_kinds_fail_without_crashing_the_worker(
 
     job = await the_job(session, user_id)
     assert (job.status, job.last_error) == ("failed", "JobError: Unknown job kind 'mystery'")
-    assert COUNT_PAGES in HANDLERS
+    assert EXTRACT_TEXT in HANDLERS
 
 
 async def test_two_workers_never_claim_the_same_job(engine: AsyncEngine) -> None:

@@ -16,15 +16,15 @@ from app.core.config import get_settings
 from app.core.db import get_engine, get_sessionmaker
 from app.jobs import queue
 from app.jobs.context import Handler, JobContext, JobError
-from app.jobs.tasks import count_pages
-from app.services.materials import COUNT_PAGES
+from app.jobs.tasks import extract_text
+from app.services.materials import EXTRACT_TEXT
 from app.storage.base import Storage
 from app.storage.local import get_storage
 
 log = logging.getLogger("studysensei.worker")
 
 HANDLERS: Mapping[str, Handler] = {
-    COUNT_PAGES: Handler(run=count_pages.run, on_failure=count_pages.on_failure),
+    EXTRACT_TEXT: Handler(run=extract_text.run, on_failure=extract_text.on_failure),
 }
 
 UNEXPECTED = "Something went wrong while processing this file. It will be retried."
@@ -62,7 +62,10 @@ async def run_once(
             expected = isinstance(exc, JobError)
             if not expected:
                 log.exception("Job %s (%s) failed on attempt %s", job.id, job.kind, job.attempts)
-            retrying = await queue.fail(session, job, f"{type(exc).__name__}: {exc}", now())
+            give_up = isinstance(exc, JobError) and not exc.retry
+            retrying = await queue.fail(
+                session, job, f"{type(exc).__name__}: {exc}", now(), give_up=give_up
+            )
             message = str(exc) if expected else (UNEXPECTED if retrying else GAVE_UP)
             if handler is not None and handler.on_failure is not None:
                 await handler.on_failure(ctx, message, retrying=retrying)

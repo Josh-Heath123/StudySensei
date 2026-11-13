@@ -20,14 +20,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.jobs import queue
-from app.models import Job, Material
+from app.models import Job, Material, MaterialPage
 from app.schemas.materials import MaterialKind, MaterialUpdate
 from app.services.academics.modules import get_module
 from app.services.errors import Conflict, Invalid, NotFound, TooLarge, Unsupported
 from app.services.filetypes import NotAllowed, detect
 from app.storage.base import Storage, blob_key
 
-COUNT_PAGES = "count_pages"
+EXTRACT_TEXT = "extract_text"
 _CHUNK = 1024 * 1024
 
 
@@ -121,7 +121,7 @@ async def upload_material(
 
         # Always (re)write the blob: atomic, and a concurrent delete can't leave a row without one.
         await asyncio.to_thread(storage.put, blob_key(user_id, spooled.sha256), spooled.path)
-        queue.enqueue(session, COUNT_PAGES, {"material_id": str(material.id)}, user_id=user_id)
+        queue.enqueue(session, EXTRACT_TEXT, {"material_id": str(material.id)}, user_id=user_id)
         await session.commit()
         await session.refresh(material)
         return material
@@ -243,7 +243,36 @@ async def retry_material(
         raise Invalid("Only a material that failed can be retried.")
     material.status = "uploaded"
     material.error = None
-    queue.enqueue(session, COUNT_PAGES, {"material_id": str(material.id)}, user_id=user_id)
+    queue.enqueue(session, EXTRACT_TEXT, {"material_id": str(material.id)}, user_id=user_id)
     await session.commit()
     await session.refresh(material)
     return material
+
+
+async def list_pages(
+    session: AsyncSession, material_id: uuid.UUID, *, user_id: uuid.UUID
+) -> list[MaterialPage]:
+    """The material's extracted pages in order (empty until extraction has run)."""
+    await get_material(session, material_id, user_id=user_id)
+    result = await session.scalars(
+        select(MaterialPage)
+        .where(MaterialPage.user_id == user_id, MaterialPage.material_id == material_id)
+        .order_by(MaterialPage.page_number)
+    )
+    return list(result)
+
+
+async def get_page(
+    session: AsyncSession, material_id: uuid.UUID, page_number: int, *, user_id: uuid.UUID
+) -> MaterialPage:
+    await get_material(session, material_id, user_id=user_id)
+    page = await session.scalar(
+        select(MaterialPage).where(
+            MaterialPage.user_id == user_id,
+            MaterialPage.material_id == material_id,
+            MaterialPage.page_number == page_number,
+        )
+    )
+    if page is None:
+        raise NotFound("Page")
+    return page

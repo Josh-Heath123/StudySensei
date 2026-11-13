@@ -85,6 +85,8 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("PATCH", "/materials/{material}", {"title": "Hacked", "allow_ai": True}),
     ("DELETE", "/materials/{material}", None),
     ("POST", "/materials/{material}/retry", None),
+    ("GET", "/materials/{material}/pages", None),
+    ("GET", "/materials/{material}/pages/1", None),
 ]
 
 

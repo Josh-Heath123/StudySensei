@@ -4,6 +4,7 @@ import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -18,6 +19,8 @@ from app.storage.base import blob_key
 from app.storage.local import LocalStorage
 from tests.academics.conftest import Rows
 from tests.materials import samples
+
+FIXTURES = Path(__file__).parents[1] / "fixtures"
 
 PPTX_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 
@@ -59,7 +62,7 @@ async def test_upload_stores_the_file_and_queues_processing(
         assert f.read() == data
     jobs = list(await session.scalars(select(Job).where(Job.user_id == alice.user.id)))
     assert [(j.kind, j.payload, j.status) for j in jobs] == [
-        ("count_pages", {"material_id": body["id"]}, "queued")
+        ("extract_text", {"material_id": body["id"]}, "queued")
     ]
 
 
@@ -243,13 +246,14 @@ async def test_only_a_failed_material_can_be_retried(
     assert retried.status_code == 200
     assert (retried.json()["status"], retried.json()["error"]) == ("uploaded", None)
     jobs = await session.scalars(select(Job.kind).where(Job.user_id == alice.user.id))
-    assert list(jobs) == ["count_pages", "count_pages"]
+    assert list(jobs) == ["extract_text", "extract_text"]
 
 
 async def test_the_worker_makes_an_upload_ready(
     alice_api: AsyncClient, alice: Rows, session: AsyncSession, storage: LocalStorage
 ) -> None:
-    material = (await upload(alice_api, alice.module.id, "deck.pptx", samples.pptx(5))).json()
+    deck = (FIXTURES / "slides.pptx").read_bytes()
+    material = (await upload(alice_api, alice.module.id, "deck.pptx", deck)).json()
 
     @asynccontextmanager
     async def sessions() -> AsyncIterator[AsyncSession]:
@@ -262,7 +266,83 @@ async def test_the_worker_makes_an_upload_ready(
     got = (await alice_api.get(f"/materials/{material['id']}")).json()
     assert (got["status"], got["page_count"], got["error"], got["retrying"]) == (
         "ready",
-        5,
+        3,
         None,
         False,
     )
+    assert got["scanned_page_count"] == 1  # the picture-only slide
+
+
+async def process(session: AsyncSession, storage: LocalStorage) -> None:
+    """Run the worker until the queue is empty."""
+
+    @asynccontextmanager
+    async def sessions() -> AsyncIterator[AsyncSession]:
+        yield session
+
+    later = datetime.now(UTC) + timedelta(hours=1)
+    while await run_once(sessions, storage, now=lambda: later):
+        pass
+
+
+async def test_extracted_pages_can_be_listed_and_read(
+    alice_api: AsyncClient, alice: Rows, session: AsyncSession, storage: LocalStorage
+) -> None:
+    pdf = (FIXTURES / "lecture.pdf").read_bytes()
+    material = (await upload(alice_api, alice.module.id, "lecture.pdf", pdf)).json()
+    path = f"/materials/{material['id']}/pages"
+    assert (await alice_api.get(path)).json() == []  # not extracted yet
+
+    await process(session, storage)
+
+    got = (await alice_api.get(f"/materials/{material['id']}")).json()
+    assert (got["status"], got["page_count"], got["scanned_page_count"]) == ("ready", 3, 1)
+    pages = (await alice_api.get(path)).json()
+    assert [(p["page_number"], p["is_scanned"]) for p in pages] == [
+        (1, False),
+        (2, True),
+        (3, False),
+    ]
+    assert "text" not in pages[0]
+    first = (await alice_api.get(f"{path}/1")).json()
+    assert first["text"].startswith("Week 3: Layered architecture\n")
+    assert first["char_count"] == len(first["text"])
+    assert (await alice_api.get(f"{path}/2")).json()["text"] == ""
+    assert (await alice_api.get(f"{path}/4")).status_code == 404
+    assert (await alice_api.get(f"{path}/0")).status_code == 422
+
+
+async def test_extracting_again_replaces_the_pages(
+    alice_api: AsyncClient, alice: Rows, session: AsyncSession, storage: LocalStorage
+) -> None:
+    deck = (FIXTURES / "slides.pptx").read_bytes()
+    material = (await upload(alice_api, alice.module.id, "slides.pptx", deck)).json()
+    await process(session, storage)
+    row = await session.get(Material, uuid.UUID(material["id"]))
+    assert row is not None
+    row.status = "failed"
+    await session.commit()
+
+    assert (await alice_api.post(f"/materials/{material['id']}/retry")).status_code == 200
+    await process(session, storage)
+
+    pages = (await alice_api.get(f"/materials/{material['id']}/pages")).json()
+    assert [(p["page_number"], p["title"]) for p in pages] == [
+        (1, "Architectural styles"),
+        (2, "Quality attributes"),
+        (3, None),
+    ]
+
+
+async def test_a_password_protected_pdf_fails_with_a_readable_reason(
+    alice_api: AsyncClient, alice: Rows, session: AsyncSession, storage: LocalStorage
+) -> None:
+    pdf = (FIXTURES / "protected.pdf").read_bytes()
+    material = (await upload(alice_api, alice.module.id, "locked.pdf", pdf)).json()
+
+    await process(session, storage)
+
+    got = (await alice_api.get(f"/materials/{material['id']}")).json()
+    assert (got["status"], got["retrying"]) == ("failed", False)
+    assert got["error"] == "The PDF is password-protected. Remove the password and upload it again."
+    assert (await alice_api.get(f"/materials/{material['id']}/pages")).json() == []
