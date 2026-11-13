@@ -4,7 +4,7 @@ import { json, mockApi } from "./mockApi";
 
 type StartBody = components["schemas"]["SessionStart"];
 type EventBody = components["schemas"]["EventIn"];
-type StoredEvent = { id: string; type: string; occurred_at: string };
+type StoredEvent = components["schemas"]["EventOut"];
 type StoredSession = { id: string; events: StoredEvent[] };
 
 /**
@@ -43,7 +43,7 @@ export function fakeSessionServer() {
       if (existing) return reply(existing, 200);
       const session = {
         id: `server-${nextId++}`,
-        events: [{ id: start.id, type: "start", occurred_at: start.occurred_at }],
+        events: [{ id: start.id, type: "start" as const, occurred_at: start.occurred_at }],
       };
       sessions.set(session.id, session);
       return reply(session, 201);
