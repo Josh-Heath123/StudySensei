@@ -9,7 +9,7 @@ export function aModule(overrides: Partial<Module> = {}): Module {
     id: "m1",
     code: "COS330",
     name: "Software Architecture",
-    colour: "#007AFF",
+    colour: "#FF7A3D",
     semester: "2026-S2",
     created_at: "2026-11-12T10:00:00Z",
     updated_at: "2026-11-12T10:00:00Z",
