@@ -5,25 +5,8 @@ import { toIso } from "@/lib/dates";
 import { json, mockApi, noContent, type ApiCall } from "@/test/mockApi";
 import { renderApp } from "@/test/render";
 
-import { aModule, aTopic, roots } from "../fixtures";
+import { aModule, anAssessment, aTopic, roots } from "../fixtures";
 import type { Assessment } from "./api";
-
-function anAssessment(overrides: Partial<Assessment> = {}): Assessment {
-  return {
-    id: "a1",
-    module_id: "m1",
-    title: "Semester test 1",
-    kind: "test",
-    due_at: toIso("2026-11-20", "09:00"),
-    weight: 30,
-    status: "upcoming",
-    notes: null,
-    topic_ids: ["p"],
-    created_at: "2026-11-12T10:00:00Z",
-    updated_at: "2026-11-12T10:00:00Z",
-    ...overrides,
-  };
-}
 
 const TREE = roots(aTopic("p", "Patterns", [aTopic("c", "Creational")]), aTopic("q", "Queues"));
 

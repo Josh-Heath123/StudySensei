@@ -5,24 +5,8 @@ import { toIso } from "@/lib/dates";
 import { json, mockApi, noContent, type ApiCall } from "@/test/mockApi";
 import { renderApp } from "@/test/render";
 
-import { aModule } from "../fixtures";
+import { aModule, aTask } from "../fixtures";
 import type { Task } from "./api";
-
-function aTask(overrides: Partial<Task> = {}): Task {
-  return {
-    id: "t1",
-    module_id: "m1",
-    assessment_id: null,
-    title: "Read chapter 4",
-    due_at: null,
-    status: "todo",
-    completed_at: null,
-    notes: null,
-    created_at: "2026-11-12T10:00:00Z",
-    updated_at: "2026-11-12T10:00:00Z",
-    ...overrides,
-  };
-}
 
 const ASSIGNMENT = {
   id: "a1",

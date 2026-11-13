@@ -1,14 +1,9 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { vi } from "vitest";
-
-import { jsonResponse, renderApp } from "@/test/render";
+import { renderApp, stubHealth } from "@/test/render";
 
 beforeEach(() => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () => jsonResponse({ status: "ok", api: "ok", database: "ok" })),
-  );
+  stubHealth();
 });
 
 test("sidebar links to all six sections", () => {

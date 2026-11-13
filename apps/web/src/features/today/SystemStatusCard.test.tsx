@@ -1,13 +1,8 @@
 import { screen } from "@testing-library/react";
-import { vi } from "vitest";
-
-import { jsonResponse, renderApp } from "@/test/render";
+import { jsonResponse, renderApp, stubHealth } from "@/test/render";
 
 test("shows API and database connected", async () => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () => jsonResponse({ status: "ok", api: "ok", database: "ok" })),
-  );
+  stubHealth();
   renderApp();
 
   expect(await screen.findByLabelText("API: Connected")).toBeInTheDocument();
@@ -15,18 +10,15 @@ test("shows API and database connected", async () => {
 });
 
 test("shows database error when /health returns 503", async () => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () =>
-      jsonResponse(
-        {
-          status: "degraded",
-          api: "ok",
-          database: "error",
-          database_error: "ConnectionRefusedError",
-        },
-        503,
-      ),
+  stubHealth(() =>
+    jsonResponse(
+      {
+        status: "degraded",
+        api: "ok",
+        database: "error",
+        database_error: "ConnectionRefusedError",
+      },
+      503,
     ),
   );
   renderApp();
@@ -37,12 +29,9 @@ test("shows database error when /health returns 503", async () => {
 });
 
 test("shows API unreachable when the request fails", async () => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () => {
-      throw new TypeError("Failed to fetch");
-    }),
-  );
+  stubHealth(() => {
+    throw new TypeError("Failed to fetch");
+  });
   renderApp();
 
   expect(await screen.findByLabelText("API: Not connected")).toBeInTheDocument();
@@ -50,10 +39,7 @@ test("shows API unreachable when the request fails", async () => {
 });
 
 test("treats a dev-proxy error (API stopped) as API unreachable", async () => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () => new Response("Error occurred while trying to proxy", { status: 502 })),
-  );
+  stubHealth(() => new Response("Error occurred while trying to proxy", { status: 502 }));
   renderApp();
 
   expect(await screen.findByLabelText("API: Not connected")).toBeInTheDocument();
@@ -61,12 +47,11 @@ test("treats a dev-proxy error (API stopped) as API unreachable", async () => {
 });
 
 test("calls the API on the page's own origin under /api", async () => {
-  const fetchMock = vi.fn<(request: Request) => Promise<Response>>(async () =>
-    jsonResponse({ status: "ok", api: "ok", database: "ok" }),
-  );
-  vi.stubGlobal("fetch", fetchMock);
+  const fetchMock = stubHealth();
   renderApp();
 
   await screen.findByLabelText("API: Connected");
-  expect(fetchMock.mock.calls[0]![0].url).toBe(`${window.location.origin}/api/health`);
+  const urls = fetchMock.mock.calls.map(([request]) => request.url);
+  expect(urls).toContain(`${window.location.origin}/api/health`);
+  expect(urls.every((url) => url.startsWith(`${window.location.origin}/api/`))).toBe(true);
 });
