@@ -104,6 +104,8 @@ docs/           PRODUCT · ARCHITECTURE · ROADMAP · PROGRESS · decisions/ · 
 - pytest treats module-level functions named `setup_module` / `teardown_module` as hooks. Don't use those names for helpers.
 - On Windows, stopping a background `npm run dev`/`vite`/`uvicorn` task can leave its child process holding the port.
   This sandbox's `netstat -ano` shows listening sockets as `CLOSED` with their PID.
+  uvicorn's `SO_REUSEADDR` lets a second server bind a busy port on Windows while the old one keeps answering,
+  so `npm run dev` connects to :8000 and :5173 first and refuses to start, naming the holder (`scripts/ports.mjs`).
 - The shadcn CLI (every time so far) imports `cn` from an npm package called `cn`; ESLint now rejects that import.
   After `shadcn add`: `npm uninstall -w apps/web cn`, and import `cn` from `@/lib/utils` in the new component.
 
