@@ -55,7 +55,7 @@ export interface paths {
     post?: never;
     /**
      * Delete Module
-     * @description Deletes the module with all its topics, assessments and tasks.
+     * @description Deletes the module with all its topics, assessments, tasks and materials.
      */
     delete: operations["delete_module_modules__module_id__delete"];
     options?: never;
@@ -400,6 +400,77 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/modules/{module_id}/materials": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Materials
+     * @description The module's materials, newest first.
+     */
+    get: operations["list_materials_modules__module_id__materials_get"];
+    put?: never;
+    /**
+     * Upload Material
+     * @description Upload one file (at most 50 MB) to the module and queue it for processing.
+     *
+     *     The same file twice in one module is a 409; a wrong type is a 415.
+     */
+    post: operations["upload_material_modules__module_id__materials_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/materials/{material_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Material */
+    get: operations["get_material_materials__material_id__get"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete Material
+     * @description Delete the material (its file too, unless another of your modules has the same file).
+     */
+    delete: operations["delete_material_materials__material_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Material
+     * @description Change the title, the kind or whether AI may process it.
+     */
+    patch: operations["update_material_materials__material_id__patch"];
+    trace?: never;
+  };
+  "/materials/{material_id}/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Retry Material
+     * @description Queue a failed material for processing again.
+     */
+    post: operations["retry_material_materials__material_id__retry_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -488,6 +559,35 @@ export interface components {
       /** Topic Ids */
       topic_ids?: string[] | null;
     };
+    /** Body_upload_material_modules__module_id__materials_post */
+    Body_upload_material_modules__module_id__materials_post: {
+      /**
+       * File
+       * @description PDF, PPTX, DOCX, MD, TXT, PNG or JPG
+       */
+      file: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind:
+        | "slides"
+        | "notes"
+        | "study_guide"
+        | "tutorial"
+        | "past_paper"
+        | "test"
+        | "assignment"
+        | "outline"
+        | "other";
+      /** Title */
+      title?: string | null;
+      /**
+       * Allow Ai
+       * @default true
+       */
+      allow_ai: boolean;
+    };
     /**
      * EventBatch
      * @description Events to add, in any order. Ids already stored are skipped if unchanged.
@@ -556,6 +656,90 @@ export interface components {
       database: "ok" | "error";
       /** Database Error */
       database_error?: string | null;
+    };
+    /** MaterialOut */
+    MaterialOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Module Id
+       * Format: uuid
+       */
+      module_id: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind:
+        | "slides"
+        | "notes"
+        | "study_guide"
+        | "tutorial"
+        | "past_paper"
+        | "test"
+        | "assignment"
+        | "outline"
+        | "other";
+      /** Title */
+      title: string;
+      /** Original Filename */
+      original_filename: string;
+      /** Content Type */
+      content_type: string;
+      /** Size Bytes */
+      size_bytes: number;
+      /** Sha256 */
+      sha256: string;
+      /** Page Count */
+      page_count: number | null;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "uploaded" | "processing" | "ready" | "failed";
+      /** Error */
+      error: string | null;
+      /** Allow Ai */
+      allow_ai: boolean;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /**
+       * Retrying
+       * @description A failed attempt is waiting to be retried (`error` says why it failed).
+       */
+      readonly retrying: boolean;
+    };
+    /** MaterialUpdate */
+    MaterialUpdate: {
+      /** Title */
+      title?: string | null;
+      /** Kind */
+      kind?:
+        | (
+            | "slides"
+            | "notes"
+            | "study_guide"
+            | "tutorial"
+            | "past_paper"
+            | "test"
+            | "assignment"
+            | "outline"
+            | "other"
+          )
+        | null;
+      /** Allow Ai */
+      allow_ai?: boolean | null;
     };
     /** ModuleCreate */
     ModuleCreate: {
@@ -1947,6 +2131,198 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ModuleSessionSummary"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_materials_modules__module_id__materials_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MaterialOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  upload_material_modules__module_id__materials_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["Body_upload_material_modules__module_id__materials_post"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MaterialOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_material_materials__material_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        material_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MaterialOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_material_materials__material_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        material_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_material_materials__material_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        material_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MaterialUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MaterialOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  retry_material_materials__material_id__retry_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        material_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MaterialOut"];
         };
       };
       /** @description Validation Error */

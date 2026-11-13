@@ -2,6 +2,7 @@
 // its own API (:8001) and web app (:5174). Never touches the dev database or ports.
 // In CI the database comes from a service container, so Docker is skipped.
 import { execSync } from "node:child_process";
+import { rmSync } from "node:fs";
 
 const DB = "studysensei_e2e";
 const DATABASE_URL =
@@ -28,6 +29,9 @@ if (!process.env.CI) {
     run(`docker compose exec -T db psql -U studysensei -d studysensei -c "CREATE DATABASE ${DB}"`);
   }
 }
+
+// Files uploaded by earlier runs (the database is rebuilt below, so they're orphans).
+rmSync(new URL("../data/e2e-materials", import.meta.url), { recursive: true, force: true });
 
 console.log(`Rebuilding ${DB} and seeding the local user…`);
 const api = { DATABASE_URL };

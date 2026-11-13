@@ -1,4 +1,4 @@
-// `npm run dev`: start Postgres, migrate, seed, then run the API and web app together.
+// `npm run dev`: start Postgres, migrate, seed, then run the API, the job worker and the web app.
 // Plain Node so it behaves the same in PowerShell, cmd and Git Bash.
 import { execSync, spawn } from "node:child_process";
 
@@ -27,10 +27,11 @@ const child = spawn(
     "concurrently",
     "--kill-others-on-fail",
     "--names",
-    "api,web",
+    "api,worker,web",
     "--prefix-colors",
-    "blue,magenta",
+    "blue,yellow,magenta",
     '"uv run --directory apps/api uvicorn app.main:app --reload --port 8000"',
+    '"uv run --directory apps/api python -m app.jobs.worker"',
     '"npm run dev -w apps/web"',
   ],
   { stdio: "inherit", shell: true },

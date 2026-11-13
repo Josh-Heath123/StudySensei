@@ -1,4 +1,4 @@
-"""Over HTTP, Bob can't reach Alice's modules, topics, assessments, tasks or study sessions.
+"""Over HTTP, Bob can't reach Alice's modules, topics, assessments, tasks, sessions or materials.
 
 Every request Bob makes with one of Alice's IDs must get exactly the response
 a random, non-existent ID gets, so he can't even tell her rows exist. Afterwards
@@ -10,8 +10,12 @@ from typing import Any
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models import Material
+from app.storage.local import LocalStorage
 from tests.academics.conftest import Rows
+from tests.materials import samples
 
 # A start for POST /sessions; it never gets far enough to be stored.
 START = {"id": str(uuid.uuid4()), "occurred_at": "2026-11-01T08:00:00Z"}
@@ -75,7 +79,37 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
         "/sessions/{my_session}/reflection",
         {"focus_rating": 3, "topic_ratings": [{"topic_id": "{topic}", "confidence": 3}]},
     ),
+    # Materials (uploads into her module are in test_bob_cannot_upload_into_alices_module)
+    ("GET", "/modules/{module}/materials", None),
+    ("GET", "/materials/{material}", None),
+    ("PATCH", "/materials/{material}", {"title": "Hacked", "allow_ai": True}),
+    ("DELETE", "/materials/{material}", None),
+    ("POST", "/materials/{material}/retry", None),
 ]
+
+
+@pytest.fixture
+async def materials(session: AsyncSession, alice: Rows, bob: Rows) -> dict[str, Material]:
+    """One failed (so retryable) material each, straight into the database."""
+    made = {}
+    for name, rows in (("alice", alice), ("bob", bob)):
+        material = Material(
+            user_id=rows.user.id,
+            module_id=rows.module.id,
+            kind="slides",
+            title="Week 1",
+            original_filename="week1.pdf",
+            content_type="application/pdf",
+            size_bytes=10,
+            sha256="b" * 64,
+            status="failed",
+            error="Couldn't read it.",
+            allow_ai=False,
+        )
+        session.add(material)
+        made[name] = material
+    await session.commit()
+    return made
 
 
 def fill(value: Any, ids: dict[str, str]) -> Any:
@@ -88,7 +122,9 @@ def fill(value: Any, ids: dict[str, str]) -> Any:
     return value
 
 
-def ids_of(alice: Rows, bob: Rows) -> tuple[dict[str, str], dict[str, str]]:
+def ids_of(
+    alice: Rows, bob: Rows, materials: dict[str, Material]
+) -> tuple[dict[str, str], dict[str, str]]:
     """(Alice's real IDs, the same keys with random IDs). Bob's own IDs are in both."""
     mine = {
         "my_module": str(bob.module.id),
@@ -96,6 +132,7 @@ def ids_of(alice: Rows, bob: Rows) -> tuple[dict[str, str], dict[str, str]]:
         "my_assessment": str(bob.assessment.id),
         "my_task": str(bob.task.id),
         "my_session": str(bob.study_session.id),
+        "my_material": str(materials["bob"].id),
     }
     hers = {
         "module": str(alice.module.id),
@@ -103,6 +140,7 @@ def ids_of(alice: Rows, bob: Rows) -> tuple[dict[str, str], dict[str, str]]:
         "assessment": str(alice.assessment.id),
         "task": str(alice.task.id),
         "session": str(alice.study_session.id),
+        "material": str(materials["alice"].id),
     }
     missing = {key: str(uuid.uuid4()) for key in hers}
     return {**hers, **mine}, {**missing, **mine}
@@ -118,6 +156,7 @@ async def snapshot(api: AsyncClient, rows: Rows) -> tuple[Any, ...]:
         (await api.get(f"/modules/{rows.module.id}/sessions")).json(),
         (await api.get(f"/sessions/{rows.study_session.id}")).json(),
         (await api.get("/sessions/active")).json(),
+        (await api.get(f"/modules/{rows.module.id}/materials")).json(),
     )
 
 
@@ -127,12 +166,13 @@ async def test_bob_gets_the_same_404_as_for_a_missing_id(
     bob_api: AsyncClient,
     alice: Rows,
     bob: Rows,
+    materials: dict[str, Material],
     method: str,
     path: str,
     body: dict[str, Any] | None,
 ) -> None:
     before = (await snapshot(alice_api, alice), await snapshot(bob_api, bob))
-    hers, missing = ids_of(alice, bob)
+    hers, missing = ids_of(alice, bob, materials)
 
     attempt = await bob_api.request(method, fill(path, hers), json=fill(body, hers))
     baseline = await bob_api.request(method, fill(path, missing), json=fill(body, missing))
@@ -211,3 +251,22 @@ async def test_reusing_alices_event_id_neither_fails_nor_leaks(
 
     assert response.status_code == 201
     assert response.json()["events"][0]["id"] == str(alice.start_event_id)
+
+
+async def test_bob_cannot_upload_into_alices_module(
+    bob_api: AsyncClient, alice: Rows, bob: Rows, storage: LocalStorage
+) -> None:
+    def attempt(module_id: str) -> Any:
+        return bob_api.post(
+            f"/modules/{module_id}/materials",
+            files={"file": ("planted.pdf", samples.pdf(1))},
+            data={"kind": "slides"},
+        )
+
+    hers = await attempt(str(alice.module.id))
+    baseline = await attempt(str(uuid.uuid4()))
+
+    assert hers.status_code == 404
+    assert (hers.status_code, hers.json()) == (baseline.status_code, baseline.json())
+    assert (await bob_api.get(f"/modules/{bob.module.id}/materials")).json() == []
+    assert not storage.root.exists() or not any(p.is_file() for p in storage.root.rglob("*"))

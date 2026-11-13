@@ -1,8 +1,9 @@
 """HTTP test clients that act as a given user, against the rolled-back test session."""
 
 import uuid
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from pathlib import Path
 
 import pytest
 from fastapi import Request
@@ -13,6 +14,7 @@ from app.api.deps import get_current_user
 from app.core.db import get_session
 from app.main import app
 from app.models import User
+from app.storage.local import LocalStorage, get_storage
 from tests.academics.conftest import Rows, make_rows
 
 # Only the test app reads this header; the real get_current_user ignores it.
@@ -69,3 +71,12 @@ async def alice(session: AsyncSession, user_a: User) -> Rows:
 @pytest.fixture
 async def bob(session: AsyncSession, user_b: User) -> Rows:
     return await make_rows(session, user_b)
+
+
+@pytest.fixture(autouse=True)
+def storage(tmp_path: Path) -> Iterator[LocalStorage]:
+    """Uploaded files go to a temporary folder, never data/materials."""
+    store = LocalStorage(tmp_path / "storage")
+    app.dependency_overrides[get_storage] = lambda: store
+    yield store
+    app.dependency_overrides.pop(get_storage, None)

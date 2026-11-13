@@ -8,6 +8,8 @@ dependencies = [
     "asyncpg>=0.32.0",
     "fastapi>=0.162.5",
     "pydantic-settings>=2.16.2",
+    "pypdfium2>=5.15.2",
+    "python-multipart>=0.0.33",
     "sqlalchemy[asyncio]>=2.1.8",
     "uvicorn[standard]>=0.54.0",
 ]
@@ -41,6 +43,11 @@ strict = true
 python_version = "3.12"
 files = ["app", "tests", "scripts", "alembic"]
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# pypdfium2 ships no type information.
+module = ["pypdfium2", "pypdfium2.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

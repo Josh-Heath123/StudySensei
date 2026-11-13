@@ -1,0 +1,104 @@
+"""The background worker: run queued jobs one at a time.
+
+Run it with ``uv run python -m app.jobs.worker`` (``npm run dev`` starts it).
+Several workers can run at once: ``claim_next`` uses ``FOR UPDATE SKIP LOCKED``.
+"""
+
+import asyncio
+import logging
+from collections.abc import Callable, Mapping
+from contextlib import AbstractAsyncContextManager
+from datetime import UTC, datetime
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import get_settings
+from app.core.db import get_engine, get_sessionmaker
+from app.jobs import queue
+from app.jobs.context import Handler, JobContext, JobError
+from app.jobs.tasks import count_pages
+from app.services.materials import COUNT_PAGES
+from app.storage.base import Storage
+from app.storage.local import get_storage
+
+log = logging.getLogger("studysensei.worker")
+
+HANDLERS: Mapping[str, Handler] = {
+    COUNT_PAGES: Handler(run=count_pages.run, on_failure=count_pages.on_failure),
+}
+
+UNEXPECTED = "Something went wrong while processing this file. It will be retried."
+GAVE_UP = "Something went wrong while processing this file."
+
+SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
+async def run_once(
+    sessions: SessionFactory,
+    storage: Storage,
+    *,
+    now: Callable[[], datetime] = _now,
+    handlers: Mapping[str, Handler] = HANDLERS,
+) -> bool:
+    """Claim and run one due job. Returns False if there was nothing to do."""
+    async with sessions() as session:
+        job = await queue.claim_next(session, now())
+    if job is None:
+        return False
+
+    handler = handlers.get(job.kind)
+    async with sessions() as session:
+        ctx = JobContext(session, job, storage)
+        try:
+            if handler is None:
+                raise JobError(f"Unknown job kind {job.kind!r}")
+            await handler.run(ctx)
+        except Exception as exc:
+            await session.rollback()
+            expected = isinstance(exc, JobError)
+            if not expected:
+                log.exception("Job %s (%s) failed on attempt %s", job.id, job.kind, job.attempts)
+            retrying = await queue.fail(session, job, f"{type(exc).__name__}: {exc}", now())
+            message = str(exc) if expected else (UNEXPECTED if retrying else GAVE_UP)
+            if handler is not None and handler.on_failure is not None:
+                await handler.on_failure(ctx, message, retrying=retrying)
+        else:
+            await queue.complete(session, job, now())
+            log.info("Job %s (%s) done", job.id, job.kind)
+    return True
+
+
+async def main() -> None:
+    settings = get_settings()
+    storage = get_storage()
+    sessions = get_sessionmaker()
+    idle = settings.worker_poll_seconds
+    log.info("Worker started; polling every %.1fs", idle)
+    failures = 0
+    try:
+        while True:
+            try:
+                ran = await run_once(sessions, storage)
+                failures = 0
+            except Exception:
+                # The database is down or restarting: wait longer each time, up to a minute.
+                failures += 1
+                log.exception("Worker loop error (%s in a row)", failures)
+                await asyncio.sleep(min(60.0, idle * 2**failures))
+                continue
+            if not ran:
+                await asyncio.sleep(idle)
+    finally:
+        await get_engine().dispose()
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        log.info("Worker stopped")

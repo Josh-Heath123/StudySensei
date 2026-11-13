@@ -1,12 +1,16 @@
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 
 from app.api.deps import CurrentUser
 from app.core.db import SessionDep
 from app.models import Module
 from app.schemas.academics import ModuleCreate, ModuleOut, ModuleUpdate
+from app.services import materials
 from app.services.academics import modules
+from app.storage.base import Storage
+from app.storage.local import get_storage
 
 router = APIRouter(prefix="/modules", tags=["modules"])
 
@@ -34,6 +38,13 @@ async def update_module(
 
 
 @router.delete("/{module_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_module(module_id: uuid.UUID, session: SessionDep, user: CurrentUser) -> None:
-    """Deletes the module with all its topics, assessments and tasks."""
+async def delete_module(
+    module_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    storage: Annotated[Storage, Depends(get_storage)],
+) -> None:
+    """Deletes the module with all its topics, assessments, tasks and materials."""
+    # Materials first, so their files go too (the database cascade can't delete files).
+    await materials.delete_module_materials(session, storage, module_id, user_id=user.id)
     await modules.delete_module(session, module_id, user_id=user.id)
