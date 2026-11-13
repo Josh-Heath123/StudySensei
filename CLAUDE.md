@@ -41,6 +41,7 @@ API only (`cd apps/api`):
 - `uv run alembic revision --autogenerate -m "add modules"` for a new migration (check the file it writes)
 - `uv run uvicorn app.main:app --reload`
 - `uv run python -m app.jobs.worker` runs the job worker alone (uploads stay "Waiting to be processed" without it)
+- `uv run python -m tests.fixtures.make_fixtures` regenerates the small synthetic PDF/PPTX/DOCX test files (never use course material as fixtures)
 
 Web only: `npm run test:watch -w apps/web`, `npm run build -w apps/web`.
 
@@ -107,6 +108,10 @@ docs/           PRODUCT · ARCHITECTURE · DESIGN · ROADMAP · PROGRESS · deci
 
 - **Stop hook:** when `git status --porcelain` shows changes, `scripts/stop-check.mjs` runs `npm run check`. A failure
   blocks the session from finishing once; if it still fails after that retry, the session stops with a warning.
+- **Check lock:** `npm run check` runs through `scripts/with-lock.mjs`, which holds `.locks/check.lock` (gitignored, the PID).
+  A second check waits for the first (up to 10 minutes; the hook's timeout is 1500 s to allow for that), because two
+  runs at once would both rebuild `studysensei_test`. A lock whose PID is gone is removed. Run the steps without the lock
+  with `npm run check:steps`.
 - **Allowlisted without prompts:** `uv run`, `npm run`, `git status/diff/log/add/commit`. Everything else (push, tag,
   reset, checkout…) still asks.
 

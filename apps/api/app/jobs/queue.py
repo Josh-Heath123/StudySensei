@@ -79,9 +79,11 @@ async def complete(session: AsyncSession, job: Job, now: datetime) -> None:
     await session.commit()
 
 
-async def fail(session: AsyncSession, job: Job, error: str, now: datetime) -> bool:
+async def fail(
+    session: AsyncSession, job: Job, error: str, now: datetime, *, give_up: bool = False
+) -> bool:
     """Record a failed attempt. Returns True if the job will be retried. Commits."""
-    retry = job.attempts < job.max_attempts
+    retry = not give_up and job.attempts < job.max_attempts
     values: dict[str, Any] = {"locked_at": None, "last_error": error[:MAX_ERROR_CHARS]}
     if retry:
         values |= {"status": "queued", "run_after": now + backoff(job.attempts)}

@@ -84,7 +84,7 @@ the web app calls the API through the typed `openapi-fetch` client. CI fails if 
 | Assessments | `GET/POST /modules/{id}/assessments`, `GET /assessments?status=` (all modules), `GET/PATCH/DELETE /assessments/{id}` (responses include `topic_ids`; sending `topic_ids` replaces the whole set) |
 | Tasks | `GET/POST /modules/{id}/tasks`, `GET /tasks?status=` (all modules), `GET/PATCH/DELETE /tasks/{id}` (`status: "done"` sets `completed_at`) |
 | Sessions | `POST /sessions`, `GET /sessions/active`, `GET/DELETE /sessions/{id}`, `POST /sessions/{id}/events`, `PUT /sessions/{id}/reflection`, `GET /modules/{id}/sessions?limit=&offset=` (a page `{items, total, limit, offset}`: the open session first, then newest first; limit 1–100, default 20), `GET /modules/{id}/sessions/summary?week_start=` (session count and active seconds, all time and since `week_start`) |
-| Materials | `POST /modules/{id}/materials` (multipart: `file`, `kind`, `title?`, `allow_ai`; 413 over 50 MB, 415 wrong type, 409 same file in the module), `GET /modules/{id}/materials`, `GET/PATCH/DELETE /materials/{id}` (PATCH: title, kind, allow_ai), `POST /materials/{id}/retry` (failed only) |
+| Materials | `POST /modules/{id}/materials` (multipart: `file`, `kind`, `title?`, `allow_ai`; 413 over 50 MB, 415 wrong type, 409 same file in the module), `GET /modules/{id}/materials`, `GET/PATCH/DELETE /materials/{id}` (PATCH: title, kind, allow_ai), `POST /materials/{id}/retry` (failed only), `GET /materials/{id}/pages` (page number, title, char count, is_scanned), `GET /materials/{id}/pages/{n}` (adds the text) |
 
 Notes on these endpoints:
 - A module's own lists live under `/modules/{id}/…` and return 404 if the module isn't yours. The top-level
@@ -119,7 +119,7 @@ Derived tables can always be rebuilt from source tables.
 | --- | --- | --- |
 | People and settings | `users`, `ai_credentials`, `consents`, `push_subscriptions` | Keys Fernet-encrypted; consent per feature with timestamps |
 | Academic structure | `modules`, `topics` (tree via `parent_id`), `assessments`, `assessment_topics`, `tasks` | `topics.source` is `ai` or `user`; user edits never overwritten |
-| Materials | `materials`, `chunks` (text, page range, `embedding vector(384)`, `tsv tsvector`), `chunk_topics` | `materials.kind`: slides, notes, study_guide, tutorial, past_paper, test, assignment, outline, other; `status`, `error`, `page_count`, `allow_ai`; `UNIQUE (module_id, sha256)` |
+| Materials | `materials`, `material_pages` (text per page, `is_scanned`), `chunks` (text, page range, `embedding vector(384)`, `tsv tsvector`), `chunk_topics` | `materials.kind`: slides, notes, study_guide, tutorial, past_paper, test, assignment, outline, other; `status`, `error`, `page_count`, `allow_ai`; `UNIQUE (module_id, sha256)` |
 | Past papers | `past_questions`, `past_question_topics` | Profile computed by queries, never stored as AI output |
 | Planning | `availability_rules`, `availability_exceptions`, `plan_blocks` | `plan_version` on each block |
 | Sessions | `study_sessions`, `session_events`, `session_minutes` | No images or audio, ever |
@@ -192,7 +192,17 @@ Scoping by `user_id` is enforced twice: by the services and by Postgres.
    - **Status:** `uploaded` → `processing` → `ready`, or `failed` with a readable reason once retries run out
      (retrying meanwhile).
    - **`allow_ai`:** each material has this flag (default on); AI steps skip materials where it is off.
-2. **Extract:** text per page or slide, with titles and speaker notes. Pages with no text layer are flagged as scanned.
+2. **Extract** (`extract_text` job, `app/services/extraction.py`): text per page into `material_pages`.
+   - **Readers:**
+     - PDF pages (pypdfium2)
+     - PPTX slides: title, body text and tables, then "Speaker notes:"; one page per slide
+     - DOCX, MD and TXT: split at headings, or at a paragraph boundary after about 800 words; DOCX tables as "a | b" rows
+     - PNG/JPG: one empty page
+   - **Scanned:** a page with fewer than 20 non-space characters; `materials.scanned_page_count` counts them for the later
+     vision step.
+   - **Failures:** damaged or password-protected files fail at once (`JobError(retry=False)`) with a readable reason;
+     library errors never reach the student.
+   - **Re-runs:** re-extracting replaces a material's pages.
 3. **Chunk:** along page and slide boundaries, ~400–800 tokens, keeping the page reference.
 4. **Index:** local embeddings plus `tsvector`.
 5. **Understand (Flash):** topics per material, merged into the module tree; chunks linked by similarity, then user review.

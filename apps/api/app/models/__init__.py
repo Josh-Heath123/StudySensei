@@ -3,7 +3,7 @@
 from app.models.academics import Assessment, AssessmentTopic, Module, Task, Topic
 from app.models.base import Base
 from app.models.jobs import Job
-from app.models.materials import Material
+from app.models.materials import Material, MaterialPage
 from app.models.sessions import SessionEvent, SessionTopicRating, StudySession
 from app.models.user import User
 
@@ -13,6 +13,7 @@ __all__ = [
     "Base",
     "Job",
     "Material",
+    "MaterialPage",
     "Module",
     "SessionEvent",
     "SessionTopicRating",

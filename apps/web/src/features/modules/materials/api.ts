@@ -90,3 +90,33 @@ export function useRetryMaterial(moduleId: string) {
     unwrap(api.POST("/materials/{material_id}/retry", { params: { path: { material_id: id } } })),
   );
 }
+
+export type PageSummary = components["schemas"]["PageSummary"];
+export type Page = components["schemas"]["PageOut"];
+
+/** A material's extracted pages, without their text. */
+export function usePages(materialId: string) {
+  return useQuery({
+    queryKey: ["materials", "pages", materialId],
+    queryFn: () =>
+      unwrap(
+        api.GET("/materials/{material_id}/pages", {
+          params: { path: { material_id: materialId } },
+        }),
+      ),
+  });
+}
+
+/** One page's extracted text. */
+export function usePage(materialId: string, pageNumber: number | null) {
+  return useQuery({
+    queryKey: ["materials", "pages", materialId, pageNumber],
+    enabled: pageNumber !== null,
+    queryFn: () =>
+      unwrap(
+        api.GET("/materials/{material_id}/pages/{page_number}", {
+          params: { path: { material_id: materialId, page_number: pageNumber ?? 1 } },
+        }),
+      ),
+  });
+}

@@ -26,6 +26,8 @@ import {
   titleFrom,
   type MaterialKind,
 } from "./kinds";
+import { PagesDialog } from "./PagesDialog";
+import { pageDetails, statusText } from "./status";
 
 type Staged = {
   key: string;
@@ -284,28 +286,19 @@ function StagedRow({
   );
 }
 
-function statusText(material: Material): { text: string; tone: "muted" | "ink" | "danger" } {
-  if (material.status === "failed") return { text: `Failed: ${material.error}`, tone: "danger" };
-  if (material.retrying) return { text: `Retrying: ${material.error}`, tone: "muted" };
-  if (material.status === "ready") return { text: "Ready", tone: "ink" };
-  if (material.status === "processing") return { text: "Processing…", tone: "muted" };
-  return { text: "Waiting to be processed…", tone: "muted" };
-}
-
 function MaterialRow({ material, moduleId }: { material: Material; moduleId: string }) {
   const update = useUpdateMaterial(moduleId);
   const retry = useRetryMaterial(moduleId);
   const remove = useDeleteMaterial(moduleId);
   const [deleting, setDeleting] = useState(false);
+  const [viewing, setViewing] = useState(false);
   const status = statusText(material);
   const details = [
     KIND_LABELS[material.kind],
     material.original_filename,
     formatSize(material.size_bytes),
-    material.page_count !== null
-      ? `${material.page_count} ${material.page_count === 1 ? "page" : "pages"}`
-      : null,
-  ].filter(Boolean);
+    ...pageDetails(material),
+  ];
 
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3" aria-label={material.title}>
@@ -339,6 +332,11 @@ function MaterialRow({ material, moduleId }: { material: Material; moduleId: str
         />
         Allow AI
       </label>
+      {material.status === "ready" && (
+        <Button variant="outline" size="sm" onClick={() => setViewing(true)}>
+          View text
+        </Button>
+      )}
       {material.status === "failed" && (
         <Button
           variant="outline"
@@ -357,6 +355,7 @@ function MaterialRow({ material, moduleId }: { material: Material; moduleId: str
       >
         <Trash2 aria-hidden />
       </Button>
+      {viewing && <PagesDialog material={material} onClose={() => setViewing(false)} />}
       <ConfirmDialog
         open={deleting}
         onOpenChange={setDeleting}

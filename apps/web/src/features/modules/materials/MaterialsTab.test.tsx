@@ -19,6 +19,7 @@ function aMaterial(overrides: Partial<Material> = {}): Material {
     size_bytes: 2 * 1024 * 1024,
     sha256: "a".repeat(64),
     page_count: null,
+    scanned_page_count: null,
     status: "uploaded",
     error: null,
     retrying: false,
@@ -112,12 +113,13 @@ test("uploads each file as multipart with its kind, title and AI flag, then foll
     // The worker picks it up; the list refreshes every 2 s while anything is in flight.
     list[0] = aMaterial({ ...list[0], status: "processing" });
     await act(() => vi.advanceTimersByTimeAsync(2000));
-    expect(within(uploaded).getByRole("status")).toHaveTextContent("Processing…");
+    expect(within(uploaded).getByRole("status")).toHaveTextContent("Extracting text…");
 
-    list[0] = aMaterial({ ...list[0], status: "ready", page_count: 12 });
+    list[0] = aMaterial({ ...list[0], status: "ready", page_count: 12, scanned_page_count: 4 });
     await act(() => vi.advanceTimersByTimeAsync(2000));
-    expect(within(uploaded).getByRole("status")).toHaveTextContent("Ready");
+    expect(within(uploaded).getByRole("status")).toHaveTextContent("Ready · 4 of 12 pages scanned");
     expect(uploaded).toHaveTextContent("12 pages");
+    expect(uploaded).toHaveTextContent("4 scanned");
 
     // Nothing in flight: no more polling.
     const before = calls.length;
@@ -148,7 +150,7 @@ test("a duplicate stays staged with the reason", async () => {
 
 test("the AI switch, retry and delete act on the material", async () => {
   const list = [
-    aMaterial({ id: "ok", title: "Week 1", status: "ready", page_count: 1 }),
+    aMaterial({ id: "ok", title: "Week 1", status: "ready", page_count: 1, scanned_page_count: 0 }),
     aMaterial({
       id: "bad",
       title: "Scanned memo",
@@ -208,4 +210,46 @@ test("the AI switch, retry and delete act on the material", async () => {
   await waitFor(() =>
     expect(calls.some((c) => c.method === "DELETE" && c.path === "/materials/ok")).toBe(true),
   );
+});
+
+test("View text opens the extracted text a page at a time", async () => {
+  const material = aMaterial({ status: "ready", page_count: 3, scanned_page_count: 1 });
+  const pages = [
+    { page_number: 1, title: "Layered architecture", char_count: 40, is_scanned: false },
+    { page_number: 2, title: null, char_count: 0, is_scanned: true },
+    { page_number: 3, title: "Pipes and filters", char_count: 30, is_scanned: false },
+  ];
+  const text: Record<string, string> = {
+    "1": "Week 3: Layered architecture\nEach layer…",
+    "2": "",
+    "3": "Pipes and filters\nFilters transform…",
+  };
+  serve([material], {
+    "GET /materials/:id/pages": () => pages,
+    "GET /materials/:id/pages/:n": ({ params }) => ({
+      ...pages[Number(params.n) - 1],
+      text: text[params.n!],
+    }),
+  });
+  openTab();
+  const user = userEvent.setup();
+
+  const row = await screen.findByRole("listitem", { name: "Week 3 slides" });
+  await user.click(within(row).getByRole("button", { name: "View text" }));
+
+  const dialog = await screen.findByRole("dialog", { name: "Week 3 slides" });
+  const first = await within(dialog).findByRole("region", { name: "Page 1 text" });
+  expect(await within(first).findByText(/Each layer…/)).toBeInTheDocument();
+  expect(within(dialog).getByRole("button", { name: /Page 1/ })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+
+  await user.click(within(dialog).getByRole("button", { name: /Page 2/ }));
+  const second = await within(dialog).findByRole("region", { name: "Page 2 text" });
+  expect(await within(second).findByText(/No text on this page/)).toBeInTheDocument();
+  expect(within(dialog).getByRole("button", { name: /Page 2/ })).toHaveTextContent("Scanned");
+
+  await user.click(within(dialog).getByRole("button", { name: /Page 3/ }));
+  expect(await within(dialog).findByText(/Filters transform…/)).toBeInTheDocument();
 });

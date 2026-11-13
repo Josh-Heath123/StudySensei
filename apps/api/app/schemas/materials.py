@@ -41,6 +41,8 @@ class MaterialOut(BaseModel):
     sha256: str
     # Null when the format has no pages (MD, TXT) or it isn't known yet.
     page_count: int | None
+    # Pages with (almost) no text layer; a later vision step reads them. Null until extracted.
+    scanned_page_count: int | None
     status: MaterialStatus
     # Why processing failed, in words safe to show the student.
     error: str | None
@@ -53,3 +55,20 @@ class MaterialOut(BaseModel):
     def retrying(self) -> bool:
         """A failed attempt is waiting to be retried (`error` says why it failed)."""
         return self.status == "processing" and self.error is not None
+
+
+class PageSummary(BaseModel):
+    """A page in the list (no text): for choosing one to open."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    page_number: int
+    title: str | None
+    char_count: int
+    is_scanned: bool
+
+
+class PageOut(PageSummary):
+    """One page's extracted text, as stored."""
+
+    text: str

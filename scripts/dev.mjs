@@ -30,7 +30,9 @@ const child = spawn(
     "api,worker,web",
     "--prefix-colors",
     "blue,yellow,magenta",
-    '"uv run --directory apps/api uvicorn app.main:app --reload --port 8000"',
+    // --reload-dir app: watch only the code. Watching .venv restarted the API mid
+    // `uv sync` (and could crash with WinError 5 on Windows).
+    '"uv run --directory apps/api uvicorn app.main:app --reload --reload-dir app --port 8000"',
     '"uv run --directory apps/api python -m app.jobs.worker"',
     '"npm run dev -w apps/web"',
   ],
