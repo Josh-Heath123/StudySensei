@@ -1808,7 +1808,7 @@
             "type": "string",
             "pattern": "^#[0-9A-Fa-f]{6}$",
             "title": "Colour",
-            "default": "#007AFF"
+            "default": "#FF7A3D"
           },
           "semester": {
             "anyOf": [
