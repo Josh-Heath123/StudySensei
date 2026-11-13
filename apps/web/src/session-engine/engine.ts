@@ -56,6 +56,8 @@ export type Snapshot = {
   startId: string;
   /** The server's id, once the start has been accepted. */
   sessionId: string | null;
+  /** How many timer events the session has (the sample size behind its totals). */
+  eventCount: number;
   state: TimerState;
   startedAt: number;
   totals: Totals;
@@ -90,6 +92,8 @@ export function createSessionEngine({ now, newId, store, plan = DEFAULT_PLAN }: 
   // When the page was last seen running (the previous tick), and the last heartbeat.
   let lastTick: number | null = null;
   let lastBeat = -Infinity;
+  // The server id, kept after the outbox forgets an ended, synced session.
+  let knownSessionId: string | null = null;
 
   const isOpen = () => timeline !== null && timeline.state !== "ended";
 
@@ -108,6 +112,7 @@ export function createSessionEngine({ now, newId, store, plan = DEFAULT_PLAN }: 
 
   async function flush(): Promise<FlushResult> {
     const result = await flushOutbox(store);
+    if (startId !== null) knownSessionId = serverSessionId(store, startId) ?? knownSessionId;
     if (startId !== null && timeline?.state === "ended" && result.status === "synced") {
       forgetSession(store, startId);
     }
@@ -145,6 +150,7 @@ export function createSessionEngine({ now, newId, store, plan = DEFAULT_PLAN }: 
       const at = now();
       const id = newId();
       startId = id;
+      knownSessionId = null;
       events = [];
       away = null;
       append([{ id, type: "start", occurredAt: at }]);
@@ -175,6 +181,7 @@ export function createSessionEngine({ now, newId, store, plan = DEFAULT_PLAN }: 
      */
     restore(server: ServerSession | null): AwayPrompt | null {
       const at = now();
+      knownSessionId = null;
       let base: NewEvent[];
       if (server !== null) {
         const start = server.events.find((e) => e.type === "start");
@@ -258,7 +265,8 @@ export function createSessionEngine({ now, newId, store, plan = DEFAULT_PLAN }: 
       const at = now();
       return {
         startId,
-        sessionId: serverSessionId(store, startId) ?? null,
+        sessionId: serverSessionId(store, startId) ?? knownSessionId,
+        eventCount: events.length,
         state: timeline.state,
         startedAt: timeline.startedAt,
         totals: totalsAt(timeline, at),
