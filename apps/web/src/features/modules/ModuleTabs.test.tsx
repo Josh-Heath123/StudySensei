@@ -12,6 +12,14 @@ function api() {
     "GET /modules/:id/topics": () => [],
     "GET /modules/:id/assessments": () => [],
     "GET /modules/:id/tasks": () => [],
+    "GET /sessions/active": () => null,
+    "GET /modules/:id/sessions": () => ({ items: [], total: 0, limit: 20, offset: 0 }),
+    "GET /modules/:id/sessions/summary": () => ({
+      session_count: 0,
+      active_seconds: 0,
+      week_start: "2026-11-09T00:00:00Z",
+      week_active_seconds: 0,
+    }),
   });
 }
 
@@ -31,6 +39,9 @@ test("opens on Assessments and switches tabs", async () => {
 
   await user.click(screen.getByRole("tab", { name: "Topics" }));
   expect(await screen.findByRole("heading", { name: "Topics" })).toBeInTheDocument();
+
+  await user.click(screen.getByRole("tab", { name: "Sessions" }));
+  expect(await screen.findByRole("heading", { name: "Sessions" })).toBeInTheDocument();
 });
 
 test("?tab= opens that tab directly", async () => {
