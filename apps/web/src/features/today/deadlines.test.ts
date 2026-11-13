@@ -1,7 +1,7 @@
 import { toIso } from "@/lib/dates";
 
 import { aModule, anAssessment, aTask } from "../modules/fixtures";
-import { buildDeadlines } from "./deadlines";
+import { buildDeadlines, countdowns } from "./deadlines";
 
 // Friday 13 November 2026, 10:00 local time.
 const NOW = new Date(2026, 10, 13, 10, 0);
@@ -68,4 +68,36 @@ test("undated items aren't deadlines; undated tasks are counted", () => {
 
 test("nothing at all gives no groups", () => {
   expect(buildDeadlines([], [], MODULES, NOW)).toEqual({ groups: [], undatedTasks: 0 });
+});
+
+describe("countdowns", () => {
+  const assessments = [
+    anAssessment({ id: "exam", title: "Exam", due_at: at(27, "09:00") }),
+    anAssessment({ id: "late", title: "Missed test", due_at: at(12, "09:00") }),
+    anAssessment({ id: "a2", title: "Assignment 2", module_id: "m2", due_at: at(13, "23:59") }),
+    anAssessment({ id: "st", title: "Semester test", due_at: at(14, "08:00") }),
+    anAssessment({ id: "p", title: "Project", due_at: at(20, "23:59") }),
+    anAssessment({ id: "none", title: "Undated", due_at: null }),
+  ];
+
+  it("gives the next three upcoming assessments with whole days to go", () => {
+    expect(
+      countdowns(assessments, MODULES, NOW).map((c) => [c.title, c.days, c.module.code]),
+    ).toEqual([
+      ["Assignment 2", 0, "COS301"],
+      ["Semester test", 1, "COS330"],
+      ["Project", 7, "COS330"],
+    ]);
+  });
+
+  it("leaves out overdue and undated ones", () => {
+    const titles = countdowns(assessments, MODULES, NOW, 10).map((c) => c.title);
+    expect(titles).not.toContain("Missed test");
+    expect(titles).not.toContain("Undated");
+    expect(titles).toHaveLength(4);
+  });
+
+  it("is empty when nothing is coming up", () => {
+    expect(countdowns([], MODULES, NOW)).toEqual([]);
+  });
 });

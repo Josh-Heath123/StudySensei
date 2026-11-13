@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card";
+import { ModuleBadge } from "@/ui/module-badge";
 
 import { useModules } from "../modules/api";
 import { useUpdateAssessment } from "../modules/assessments/api";
@@ -32,12 +33,12 @@ export function DeadlinesCard() {
   let body;
   if (failed) {
     body = (
-      <p role="alert" className="text-destructive text-sm">
+      <p role="alert" className="text-danger text-sm">
         Couldn't load deadlines: {failed.error?.message}
       </p>
     );
   } else if (!ready) {
-    body = <p className="text-muted-foreground text-sm">Loading…</p>;
+    body = <p className="text-muted text-sm">Loading…</p>;
   } else if (modules.data.length === 0) {
     body = (
       <EmptyState
@@ -49,7 +50,7 @@ export function DeadlinesCard() {
   } else {
     const { groups, undatedTasks } = buildDeadlines(assessments.data, tasks.data, modules.data);
     const undatedNote = undatedTasks > 0 && (
-      <p className="text-muted-foreground mt-4 text-xs">
+      <p className="text-muted mt-4 text-xs">
         {undatedTasks === 1
           ? "1 open task has no due date."
           : `${undatedTasks} open tasks have no due date.`}
@@ -73,13 +74,13 @@ export function DeadlinesCard() {
                 <h3
                   id={`deadlines-${group.key}`}
                   className={cn(
-                    "mb-1.5 text-xs font-semibold tracking-wide uppercase",
-                    group.key === "overdue" ? "text-destructive" : "text-muted-foreground",
+                    "type-label mb-2",
+                    group.key === "overdue" ? "text-danger" : "text-muted",
                   )}
                 >
                   {group.label} · {group.items.length}
                 </h3>
-                <ul aria-label={group.label} className="divide-y rounded-lg border">
+                <ul aria-label={group.label} className="divide-line border-line divide-y border-y">
                   {group.items.map((item) => (
                     <DeadlineRow
                       key={item.key}
@@ -113,7 +114,7 @@ export function DeadlinesCard() {
       </CardHeader>
       <CardContent>
         {error && (
-          <p role="alert" className="text-destructive mb-3 text-sm">
+          <p role="alert" className="text-danger mb-3 text-sm">
             {error}
           </p>
         )}
@@ -125,9 +126,9 @@ export function DeadlinesCard() {
 
 function EmptyState({ title, text, action }: { title: string; text: string; action: string }) {
   return (
-    <div className="rounded-lg border border-dashed p-6 text-center">
-      <p className="font-medium">{title}</p>
-      <p className="text-muted-foreground mx-auto mt-1 max-w-md text-sm">{text}</p>
+    <div className="border-line rounded-lg border-2 p-6">
+      <p className="font-semibold">{title}</p>
+      <p className="text-muted mt-1 max-w-md">{text}</p>
       <Button asChild variant="outline" className="mt-4">
         <Link to="/modules">{action}</Link>
       </Button>
@@ -138,36 +139,31 @@ function EmptyState({ title, text, action }: { title: string; text: string; acti
 function DeadlineRow({ item, onDone }: { item: Deadline; onDone: () => void }) {
   const tab = item.type === "task" ? "tasks" : "assessments";
   return (
-    <li className="flex items-center gap-3 px-4 py-2.5">
+    <li className="flex items-center gap-3 py-3">
       {item.type === "task" ? (
         <input
           type="checkbox"
           aria-label={`Done: ${item.title}`}
           checked={false}
           onChange={onDone}
-          className="accent-primary size-4 shrink-0"
+          className="accent-ink size-5 shrink-0 cursor-pointer"
         />
       ) : (
-        <span aria-hidden className="size-4 shrink-0" />
+        <span aria-hidden className="size-5 shrink-0" />
       )}
       <div className="min-w-0 flex-1">
         <Link
           to={`/modules/${item.module.id}?tab=${tab}`}
-          className="block truncate text-sm font-medium hover:underline"
+          className="block truncate font-semibold hover:underline"
         >
           {item.title}
         </Link>
-        <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 text-xs">
-          <span className="flex items-center gap-1.5">
-            <span
-              aria-hidden
-              className="size-2 rounded-full"
-              style={{ backgroundColor: item.module.colour }}
-            />
+        <p className="text-muted mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <ModuleBadge colour={item.module.colour} className="px-1.5 py-0.5 text-xs">
             {item.module.code}
-          </span>
+          </ModuleBadge>
           <span>{item.label}</span>
-          <span className={cn(item.overdue && "text-destructive font-medium")}>
+          <span className={cn("tabular", item.overdue && "text-danger font-semibold")}>
             {formatDue(item.dueAt)} · {relativeDay(item.dueAt)}
           </span>
         </p>

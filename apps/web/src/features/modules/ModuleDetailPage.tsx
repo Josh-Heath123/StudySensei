@@ -1,11 +1,12 @@
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { PageHeader } from "@/app/PageHeader";
 import { ApiError } from "@/lib/api/errors";
 import { Button } from "@/ui/button";
 import { ConfirmDialog } from "@/ui/confirm-dialog";
+import { ModuleBadge } from "@/ui/module-badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs";
 
@@ -27,21 +28,21 @@ export function ModuleDetailPage() {
   const backLink = (
     <Link
       to="/modules"
-      className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1 text-sm"
+      className="text-muted hover:text-ink mb-6 inline-flex items-center gap-1 text-sm font-semibold"
     >
       <ArrowLeft className="size-4" aria-hidden /> All modules
     </Link>
   );
 
   if (module.isPending) {
-    return <p className="text-muted-foreground text-sm">Loading…</p>;
+    return <p className="text-muted text-sm">Loading…</p>;
   }
   if (module.isError) {
     const missing = module.error instanceof ApiError && module.error.status === 404;
     return (
       <>
         {backLink}
-        <p role="alert" className="text-destructive text-sm">
+        <p role="alert" className="text-danger text-sm">
           {missing ? "This module doesn't exist (it may have been deleted)." : module.error.message}
         </p>
       </>
@@ -49,21 +50,18 @@ export function ModuleDetailPage() {
   }
 
   const data = module.data;
+  // Components on this page take the module's colour from --module.
   return (
-    <>
+    <div style={{ "--module": data.colour } as CSSProperties}>
       {backLink}
       <PageHeader
-        title={
-          <span className="flex items-center gap-3">
-            <span
-              aria-hidden
-              className="size-3.5 rounded-full"
-              style={{ backgroundColor: data.colour }}
-            />
-            {data.code}
+        eyebrow={
+          <span className="flex items-center gap-3 normal-case">
+            <ModuleBadge>{data.code}</ModuleBadge>
+            {data.semester && <span className="type-label">{data.semester}</span>}
           </span>
         }
-        description={[data.name, data.semester].filter(Boolean).join(" · ")}
+        title={data.name}
         aside={
           <>
             <Button variant="outline" onClick={() => setEditing(true)}>
@@ -106,7 +104,7 @@ export function ModuleDetailPage() {
           navigate("/modules");
         }}
       />
-    </>
+    </div>
   );
 }
 
@@ -136,7 +134,7 @@ function ModuleTabs({ moduleId }: { moduleId: string }) {
         ))}
       </TabsList>
       {TABS.map(({ value, Panel }) => (
-        <TabsContent key={value} value={value} className="pt-4">
+        <TabsContent key={value} value={value} className="pt-6">
           <Panel moduleId={moduleId} />
         </TabsContent>
       ))}

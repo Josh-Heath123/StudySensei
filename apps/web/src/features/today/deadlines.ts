@@ -101,3 +101,41 @@ export function buildDeadlines(
     undatedTasks,
   };
 }
+
+/** A countdown tile on Today: whole days until an upcoming assessment. */
+export type Countdown = {
+  id: string;
+  title: string;
+  dueAt: string;
+  /** Calendar days from today (0 = due today). */
+  days: number;
+  module: Pick<Module, "id" | "code" | "colour">;
+};
+
+/**
+ * The next `limit` dated assessments that haven't passed yet, soonest first. Overdue
+ * ones are left out here: they're in the deadline list, labelled "Overdue".
+ */
+export function countdowns(
+  assessments: Assessment[],
+  modules: Module[],
+  now: Date = new Date(),
+  limit = 3,
+): Countdown[] {
+  const moduleById = new Map(modules.map((m) => [m.id, m]));
+  const upcoming: Countdown[] = [];
+  for (const a of assessments) {
+    const module = moduleById.get(a.module_id);
+    if (!a.due_at || !module || isPast(a.due_at, now)) continue;
+    upcoming.push({
+      id: a.id,
+      title: a.title,
+      dueAt: a.due_at,
+      days: daysUntil(a.due_at, now),
+      module,
+    });
+  }
+  return upcoming
+    .sort((a, b) => Date.parse(a.dueAt) - Date.parse(b.dueAt) || a.title.localeCompare(b.title))
+    .slice(0, limit);
+}

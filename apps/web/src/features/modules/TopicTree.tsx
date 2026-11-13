@@ -59,29 +59,27 @@ export function TopicTree({ moduleId }: { moduleId: string }) {
 
   return (
     <section aria-labelledby="topics-heading" className="max-w-3xl">
-      <h2 id="topics-heading" className="mb-1 text-lg font-semibold tracking-tight">
+      <h2 id="topics-heading" className="type-h3 mb-1">
         Topics
       </h2>
-      <p className="text-muted-foreground mb-4 text-sm">
+      <p className="text-muted mb-4 text-sm">
         Build the module's topic tree. Use the arrows to reorder, indent and outdent.
       </p>
 
       {error && (
-        <p role="alert" className="text-destructive mb-3 text-sm">
+        <p role="alert" className="text-danger mb-3 text-sm">
           {error}
         </p>
       )}
 
-      {tree.isPending && <p className="text-muted-foreground text-sm">Loading topics…</p>}
+      {tree.isPending && <p className="text-muted text-sm">Loading topics…</p>}
       {tree.isError && (
-        <p role="alert" className="text-destructive text-sm">
+        <p role="alert" className="text-danger text-sm">
           Couldn't load topics: {tree.error.message}
         </p>
       )}
       {tree.data?.length === 0 && (
-        <p className="text-muted-foreground mb-3 text-sm">
-          No topics yet. Add the first one below.
-        </p>
+        <p className="text-muted mb-3 text-sm">No topics yet. Add the first one below.</p>
       )}
       {tree.data && tree.data.length > 0 && (
         <TopicList nodes={tree.data} parent={null} actions={actions} label="Topics" />
@@ -122,7 +120,10 @@ function TopicList({
   label: string;
 }) {
   return (
-    <ul aria-label={label} className={parent ? "mt-1 ml-6 border-l pl-3" : "space-y-1"}>
+    <ul
+      aria-label={label}
+      className={parent ? "border-line mt-1 ml-6 border-l-2 pl-3" : "space-y-1"}
+    >
       {nodes.map((node, index) => (
         <TopicItem
           key={node.id}
@@ -162,7 +163,7 @@ function TopicItem({
 
   return (
     <li>
-      <div className="group hover:bg-muted/60 flex items-center gap-1 rounded-md py-0.5 pr-1 pl-2">
+      <div className="group hover:bg-surface flex items-center gap-1 rounded-md py-0.5 pr-1 pl-2">
         {renaming ? (
           <RenameInput
             initial={node.name}
@@ -289,7 +290,7 @@ function RenameInput({
       onChange={(e) => setName(e.target.value)}
       onKeyDown={onKeyDown}
       onBlur={save}
-      className="h-8 flex-1"
+      className="flex-1"
       maxLength={200}
     />
   );
@@ -334,7 +335,7 @@ function AddTopicForm({
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => e.key === "Escape" && onDone?.()}
         maxLength={200}
-        className="h-8 max-w-sm"
+        className="max-w-sm"
       />
       <Button type="submit" size="sm" variant="secondary" disabled={!name.trim()}>
         Add

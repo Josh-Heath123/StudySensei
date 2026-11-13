@@ -47,10 +47,10 @@ export function TasksTab({ moduleId }: { moduleId: string }) {
     <section aria-labelledby="tasks-heading" className="max-w-3xl">
       <div className="mb-4 flex items-center justify-between gap-4">
         <div>
-          <h2 id="tasks-heading" className="text-lg font-semibold tracking-tight">
+          <h2 id="tasks-heading" className="type-h3">
             Tasks
           </h2>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted text-sm">
             {all.length - doneCount} open · {doneCount} done
           </p>
         </div>
@@ -60,7 +60,7 @@ export function TasksTab({ moduleId }: { moduleId: string }) {
               type="checkbox"
               checked={showDone}
               onChange={(e) => setShowDone(e.target.checked)}
-              className="accent-primary size-4"
+              className="accent-ink size-5 cursor-pointer"
             />
             Show done
           </label>
@@ -71,18 +71,18 @@ export function TasksTab({ moduleId }: { moduleId: string }) {
       </div>
 
       {error && (
-        <p role="alert" className="text-destructive mb-3 text-sm">
+        <p role="alert" className="text-danger mb-3 text-sm">
           {error}
         </p>
       )}
-      {tasks.isPending && <p className="text-muted-foreground text-sm">Loading…</p>}
+      {tasks.isPending && <p className="text-muted text-sm">Loading…</p>}
       {tasks.isError && (
-        <p role="alert" className="text-destructive text-sm">
+        <p role="alert" className="text-danger text-sm">
           Couldn't load tasks: {tasks.error.message}
         </p>
       )}
       {tasks.data && visible.length === 0 && (
-        <p className="text-muted-foreground rounded-lg border border-dashed p-6 text-center text-sm">
+        <p className="text-muted border-line rounded-lg border-2 p-6">
           {all.length === 0
             ? "No tasks yet. Break assignments into steps you can tick off."
             : "Everything here is done."}
@@ -90,7 +90,7 @@ export function TasksTab({ moduleId }: { moduleId: string }) {
       )}
 
       {visible.length > 0 && (
-        <ul aria-label="Tasks" className="divide-y rounded-lg border">
+        <ul aria-label="Tasks" className="divide-line border-line divide-y border-y">
           {visible.map((task) => (
             <TaskRow
               key={task.id}
@@ -156,26 +156,21 @@ function TaskRow({
   const overdue = !done && task.due_at !== null && isPast(task.due_at);
 
   return (
-    <li className="flex items-center gap-3 px-4 py-2.5">
+    <li className="flex items-center gap-3 py-3">
       <input
         type="checkbox"
         aria-label={`Done: ${task.title}`}
         checked={done}
         onChange={(e) => onStatus(e.target.checked ? "done" : "todo")}
-        className="accent-primary size-4 shrink-0"
+        className="accent-ink size-5 shrink-0 cursor-pointer"
       />
       <div className="min-w-0 flex-1">
-        <p
-          className={cn(
-            "truncate text-sm font-medium",
-            done && "text-muted-foreground line-through",
-          )}
-        >
+        <p className={cn("truncate text-sm font-medium", done && "text-muted line-through")}>
           {task.title}
         </p>
-        <p className="text-muted-foreground flex flex-wrap gap-x-3 text-xs">
+        <p className="text-muted flex flex-wrap gap-x-3 text-xs">
           {task.due_at && (
-            <span className={cn(overdue && "text-destructive font-medium")}>
+            <span className={cn(overdue && "text-danger font-medium")}>
               {overdue && "Overdue · "}
               {formatDue(task.due_at)} · {relativeDay(task.due_at)}
             </span>
@@ -187,7 +182,7 @@ function TaskRow({
         aria-label={`Status: ${task.title}`}
         value={task.status}
         onChange={(e) => onStatus(e.target.value as TaskStatus)}
-        className="h-8 w-32 shrink-0"
+        className="w-36 shrink-0"
       >
         {Object.entries(TASK_STATUS_LABELS).map(([value, label]) => (
           <option key={value} value={value}>

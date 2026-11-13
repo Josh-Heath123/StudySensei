@@ -23,8 +23,8 @@ function StatusRow({ name, status, detail }: { name: string; status: Status; det
   return (
     <li className="flex items-center justify-between gap-4 py-2">
       <div>
-        <p className="text-sm font-medium">{name}</p>
-        {detail && <p className="text-muted-foreground text-xs">{detail}</p>}
+        <p className="font-semibold">{name}</p>
+        {detail && <p className="text-muted text-xs">{detail}</p>}
       </div>
       <Badge variant={VARIANTS[status]} aria-label={`${name}: ${LABELS[status]}`}>
         {LABELS[status]}
@@ -47,13 +47,13 @@ export function SystemStatusCard() {
   }
 
   return (
-    <Card className="max-w-md">
+    <Card>
       <CardHeader>
         <CardTitle>System status</CardTitle>
         <CardDescription>Checked every 10 seconds</CardDescription>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y">
+        <ul className="divide-line divide-y">
           <StatusRow
             name="API"
             status={api}

@@ -172,9 +172,9 @@ export function AssessmentForm({ moduleId, initial, submitLabel, onSubmit, onCan
 
       <fieldset className="grid gap-1.5">
         <legend className="mb-1.5 text-sm font-medium">Topics it covers</legend>
-        {tree.isPending && <p className="text-muted-foreground text-sm">Loading topics…</p>}
+        {tree.isPending && <p className="text-muted text-sm">Loading topics…</p>}
         {tree.data && topics.length === 0 && (
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted text-sm">
             This module has no topics yet. Add them on the Topics tab.
           </p>
         )}
@@ -187,7 +187,7 @@ export function AssessmentForm({ moduleId, initial, submitLabel, onSubmit, onCan
                     type="checkbox"
                     checked={topicIds.has(topic.id)}
                     onChange={(e) => toggleTopic(topic.id, e.target.checked)}
-                    className="accent-primary size-4"
+                    className="accent-ink size-5 cursor-pointer"
                   />
                   {topic.name}
                 </label>
@@ -199,7 +199,7 @@ export function AssessmentForm({ moduleId, initial, submitLabel, onSubmit, onCan
 
       <div className="grid gap-1.5">
         <Label htmlFor="assessment-notes">
-          Notes <span className="text-muted-foreground font-normal">(optional)</span>
+          Notes <span className="text-muted font-normal">(optional)</span>
         </Label>
         <Textarea
           id="assessment-notes"
@@ -210,7 +210,7 @@ export function AssessmentForm({ moduleId, initial, submitLabel, onSubmit, onCan
       </div>
 
       {error && (
-        <p role="alert" className="text-destructive text-sm">
+        <p role="alert" className="text-danger text-sm">
           {error}
         </p>
       )}

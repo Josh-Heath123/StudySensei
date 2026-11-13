@@ -179,3 +179,49 @@ test("a failed load is shown", async () => {
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load deadlines");
 });
+
+test("the header shows the date and countdowns to the next real assessments", async () => {
+  renderToday({
+    modules: [aModule(), aModule({ id: "m2", code: "COS301", colour: "#5EE0B0" })],
+    assessments: [
+      anAssessment({ id: "late", title: "Missed test", due_at: toIso("2026-11-10", "09:00") }),
+      anAssessment({
+        id: "a2",
+        title: "Assignment 2",
+        module_id: "m2",
+        due_at: toIso("2026-11-25", "23:59"),
+      }),
+      anAssessment({ id: "a1", title: "Semester test", due_at: toIso("2026-11-14", "09:00") }),
+    ],
+  });
+
+  expect(screen.getByRole("heading", { level: 1, name: "13 November" })).toBeInTheDocument();
+  expect(screen.getByText("Friday")).toBeInTheDocument();
+  const tiles = within(await screen.findByRole("list", { name: "Countdowns" })).getAllByRole(
+    "listitem",
+  );
+  expect(tiles.map((tile) => tile.textContent)).toEqual([
+    expect.stringContaining("1day to Semester testCOS330"),
+    expect.stringContaining("12days to Assignment 2COS301"),
+  ]);
+  // The nearest deadline gets the ink border; overdue ones stay in the list instead.
+  expect(tiles[0]).toHaveClass("border-ink");
+  expect(tiles[1]).toHaveClass("border-line");
+});
+
+test("the day timeline and next-up card say the plan isn't built yet, with no made-up blocks", async () => {
+  renderToday({});
+
+  const day = await screen.findByRole("region", { name: "Your day" });
+  expect(day).toHaveTextContent("Your plan appears here once the planner is built.");
+  expect(within(day).getByRole("link", { name: "Add deadlines" })).toHaveAttribute(
+    "href",
+    "/modules",
+  );
+  expect(within(day).getByText("NOW")).toBeInTheDocument(); // 10:00 is inside the 08:00–20:00 grid
+
+  const nextUp = screen.getByRole("region", { name: "Nothing planned yet" });
+  expect(nextUp).toHaveTextContent("Your plan appears here once the planner is built.");
+  expect(within(nextUp).queryByRole("button")).not.toBeInTheDocument();
+  expect(screen.queryByRole("list", { name: "Countdowns" })).not.toBeInTheDocument();
+});
