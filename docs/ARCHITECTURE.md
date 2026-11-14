@@ -44,9 +44,9 @@ apps/api/            FastAPI service (+ worker from Phase 2), one Python package
   app/core/          config (pydantic-settings), db (async engine/session)
   app/models/        SQLAlchemy models (TimestampedBase: UUID id, created_at, updated_at)
   app/schemas/       Pydantic request/response + AI output schemas
-  app/services/      planning/, mastery/, profile/, ingestion/, pastpapers/
+  app/services/      search/ (chunking, embedding, indexing, search), planning/, mastery/, profile/, pastpapers/
   app/ai/            llm_client.py, adapters/, prompts/, retrieval.py, budget.py
-  app/jobs/          queue.py (enqueue, claim, retry), worker.py, tasks/ (count_pages, …)
+  app/jobs/          queue.py (enqueue, claim, retry), worker.py, kinds.py, tasks/ (extract_text, index_material, …)
   app/storage/       Storage interface + LocalStorage (data/materials), keys {user_id}/{sha256}
   alembic/           migrations
   tests/             pytest against real Postgres (studysensei_test)
@@ -119,7 +119,7 @@ Derived tables can always be rebuilt from source tables.
 | --- | --- | --- |
 | People and settings | `users`, `ai_credentials`, `consents`, `push_subscriptions` | Keys Fernet-encrypted; consent per feature with timestamps |
 | Academic structure | `modules`, `topics` (tree via `parent_id`), `assessments`, `assessment_topics`, `tasks` | `topics.source` is `ai` or `user`; user edits never overwritten |
-| Materials | `materials`, `material_pages` (text per page, `is_scanned`), `chunks` (text, page range, `embedding vector(384)`, `tsv tsvector`), `chunk_topics` | `materials.kind`: slides, notes, study_guide, tutorial, past_paper, test, assignment, outline, other; `status`, `error`, `page_count`, `allow_ai`; `UNIQUE (module_id, sha256)` |
+| Materials | `materials`, `material_pages` (text per page, `is_scanned`), `chunks` (one page each: page number, position, text, token count, `embedding vector(384)`, generated `tsv tsvector`), `chunk_topics` | `materials.kind`: slides, notes, study_guide, tutorial, past_paper, test, assignment, outline, other; `status`, `error`, `page_count`, `allow_ai`; `UNIQUE (module_id, sha256)` |
 | Past papers | `past_questions`, `past_question_topics` | Profile computed by queries, never stored as AI output |
 | Planning | `availability_rules`, `availability_exceptions`, `plan_blocks` | `plan_version` on each block |
 | Sessions | `study_sessions`, `session_events`, `session_minutes` | No images or audio, ever |
@@ -133,6 +133,7 @@ Derived tables can always be rebuilt from source tables.
 - `modules`, `topics`, `assessments`, `assessment_topics`, `tasks` (0002)
 - `study_sessions`, `session_events`, `session_topic_ratings` (0003)
 - 0004 is data only: existing module colours mapped to the design-system swatches (nearest hue)
+- `chunks` (0007), with a GIN index on `tsv` and no vector index (decision 0005)
 
 ### Session events
 
@@ -188,7 +189,7 @@ Scoping by `user_id` is enforced twice: by the services and by Postgres.
 
 1. **Upload:** 50 MB limit and a type allow-list checked by content. Stored through the `Storage` interface (local folder
    in dev) under `{user_id}/{sha256}`, so a re-upload is detected and a file shared by two modules is stored once
-   (decision 0004). The material and its first job are created in one transaction; the worker counts pages and marks it ready.
+   (decision 0004). The material and its first job are created in one transaction; the worker extracts it, then indexes it, and only then marks it ready.
    - **Status:** `uploaded` → `processing` → `ready`, or `failed` with a readable reason once retries run out
      (retrying meanwhile).
    - **`allow_ai`:** each material has this flag (default on); AI steps skip materials where it is off.
@@ -202,12 +203,26 @@ Scoping by `user_id` is enforced twice: by the services and by Postgres.
      vision step.
    - **Failures:** damaged or password-protected files fail at once (`JobError(retry=False)`) with a readable reason;
      library errors never reach the student.
-   - **Re-runs:** re-extracting replaces a material's pages.
-3. **Chunk:** along page and slide boundaries, ~400–800 tokens, keeping the page reference.
-4. **Index:** local embeddings plus `tsvector`.
+   - **Re-runs:** re-extracting replaces a material's pages (and, by cascade, its chunks).
+   - **Next:** a successful extraction queues `index_material`; the material stays `processing` until it finishes.
+3. **Chunk** (`index_material` job, `app/services/search/chunking.py`, decision 0005): never across two pages, so every
+   result points at one page or slide.
+   - **Size:** at most 400 tokens, counted with the embedding model's own tokenizer (bge-small-en-v1.5 reads 512 tokens
+     at most, so the earlier "400–800" would have been cut off).
+   - **Splitting:** a page that fits is one chunk. A longer page splits at paragraphs, then lines, sentences and words,
+     only as far as needed, with ~50 tokens of overlap (from a sentence start when one fits).
+   - **Scanned pages** are skipped until the vision step reads them.
+   - **Stored text** is exactly the page's; the **embedded text** leads with "material · page title".
+4. **Index:** fastembed `BAAI/bge-small-en-v1.5` on the CPU (`passage_embed` for chunks, `query_embed` for searches),
+   loaded once per process and cached in `data/models` (the first run downloads it), plus a generated english
+   `tsvector` with a GIN index. Embedding is local, so it runs whatever `allow_ai` says.
 5. **Understand (Flash):** topics per material, merged into the module tree; chunks linked by similarity, then user review.
 6. **Past papers:** segment into questions with marks, map to topics, and classify type and difficulty. Code recomputes the profile.
 7. **Search:** vector and keyword (top 20 each) → reciprocal rank fusion → module filter → current-topic boost → top 8 cited as [S1]–[S8].
+   - **Built (Phase 2):** `GET /modules/{id}/search?q=&limit=8`. Vector: exact cosine scan of the module's chunks;
+     keyword: `websearch_to_tsquery` ranked by `ts_rank_cd`; RRF with k = 60. Each result has the chunk text, material,
+     file name, page, a `ts_headline` snippet (as plain/highlighted parts, never HTML) and the score. The topic boost
+     comes with the tutor (Phase 3).
 
 ## Camera and microphone (Phase 7 / 3)
 
