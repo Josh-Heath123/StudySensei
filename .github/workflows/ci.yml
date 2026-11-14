@@ -34,6 +34,12 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked
+      - name: Cache the embedding model
+        uses: actions/cache@v4
+        with:
+          path: data/models
+          key: embedding-model-bge-small-en-v1.5-fastembed-${{ hashFiles('apps/api/uv.lock') }}
+          restore-keys: embedding-model-bge-small-en-v1.5-
       - name: Ruff
         run: |
           uv run ruff check .
@@ -93,6 +99,12 @@ jobs:
           enable-cache: true
       - run: uv sync --locked
         working-directory: apps/api
+      - name: Cache the embedding model
+        uses: actions/cache@v4
+        with:
+          path: data/models
+          key: embedding-model-bge-small-en-v1.5-fastembed-${{ hashFiles('apps/api/uv.lock') }}
+          restore-keys: embedding-model-bge-small-en-v1.5-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
