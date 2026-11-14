@@ -26,6 +26,7 @@ import {
   titleFrom,
   type MaterialKind,
 } from "./kinds";
+import { MaterialSearch } from "./MaterialSearch";
 import { PagesDialog } from "./PagesDialog";
 import { pageDetails, statusText } from "./status";
 
@@ -94,6 +95,8 @@ export function MaterialsTab({ moduleId }: { moduleId: string }) {
       <h2 id="materials-heading" className="type-h3 mb-4">
         Materials
       </h2>
+
+      {rows.length > 0 && <MaterialSearch moduleId={moduleId} materials={rows} />}
 
       <DropZone onFiles={add} disabled={busy} />
       {refused.length > 0 && (

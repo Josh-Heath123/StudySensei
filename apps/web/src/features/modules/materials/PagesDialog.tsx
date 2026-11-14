@@ -9,9 +9,18 @@ import { usePage, usePages, type Material } from "./api";
  * The extracted text of a material, a page at a time, as plain text. A placeholder
  * for the pdf.js viewer that comes later; it shows what the chunker will read.
  */
-export function PagesDialog({ material, onClose }: { material: Material; onClose: () => void }) {
+export function PagesDialog({
+  material,
+  initialPage,
+  onClose,
+}: {
+  material: Pick<Material, "id" | "title">;
+  /** The page to open at (from a search result); the first page otherwise. */
+  initialPage?: number;
+  onClose: () => void;
+}) {
   const pages = usePages(material.id);
-  const [chosen, setChosen] = useState<number | null>(null);
+  const [chosen, setChosen] = useState<number | null>(initialPage ?? null);
   const current = chosen ?? pages.data?.[0]?.page_number ?? null;
   const page = usePage(material.id, current);
 

@@ -24,6 +24,9 @@ const material = (overrides: Partial<Material>): Material => ({
 test("says how far processing has got", () => {
   expect(statusText(material({})).text).toBe("Waiting to be processed…");
   expect(statusText(material({ status: "processing" })).text).toBe("Extracting text…");
+  expect(statusText(material({ status: "processing", page_count: 4 })).text).toBe(
+    "Indexing for search…",
+  );
   expect(
     statusText(material({ status: "processing", error: "Server hiccup.", retrying: true })),
   ).toEqual({ text: "Retrying: Server hiccup.", tone: "muted" });

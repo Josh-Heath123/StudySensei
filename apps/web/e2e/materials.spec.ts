@@ -35,7 +35,7 @@ function startWorker() {
   });
 }
 
-test("upload a file from the Materials tab; the worker extracts its text", async ({
+test("upload a file from the Materials tab; the worker extracts, indexes and searches it", async ({
   page,
   request,
 }) => {
@@ -69,7 +69,9 @@ test("upload a file from the Materials tab; the worker extracts its text", async
   });
 
   startWorker();
-  await expect(row.getByRole("status")).toHaveText("Ready", { timeout: 30_000 });
+  // Extraction, then local embedding (the model loads, or downloads on a first run).
+  test.setTimeout(180_000);
+  await expect(row.getByRole("status")).toHaveText("Ready", { timeout: 150_000 });
   await expect(row).toContainText("1 page");
 
   // The extracted text, as the chunker will read it.
@@ -78,6 +80,19 @@ test("upload a file from the Materials tab; the worker extracts its text", async
   await expect(viewer.getByRole("region", { name: "Page 1 text" })).toContainText(
     "- pipes and filters",
   );
+  await page.keyboard.press("Escape");
+
+  // Search finds the page, and a result opens it.
+  await page.getByRole("searchbox", { name: "Search materials" }).fill("pipes and filters");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  const results = page.getByRole("list", { name: "Results for “pipes and filters”" });
+  const hit = results.getByRole("button").first();
+  await expect(hit).toContainText("Week 3 notes.md · Page 1");
+  await expect(hit.locator("mark").first()).toHaveText(/pipes/i);
+  await hit.click();
+  await expect(
+    page.getByRole("dialog", { name: "Week 3 notes" }).getByRole("region", { name: "Page 1 text" }),
+  ).toContainText("- layered style");
   await page.keyboard.press("Escape");
 
   // The same file again is refused, and says why.

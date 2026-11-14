@@ -8,7 +8,11 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 export function statusText(material: Material): StatusText {
   if (material.status === "failed") return { text: `Failed: ${material.error}`, tone: "danger" };
   if (material.retrying) return { text: `Retrying: ${material.error}`, tone: "muted" };
-  if (material.status === "processing") return { text: "Extracting text…", tone: "muted" };
+  if (material.status === "processing") {
+    // Pages are counted by extraction; indexing for search comes after.
+    const text = material.page_count === null ? "Extracting text…" : "Indexing for search…";
+    return { text, tone: "muted" };
+  }
   if (material.status === "uploaded") return { text: "Waiting to be processed…", tone: "muted" };
   const scanned = material.scanned_page_count ?? 0;
   const pages = material.page_count ?? 0;

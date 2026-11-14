@@ -511,6 +511,28 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/modules/{module_id}/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Search
+     * @description Search the module's materials by meaning and by words (hybrid, reciprocal rank fusion).
+     *
+     *     Each result is one chunk of one page. `indexed_chunks` is 0 until a material is indexed.
+     */
+    get: operations["search_modules__module_id__search_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -890,6 +912,48 @@ export interface components {
       /** Topic Ratings */
       topic_ratings?: components["schemas"]["TopicRatingIn"][];
     };
+    /** SearchOut */
+    SearchOut: {
+      /** Query */
+      query: string;
+      /** Results */
+      results: components["schemas"]["SearchResult"][];
+      /** Indexed Chunks */
+      indexed_chunks: number;
+    };
+    /** SearchResult */
+    SearchResult: {
+      /**
+       * Chunk Id
+       * Format: uuid
+       */
+      chunk_id: string;
+      /**
+       * Material Id
+       * Format: uuid
+       */
+      material_id: string;
+      /** Material Title */
+      material_title: string;
+      /** Original Filename */
+      original_filename: string;
+      /** Page Number */
+      page_number: number;
+      /** Page Title */
+      page_title: string | null;
+      /** Position */
+      position: number;
+      /** Text */
+      text: string;
+      /** Snippet */
+      snippet: components["schemas"]["SnippetPart"][];
+      /** Score */
+      score: number;
+      /** Vector Rank */
+      vector_rank: number | null;
+      /** Keyword Rank */
+      keyword_rank: number | null;
+    };
     /**
      * SessionDetailOut
      * @description A session with its events in timeline order, for resuming the timer.
@@ -1031,6 +1095,16 @@ export interface components {
       /** Topic Id */
       topic_id?: string | null;
       start: components["schemas"]["StartEvent"];
+    };
+    /**
+     * SnippetPart
+     * @description A run of snippet text; ``highlight`` marks words that matched the query.
+     */
+    SnippetPart: {
+      /** Text */
+      text: string;
+      /** Highlight */
+      highlight: boolean;
     };
     /** StartEvent */
     StartEvent: {
@@ -2458,6 +2532,40 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["PageOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  search_modules__module_id__search_get: {
+    parameters: {
+      query: {
+        q: string;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SearchOut"];
         };
       };
       /** @description Validation Error */

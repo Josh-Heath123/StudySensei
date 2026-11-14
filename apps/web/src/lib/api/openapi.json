@@ -1792,6 +1792,73 @@
           }
         }
       }
+    },
+    "/modules/{module_id}/search": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "Search",
+        "description": "Search the module's materials by meaning and by words (hybrid, reciprocal rank fusion).\n\nEach result is one chunk of one page. `indexed_chunks` is 0 until a material is indexed.",
+        "operationId": "search_modules__module_id__search_get",
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "default": 8,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2766,6 +2833,126 @@
         ],
         "title": "ReflectionIn"
       },
+      "SearchOut": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SearchResult"
+            },
+            "type": "array",
+            "title": "Results"
+          },
+          "indexed_chunks": {
+            "type": "integer",
+            "title": "Indexed Chunks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "results",
+          "indexed_chunks"
+        ],
+        "title": "SearchOut"
+      },
+      "SearchResult": {
+        "properties": {
+          "chunk_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Chunk Id"
+          },
+          "material_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Material Id"
+          },
+          "material_title": {
+            "type": "string",
+            "title": "Material Title"
+          },
+          "original_filename": {
+            "type": "string",
+            "title": "Original Filename"
+          },
+          "page_number": {
+            "type": "integer",
+            "title": "Page Number"
+          },
+          "page_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Title"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "snippet": {
+            "items": {
+              "$ref": "#/components/schemas/SnippetPart"
+            },
+            "type": "array",
+            "title": "Snippet"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "vector_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vector Rank"
+          },
+          "keyword_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keyword Rank"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chunk_id",
+          "material_id",
+          "material_title",
+          "original_filename",
+          "page_number",
+          "page_title",
+          "position",
+          "text",
+          "snippet",
+          "score",
+          "vector_rank",
+          "keyword_rank"
+        ],
+        "title": "SearchResult"
+      },
       "SessionDetailOut": {
         "properties": {
           "id": {
@@ -3135,6 +3322,25 @@
           "start"
         ],
         "title": "SessionStart"
+      },
+      "SnippetPart": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "highlight": {
+            "type": "boolean",
+            "title": "Highlight"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "highlight"
+        ],
+        "title": "SnippetPart",
+        "description": "A run of snippet text; ``highlight`` marks words that matched the query."
       },
       "StartEvent": {
         "properties": {
