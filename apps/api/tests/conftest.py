@@ -7,7 +7,7 @@ os.environ.setdefault(
     "postgresql+asyncpg://studysensei:studysensei@localhost:5433/studysensei_test",
 )
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
 import pytest
@@ -18,6 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 
 from app.core.config import get_settings
 from app.models import User
+from app.services.search.embedding import FastEmbedder, set_embedder
+from tests.fakes import FakeEmbedder
 
 API_DIR = Path(__file__).resolve().parents[1]
 
@@ -79,3 +81,22 @@ async def user_a(session: AsyncSession) -> User:
 @pytest.fixture
 async def user_b(session: AsyncSession) -> User:
     return await _make_user(session, "bob")
+
+
+@pytest.fixture(scope="session")
+def real_model() -> FastEmbedder:
+    """The real embedding model, loaded once per run (downloaded on the first ever run)."""
+    return FastEmbedder(get_settings().models_dir)
+
+
+@pytest.fixture(autouse=True)
+def fake_embedder(request: pytest.FixtureRequest) -> Iterator[FakeEmbedder | None]:
+    """Every test embeds with FakeEmbedder, except those marked ``real_embedder``."""
+    if request.node.get_closest_marker("real_embedder") is not None:
+        set_embedder(request.getfixturevalue("real_model"))
+        yield None
+    else:
+        fake = FakeEmbedder()
+        set_embedder(fake)
+        yield fake
+    set_embedder(None)

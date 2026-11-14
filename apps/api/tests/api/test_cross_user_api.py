@@ -87,6 +87,8 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/materials/{material}/retry", None),
     ("GET", "/materials/{material}/pages", None),
     ("GET", "/materials/{material}/pages/1", None),
+    # Search
+    ("GET", "/modules/{module}/search?q=password", None),
 ]
 
 
