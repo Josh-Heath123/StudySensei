@@ -261,7 +261,14 @@ async def test_the_worker_makes_an_upload_ready(
 
     # Later than the test transaction's now(), which stamped the job's run_after.
     later = datetime.now(UTC) + timedelta(hours=1)
-    assert await run_once(sessions, storage, now=lambda: later)
+    assert await run_once(sessions, storage, now=lambda: later)  # extract_text
+
+    # Extracted but not yet searchable: still processing.
+    got = (await alice_api.get(f"/materials/{material['id']}")).json()
+    assert (got["status"], got["page_count"], got["scanned_page_count"]) == ("processing", 3, 1)
+
+    assert await run_once(sessions, storage, now=lambda: later)  # index_material
+    assert not await run_once(sessions, storage, now=lambda: later)
 
     got = (await alice_api.get(f"/materials/{material['id']}")).json()
     assert (got["status"], got["page_count"], got["error"], got["retrying"]) == (

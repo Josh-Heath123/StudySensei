@@ -2,6 +2,24 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-14: Phase 2, task 4 (chunking, local embeddings, hybrid search)
+
+- **Done:**
+  - Chunker (`services/search/chunking.py`, pure): one page at a time, at most 400 tokens by the model's own tokenizer, split at paragraphs → lines → sentences → words as needed, ~50 tokens of overlap; chunk text is a slice of the page.
+  - `chunks` (migration 0007): page number, position, text, token count, `vector(384)`, generated english `tsvector` + GIN; composite FKs to the material (user and module) and to its page, so re-extraction and deletes cascade.
+  - Pipeline: `extract_text` queues `index_material`; a material is "Ready" only once indexed ("Indexing for search…" until then). The migration re-queues materials already extracted.
+  - fastembed `BAAI/bge-small-en-v1.5` (`passage_embed` / `query_embed`, batches of 32), loaded once per process, cached in `data/models` with a clear log on the first download.
+  - `GET /modules/{id}/search?q=&limit=8`: exact cosine top 20 + `websearch_to_tsquery`/`ts_rank_cd` top 20, RRF (k = 60), `ts_headline` snippets as plain/highlighted parts. HTTP cross-user case added.
+  - Web: a search box at the top of the Materials tab; results show the snippet, file name and page, and open the page-text view at that page. Honest states while nothing is indexed, while files are still processing, and for ready files with no text layer.
+  - Tests: API 375 (a deterministic fake embedder; one smoke test with the real model on the fixtures), web 255, e2e 2 (the upload test now searches and opens the result). CI caches `data/models`.
+  - ADR 0005; ARCHITECTURE's "400–800 tokens" corrected to 400 (the model truncates at 512).
+- **Decided:**
+  - no vector index yet: an exact scan filtered by user and module never misses and is fast at this size (ADR 0005 says when HNSW is worth it)
+  - lines are a split level between paragraphs and sentences, because slide bullets rarely end in full stops
+  - the embedded text leads with "material · page title"; stored text and the keyword index don't
+  - local embedding ignores `allow_ai`; that switch is for text sent to Gemini
+- **Next:** Phase 2 task 5: the `LLMClient` with one OpenAI-compatible adapter, `ai_usage` logging, budget and backoff.
+
 ## 2026-11-13: Phase 2, task 3 (text extraction)
 
 - **Done:**

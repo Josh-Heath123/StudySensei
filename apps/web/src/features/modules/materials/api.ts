@@ -120,3 +120,22 @@ export function usePage(materialId: string, pageNumber: number | null) {
       ),
   });
 }
+
+export type SearchResults = components["schemas"]["SearchOut"];
+export type SearchResult = components["schemas"]["SearchResult"];
+
+/** Hybrid search over the module's indexed materials. Idle until there's a query. */
+export function useSearch(moduleId: string, query: string) {
+  const q = query.trim();
+  return useQuery({
+    // Under the materials list key, so uploads, edits and deletes refresh it too.
+    queryKey: [...materialKeys.list(moduleId), "search", q] as const,
+    enabled: q.length > 0,
+    queryFn: () =>
+      unwrap(
+        api.GET("/modules/{module_id}/search", {
+          params: { path: { module_id: moduleId }, query: { q } },
+        }),
+      ),
+  });
+}

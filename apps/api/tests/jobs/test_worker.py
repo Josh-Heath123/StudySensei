@@ -13,10 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.jobs import queue
 from app.jobs.context import Handler, JobContext
+from app.jobs.kinds import EXTRACT_TEXT, INDEX_MATERIAL
 from app.jobs.tasks import extract_text
 from app.jobs.worker import GAVE_UP, HANDLERS, UNEXPECTED, SessionFactory, run_once
 from app.models import Job, Material, User
-from app.services.materials import EXTRACT_TEXT
 from app.storage.base import blob_key
 from app.storage.local import LocalStorage
 from tests.academics.conftest import Rows
@@ -71,10 +71,12 @@ async def a_material(
     return material
 
 
-async def the_job(session: AsyncSession, user_id: uuid.UUID) -> Job:
+async def the_job(session: AsyncSession, user_id: uuid.UUID, kind: str = EXTRACT_TEXT) -> Job:
     # populate_existing: the worker's rollbacks may have expired our copy.
     job = await session.scalar(
-        select(Job).where(Job.user_id == user_id).execution_options(populate_existing=True)
+        select(Job)
+        .where(Job.user_id == user_id, Job.kind == kind)
+        .execution_options(populate_existing=True)
     )
     assert job is not None
     return job
@@ -92,10 +94,18 @@ async def test_a_job_runs_and_the_material_is_ready(
 
     assert await run_once(sessions, storage, now=lambda: T0) is True
 
+    # Extracted; ready only once indexed.
     await session.refresh(material)
-    assert (material.status, material.page_count, material.error) == ("ready", 3, None)
+    assert (material.status, material.page_count, material.error) == ("processing", 3, None)
     job = await the_job(session, user_id)
     assert (job.status, job.attempts, job.locked_at, job.finished_at) == ("succeeded", 1, None, T0)
+    index = await the_job(session, user_id, INDEX_MATERIAL)
+    assert (index.status, index.payload) == ("queued", {"material_id": str(material.id)})
+
+    assert await run_once(sessions, storage, now=lambda: T0) is True
+    await session.refresh(material)
+    assert (material.status, material.error) == ("ready", None)
+    assert (await the_job(session, user_id, INDEX_MATERIAL)).status == "succeeded"
     assert await run_once(sessions, storage, now=lambda: T0) is False
 
 
@@ -135,7 +145,8 @@ async def test_a_failed_attempt_is_retried_with_backoff_then_succeeds(
     job = await the_job(session, user_id)
     assert (job.status, job.attempts, job.last_error) == ("succeeded", 2, None)
     await session.refresh(material)
-    assert (material.status, material.page_count, material.error) == ("ready", 3, None)
+    # The reason is cleared; indexing comes next.
+    assert (material.status, material.page_count, material.error) == ("processing", 3, None)
 
 
 async def test_after_the_last_attempt_the_job_and_material_fail(
@@ -247,7 +258,7 @@ async def test_unknown_kinds_fail_without_crashing_the_worker(
 
     assert await run_once(sessions, storage, now=lambda: T0)
 
-    job = await the_job(session, user_id)
+    job = await the_job(session, user_id, "mystery")
     assert (job.status, job.last_error) == ("failed", "JobError: Unknown job kind 'mystery'")
     assert EXTRACT_TEXT in HANDLERS
 

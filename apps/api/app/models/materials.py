@@ -10,10 +10,12 @@ the student turns it off for their own submissions.
 
 import uuid
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Computed,
     ForeignKeyConstraint,
     Index,
     Integer,
@@ -22,6 +24,7 @@ from sqlalchemy import (
     UniqueConstraint,
     true,
 )
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.academics import _in
@@ -39,6 +42,8 @@ MATERIAL_KINDS = (
     "other",
 )
 MATERIAL_STATUSES = ("uploaded", "processing", "ready", "failed")
+# bge-small-en-v1.5 (decision 0005).
+EMBEDDING_DIMENSIONS = 384
 
 
 class Material(TimestampedBase):
@@ -106,3 +111,52 @@ class MaterialPage(TimestampedBase):
     text: Mapped[str] = mapped_column(Text)
     char_count: Mapped[int] = mapped_column(Integer)
     is_scanned: Mapped[bool] = mapped_column(Boolean)
+
+
+class Chunk(TimestampedBase):
+    """A piece of one page's text, embedded and keyword-indexed for search (decision 0005).
+
+    A chunk never spans two pages, so every search result points at one page. Its
+    rows cascade from the page, so re-extracting a material (which replaces its pages)
+    removes its chunks, and the index job builds them again.
+
+    There's no vector index: search scans the module's chunks exactly (see ADR 0005).
+    """
+
+    __tablename__ = "chunks"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["material_id", "user_id"], ["materials.id", "materials.user_id"], ondelete="CASCADE"
+        ),
+        ForeignKeyConstraint(
+            ["material_id", "module_id"],
+            ["materials.id", "materials.module_id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["material_id", "page_number"],
+            ["material_pages.material_id", "material_pages.page_number"],
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint("material_id", "page_number", "position", name="uq_chunks_position"),
+        CheckConstraint("position >= 0", name="ck_chunks_position"),
+        CheckConstraint("token_count > 0", name="ck_chunks_token_count"),
+        # Search filters by user and module, then scans.
+        Index("ix_chunks_user_module", "user_id", "module_id"),
+        Index("ix_chunks_tsv", "tsv", postgresql_using="gin"),
+    )
+
+    user_id: Mapped[uuid.UUID]
+    module_id: Mapped[uuid.UUID]
+    material_id: Mapped[uuid.UUID]
+    page_number: Mapped[int] = mapped_column(Integer)
+    # 0, 1, 2… in reading order on the page.
+    position: Mapped[int] = mapped_column(Integer)
+    # Exactly as on the page (the embedded text also has the material and page titles).
+    text: Mapped[str] = mapped_column(Text)
+    # By the embedding model's tokenizer, without special tokens.
+    token_count: Mapped[int] = mapped_column(Integer)
+    embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIMENSIONS))
+    tsv: Mapped[str] = mapped_column(
+        TSVECTOR, Computed("to_tsvector('english', text)", persisted=True)
+    )
