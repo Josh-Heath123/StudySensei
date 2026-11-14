@@ -16,8 +16,8 @@ from app.core.config import get_settings
 from app.core.db import get_engine, get_sessionmaker
 from app.jobs import queue
 from app.jobs.context import Handler, JobContext, JobError
-from app.jobs.tasks import extract_text
-from app.services.materials import EXTRACT_TEXT
+from app.jobs.kinds import EXTRACT_TEXT, INDEX_MATERIAL
+from app.jobs.tasks import extract_text, index_material
 from app.storage.base import Storage
 from app.storage.local import get_storage
 
@@ -25,6 +25,7 @@ log = logging.getLogger("studysensei.worker")
 
 HANDLERS: Mapping[str, Handler] = {
     EXTRACT_TEXT: Handler(run=extract_text.run, on_failure=extract_text.on_failure),
+    INDEX_MATERIAL: Handler(run=index_material.run, on_failure=index_material.on_failure),
 }
 
 UNEXPECTED = "Something went wrong while processing this file. It will be retried."

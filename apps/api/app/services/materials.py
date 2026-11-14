@@ -20,6 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.jobs import queue
+from app.jobs.kinds import EXTRACT_TEXT
 from app.models import Job, Material, MaterialPage
 from app.schemas.materials import MaterialKind, MaterialUpdate
 from app.services.academics.modules import get_module
@@ -27,7 +28,6 @@ from app.services.errors import Conflict, Invalid, NotFound, TooLarge, Unsupport
 from app.services.filetypes import NotAllowed, detect
 from app.storage.base import Storage, blob_key
 
-EXTRACT_TEXT = "extract_text"
 _CHUNK = 1024 * 1024
 
 

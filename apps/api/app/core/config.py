@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     local_user_email: str = "local@studysensei.dev"
     # Uploaded materials (gitignored). Blobs are keyed {user_id}/{sha256}.
     storage_dir: Path = REPO_ROOT / "data" / "materials"
+    # The local embedding model's download cache (gitignored).
+    models_dir: Path = REPO_ROOT / "data" / "models"
     max_upload_bytes: int = 50 * 1024 * 1024
     # How long the job worker sleeps when the queue is empty.
     worker_poll_seconds: float = 1.0
