@@ -2,6 +2,24 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-17: Phase 2, merge size fix and a stale topic-map error (decision 0010)
+
+- **Found:**
+  - COS330's compact merge request is 27,216 characters with no descriptions, and Groq counts it as 9,072 tokens (it
+    refused it with a 413: "Limit 8000, Requested 9072"). Gemini counted 9,031.
+  - That's about 3.0 characters a token, not the 3.5 ADR 0009 assumed.
+  - The proposal names alone are 13,336 characters. The JSON instruction, system prompt, header and existing topics
+    add another 6,803.
+- **Done:**
+  - The merge's own ratio is now 2.5 (`MERGE_CHARS_PER_TOKEN`), so the budget is 17,500 characters. It was the only
+    user of the ratio; extraction is capped in characters.
+  - A request over budget with no descriptions logs a warning with the numbers. Topics are never dropped.
+  - A COS330-sized test is a strict xfail until the input fits.
+  - The topic-map status now reports only failures newer than the latest successful merge.
+- **Not fixed:** COS330's merge still can't fit Groq. Gemini takes it, as before.
+- **Next:** decide how to make the merge fit, if Groq should be able to take it. That needs a shorter format or a merge
+  in halves.
+
 ## 2026-11-17: Phase 2, topic review (decision 0009)
 
 - **Merge fallback:**
