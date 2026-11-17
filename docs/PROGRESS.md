@@ -2,6 +2,20 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-17: Phase 2, task 5 (LLM client)
+
+- **Done:**
+  - `app/ai/`: one OpenAI-compatible adapter (httpx) for Gemini, Groq and optional Ollama; `LLMClient.complete_text` / `complete_json` (Pydantic validation, one repair turn); image messages, sent only to vision models.
+  - Routing: roles `smart` / `bulk` are ordered `provider/model` lists in config. A model is skipped when it has no key or is cooling down, and when it's out of budget (counted from `ai_usage` since the provider's midnight). 429/5xx honour Retry-After (or back off with jitter), retry once if ≤ 20 s, then fall through. When all are out, `AIUnavailable(retry_at)`: the worker reschedules the job without using an attempt; the API gives 503 + Retry-After.
+  - `ai_usage` (migration 0008), one row per request, no prompt or reply text. `GET /ai/status` (keys yes/no only, roles, today's usage vs budget). `uv run python -m app.ai.ping`.
+  - Privacy gate `app/ai/sources.py`: chunks and pages for prompts are filtered on `allow_ai` in the query, and file names are never sent. Tested end to end against what the fake provider received.
+  - Tests: 42 new tests (`FakeLLM` transport). `conftest` blanks real keys and installs a client that refuses any request, so the Stop hook and CI never reach a provider.
+- **Decided:**
+  - Models: smart = `gemini-3.8-flash` → `openai/gpt-oss-120b` → `qwen/qwen3.8-27b`; bulk = `gemini-3.5-flash-lite` → `openai/gpt-oss-20b`. Budgets 18/450/900/900/900 per day (free tier less ~10 %). Recorded in an addendum to ADR 0002.
+  - Google no longer publishes free-tier limits. Flash at 20 RPD is the binding constraint, so Groq will carry much of the smart load.
+  - Budgets count per user (keys become per-user in Phase 9); a 429 doesn't count against quota.
+- **Next:** Phase 2 task 6, topic-extraction prompts and schemas. Run `uv run python -m app.ai.ping` with real keys first.
+
 ## 2026-11-14: Phase 2, task 4 (chunking, local embeddings, hybrid search)
 
 - **Done:**

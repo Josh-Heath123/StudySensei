@@ -65,7 +65,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 - [x] `jobs` table and worker (`FOR UPDATE SKIP LOCKED`), added to `npm run dev`
 - [x] Extractors: PDF (`pypdfium2`), PPTX, DOCX, plus a scanned-page flag, with fixture tests
 - [x] Chunker, `fastembed` (bge-small-en-v1.5, 384 dims), `tsvector`, hybrid search endpoint (RRF)
-- [ ] `LLMClient` with **one OpenAI-compatible adapter** (Gemini primary, Groq fallback, optional Ollama; see decision 0002), `ai_usage` logging, budget and rate-limit backoff
+- [x] `LLMClient` with **one OpenAI-compatible adapter** (Gemini primary, Groq fallback, optional Ollama; see decision 0002), `ai_usage` logging, budget and rate-limit backoff
 - [ ] Topic-extraction prompts and Pydantic schemas (per material, then merged per module), with chunk–topic linking
 - [ ] Upload UI with processing status, materials viewer (pdf.js, jump to page) and module search
 - [ ] Topic review UI (confirm, rename, merge, delete; user edits win)

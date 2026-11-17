@@ -28,7 +28,7 @@ background work. **Camera frames and audio never leave the browser.**
 | Background jobs | Worker polling a `jobs` table with `FOR UPDATE SKIP LOCKED` (decision 0004) | No Redis; jobs survive restarts |
 | Embeddings | Local `fastembed`, `BAAI/bge-small-en-v1.5` (384 dims, CPU) | Free, private, fast enough |
 | LLM access | Our own `LLMClient` with **one OpenAI-compatible adapter** | ~200 lines we control ([0002](decisions/0002-free-ai-providers.md)) |
-| Models | Gemini Flash (tutor, topic maps, scanned pages), Gemini Flash-Lite (bulk classification), Groq fallback | Zero cost |
+| Models | `smart`: `gemini-3.8-flash` → Groq `openai/gpt-oss-120b` → `qwen/qwen3.8-27b` (images); `bulk`: `gemini-3.5-flash-lite` → Groq `openai/gpt-oss-20b`; optional Ollama last | Zero cost; roles live in config (see AI integration) |
 | PDF / Office | `pypdfium2`, `python-pptx`, `python-docx` | Permissive licences (PyMuPDF is AGPL; Docling pulls in PyTorch) |
 | Scanned pages | Detect pages with no text layer; opt-in vision-LLM transcription | Tesseract handles maths and handwriting badly |
 | Spaced repetition | FSRS (`py-fsrs` / `ts-fsrs`) | Fewer reviews for the same retention |
@@ -45,7 +45,7 @@ apps/api/            FastAPI service (+ worker from Phase 2), one Python package
   app/models/        SQLAlchemy models (TimestampedBase: UUID id, created_at, updated_at)
   app/schemas/       Pydantic request/response + AI output schemas
   app/services/      search/ (chunking, embedding, indexing, search), planning/, mastery/, profile/, pastpapers/
-  app/ai/            llm_client.py, adapters/, prompts/, retrieval.py, budget.py
+  app/ai/            client.py (LLMClient), adapter.py (OpenAI-compatible), routes.py, budget.py, usage.py, sources.py, ping.py; later prompts/, retrieval.py
   app/jobs/          queue.py (enqueue, claim, retry), worker.py, kinds.py, tasks/ (extract_text, index_material, …)
   app/storage/       Storage interface + LocalStorage (data/materials), keys {user_id}/{sha256}
   alembic/           migrations
@@ -84,6 +84,7 @@ the web app calls the API through the typed `openapi-fetch` client. CI fails if 
 | Assessments | `GET/POST /modules/{id}/assessments`, `GET /assessments?status=` (all modules), `GET/PATCH/DELETE /assessments/{id}` (responses include `topic_ids`; sending `topic_ids` replaces the whole set) |
 | Tasks | `GET/POST /modules/{id}/tasks`, `GET /tasks?status=` (all modules), `GET/PATCH/DELETE /tasks/{id}` (`status: "done"` sets `completed_at`) |
 | Sessions | `POST /sessions`, `GET /sessions/active`, `GET/DELETE /sessions/{id}`, `POST /sessions/{id}/events`, `PUT /sessions/{id}/reflection`, `GET /modules/{id}/sessions?limit=&offset=` (a page `{items, total, limit, offset}`: the open session first, then newest first; limit 1–100, default 20), `GET /modules/{id}/sessions/summary?week_start=` (session count and active seconds, all time and since `week_start`) |
+| AI | `GET /ai/status`: per provider whether it's configured (`key_set` is yes/no only), each role's models in order, and per model `used_today` / `daily_budget` / `resets_at` for the current user |
 | Materials | `POST /modules/{id}/materials` (multipart: `file`, `kind`, `title?`, `allow_ai`; 413 over 50 MB, 415 wrong type, 409 same file in the module), `GET /modules/{id}/materials`, `GET/PATCH/DELETE /materials/{id}` (PATCH: title, kind, allow_ai), `POST /materials/{id}/retry` (failed only), `GET /materials/{id}/pages` (page number, title, char count, is_scanned), `GET /materials/{id}/pages/{n}` (adds the text) |
 
 Notes on these endpoints:
@@ -103,6 +104,7 @@ Topic `position` is the index among siblings. New topics append, and moves/delet
 | 404 | Not found, **or another user's row** (deliberately indistinguishable) | a string |
 | 409 | Uniqueness conflict, e.g. a duplicate module code (case-insensitive) | a string |
 | 422 | Invalid input: Pydantic validation, an explicit `null` for a required field, or a disallowed operation (e.g. moving a topic into its own subtree) | a list of issues for validation, a string otherwise |
+| 503 | `AIUnavailable`: no provider configured, or every model rate-limited or out of budget; `Retry-After` when known | a string |
 
 PATCH bodies only change the fields sent. `null` is accepted only for clearable fields (each `*Update` schema's `nullable` set).
 
@@ -134,6 +136,8 @@ Derived tables can always be rebuilt from source tables.
 - `study_sessions`, `session_events`, `session_topic_ratings` (0003)
 - 0004 is data only: existing module colours mapped to the design-system swatches (nearest hue)
 - `chunks` (0007), with a GIN index on `tsv` and no vector index (decision 0005)
+- `ai_usage` (0008): user, provider, model, role, purpose, input/output tokens, latency, outcome (`ok`, `rate_limited`,
+  `error`, `invalid_json`). Never prompt or reply text.
 
 ### Session events
 
@@ -171,19 +175,70 @@ Scoping by `user_id` is enforced twice: by the services and by Postgres.
 
 ## AI integration
 
-- **Interface:** `LLMClient.complete(tier, messages, schema=None, stream=False)`. Features ask for a tier, and settings map
-  each tier to a provider and model.
-- **Structured output:** every saved AI result passes a Pydantic schema. It is retried once, then the job is marked for manual review.
+Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provider.
+
+- **One adapter:** `adapter.py` speaks the OpenAI chat-completions API over httpx (`POST {base}/chat/completions`,
+  `GET {base}/models`) for every provider:
+  - Gemini (primary): `https://generativelanguage.googleapis.com/v1beta/openai/`, `GEMINI_API_KEY`
+  - Groq (fallback): `https://api.groq.com/openai/v1`, `GROQ_API_KEY`
+  - Ollama (optional): `http://localhost:11434/v1`, no key, on only when `OLLAMA_MODEL` is set (then last in every role, no budget)
+- **Roles, in config** (`AI_SMART`, `AI_BULK`: ordered `"provider/model"` lists in `app/core/config.py`):
+
+  | Role | Used for | Models, in order |
+  | --- | --- | --- |
+  | `smart` | tutor, topic maps, reading scanned pages | `gemini/gemini-3.8-flash`, `groq/openai/gpt-oss-120b`, `groq/qwen/qwen3.8-27b` |
+  | `bulk` | classification, tagging | `gemini/gemini-3.5-flash-lite`, `groq/openai/gpt-oss-20b` |
+
+- **Free-tier limits and budgets** (`AI_DAILY_BUDGET`, requests per day, about 10 % under the limit). Google no longer
+  publishes free-tier numbers. These are the per-project quotas that AI Studio and 429 replies reported in Sept–Nov 2026.
+  Check yours at aistudio.google.com/rate-limit and console.groq.com/settings/limits.
+
+  | Model | Free tier | Budget | Resets | Images |
+  | --- | --- | --- | --- | --- |
+  | `gemini-3.8-flash` | 5 RPM, 20 RPD | 18 | midnight Pacific | yes |
+  | `gemini-3.5-flash-lite` | 15 RPM, 500 RPD | 450 | midnight Pacific | yes |
+  | Groq `openai/gpt-oss-120b` | 30 RPM, 1K RPD, 8K TPM, 200K TPD | 900 | midnight UTC (assumed) | no |
+  | Groq `openai/gpt-oss-20b` | 30 RPM, 1K RPD, 8K TPM, 200K TPD | 900 | midnight UTC (assumed) | no |
+  | Groq `qwen/qwen3.8-27b` | 30 RPM, 1K RPD, 8K TPM (3 images per request) | 900 | midnight UTC (assumed) | yes |
+
+  Groq's Llama models left the free tier on 16 Aug 2026, so its fallbacks are gpt-oss and Qwen.
+  At 20 requests a day Flash is scarce: topic maps for a few decks will spill over to Groq.
+- **Interface** (`client.py`): `complete_text(role, messages, *, purpose, user_id)` and
+  `complete_json(role, messages, Schema, *, purpose, user_id)`. Messages are `system()` / `user(text, *images)`. An
+  image (a scanned page) is sent inline as a data URL, and only `AI_VISION_MODELS` get those requests.
+- **Structured output:** `complete_json` asks for a JSON object (the schema goes in the system prompt, with
+  `response_format: json_object`) and validates it with Pydantic (a Markdown fence is tolerated). If it fails, one
+  repair turn is sent with the validation errors. A second failure raises `AIInvalidOutput`, and the caller marks the
+  item for manual review.
+- **Routing per request:** the client walks the role's models in order. It skips a model whose provider has no key,
+  that can't read the images, that is cooling down after a 429/5xx, or whose daily budget is spent.
+  - **429/5xx/timeouts:** the wait is the `Retry-After` (a header, an HTTP date, or Gemini's `retryDelay` in the body),
+    or else 2 s × 2ⁿ backoff, plus jitter. The model is retried once (`AI_RETRIES`) if that wait is at most
+    `AI_MAX_WAIT_SECONDS` (20 s). Otherwise it cools down (at least a minute) and the next model is tried. Other 4xx
+    errors (a bad key, an unknown model) fall straight through.
+  - **Budgets** (`budget.py`): the user's `ai_usage` rows for that model since the provider's last local midnight
+    (`AI_QUOTA_TIMEZONE`). They count `ok`, `error` and `invalid_json` (a 429 used no quota).
+  - **All out:** `AIUnavailable(retry_at=…)`, set to the earliest cooldown end or budget reset. The worker reschedules
+    the job for then without using an attempt (`queue.reschedule`), and the API answers 503 with `Retry-After`. With no
+    provider configured, `retry_at` is None: jobs fail with "AI isn't set up yet…", and nothing crashes.
+- **Usage:** every request writes an `ai_usage` row in its own session, including retries and failures, so a job that
+  rolls back still leaves its calls on record. Keys are `SecretStr` and sent only in the `Authorization` header. They
+  are never logged, stored or returned (`/ai/status` says yes or no).
+- **Privacy** (free-tier prompts may be used by the provider):
+  - Course text reaches prompts only through `app/ai/sources.py` (`chunks_for_prompt`, `material_pages_for_prompt`),
+    whose queries filter on `materials.allow_ai = true` and `user_id`. It hands out the material title and page text,
+    never the original file name (which can hold a student number).
+  - The client never looks the user up: `user_id` is only for usage rows and budgets. No names, emails, student
+    numbers or reflections go in prompts.
+  - For COS330, the student turns `allow_ai` off on their own `u23541475_*` submissions.
+- **Checking keys:** `uv run python -m app.ai.ping` sends "Reply with the single word: pong" to every configured model.
+  It checks each ID is in the provider's `/models` list and prints the provider, model, latency and reply.
+- **Tests never call a provider:** `tests/conftest.py` blanks the key variables (the environment beats `.env`) and
+  installs a client whose transport fails any request. AI tests script replies with `FakeLLM` (`tests/fakes.py`).
 - **AI suggests, code decides:** AI never changes the plan, deletes data or sends notifications.
 - **Untrusted input:** uploaded documents are untrusted, and retrieved text is labelled as source material in prompts.
-- **Free-tier privacy:** never send personal data (names, student numbers, emails, reflections). For COS330, the student's own
-  `u23541475_*` submissions are excluded from AI processing.
-- **Cost and rate controls:**
-  - two tiers and per-feature token limits
-  - each file is processed once (by hash), and practice items are cached
-  - backoff on 429s, then fall back to Groq
-  - `ai/budget.py`
-- **Later:** a read-only MCP server (`get_modules`, `get_plan`, `get_weak_topics`, `search_materials`).
+- **Later:** per-feature token limits, cached practice items, user-supplied keys (`ai_credentials`, Phase 9) and a
+  read-only MCP server (`get_modules`, `get_plan`, `get_weak_topics`, `search_materials`).
 
 ## Document pipeline
 
@@ -300,7 +355,7 @@ Scoping by `user_id` is enforced twice: by the services and by Postgres.
 
 ## Testing and CI
 
-- **Back end:** pytest against real Postgres (`studysensei_test`). The planner, mastery, metrics and budget get unit and Hypothesis property tests, and ingestion gets fixture files.
+- **Back end:** pytest against real Postgres (`studysensei_test`). The planner, mastery, metrics and budget get unit and Hypothesis property tests, and ingestion gets fixture files. AI calls go to `FakeLLM`, never the network.
 - **Front end:** Vitest + Testing Library. `timer.ts`, `signals.ts` and `interventions.ts` are tested against recorded landmark traces. Session flows are component-tested with a fake clock.
 - **End to end:** Playwright (`apps/web/e2e/`, `npm run e2e`) runs against a real API on :8001 and Vite on :5174 with the
   `studysensei_e2e` database, rebuilt each run, so it never touches the dev servers. The browser clock is installed three
