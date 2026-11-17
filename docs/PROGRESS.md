@@ -2,6 +2,23 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-17: Phase 2, LLM client fix (supported thinking levels, provider error text)
+
+- **Why:** the ping got HTTP 400 from `gemini-3.8-flash` in 0.4 s. It doesn't support `minimal`, which the ping sent to every model.
+- **Done:**
+  - `AI_REASONING_EFFORTS` lists the levels each routed model accepts, from Gemini's thinking docs and Groq's reasoning docs
+    - 3.8 Flash: low/medium/high
+    - Flash-Lite: all four
+    - gpt-oss and Qwen: low/medium/high
+  - `wire_effort` raises a missing level to the model's lowest supported one, replacing the Groq-only special case. Qwen now gets a level too.
+  - `ProviderError` carries the provider's `error.message`, trimmed to 300 characters
+  - tests:
+    - the effort table now runs per model from config (8 cases)
+    - level raising, and every routed model having its levels listed
+    - the ping sending low to Flash and minimal to Flash-Lite
+    - a 400 body's message appearing in the error, trimmed, with nothing from the headers
+- **Next:** rerun `uv run python -m app.ai.ping`, then Phase 2 task 6 (topic extraction).
+
 ## 2026-11-17: Phase 2, LLM client follow-up (thinking level, timeouts, ping output)
 
 - **Why:** the ping hung on `gemini-3.8-flash` with no output. Gemini 3 always thinks at its default level unless told

@@ -5,6 +5,7 @@ routes kept in config, so swapping a model never needs a code change. Routes on 
 provider without a key are listed but not ``configured``, and the client skips them.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
@@ -33,8 +34,14 @@ class Route:
     # Requests per day this client allows itself, or None for no limit (Ollama).
     daily_budget: int | None
     vision: bool
-    # From config; None means the model's own default. ``wire_effort`` says what is sent.
+    # From config; None means the model's own default. ``effort_to_send`` says what is sent.
     reasoning_effort: ReasoningEffort | None = None
+    # The levels this model accepts, lowest first; empty means it is never sent one.
+    supported_efforts: tuple[ReasoningEffort, ...] = ()
+
+    def effort_to_send(self, override: ReasoningEffort | None = None) -> ReasoningEffort | None:
+        """The ``reasoning_effort`` for a request: the call's override, else the route's."""
+        return wire_effort(self.supported_efforts, override or self.reasoning_effort)
 
     @property
     def key(self) -> str:
@@ -73,25 +80,22 @@ def parse_route_key(key: str) -> tuple[str, str]:
     return provider, model
 
 
-def accepts_reasoning_effort(provider: str, model: str) -> bool:
-    """Gemini (all of its OpenAI-compatible models) and Groq's gpt-oss models take it.
-
-    Groq's Qwen takes different values (none/default/…), and Ollama varies by model, so
-    neither is sent one.
-    """
-    return provider == "gemini" or (provider == "groq" and model.startswith("openai/gpt-oss"))
+EFFORT_ORDER: tuple[ReasoningEffort, ...] = ("minimal", "low", "medium", "high")
 
 
-def wire_effort(provider: str, model: str, effort: ReasoningEffort | None) -> str | None:
+def wire_effort(
+    supported: Sequence[ReasoningEffort], effort: ReasoningEffort | None
+) -> ReasoningEffort | None:
     """The ``reasoning_effort`` to send, or None to leave it out.
 
-    Groq's gpt-oss accepts low/medium/high only, so "minimal" goes as its lowest, "low".
+    A level the model lacks is raised to its lowest supported level at or above it (so
+    "minimal" goes to Gemini 3.8 Flash as "low"); above its highest, it gets its highest.
     """
-    if effort is None or not accepts_reasoning_effort(provider, model):
+    if effort is None or not supported:
         return None
-    if provider == "groq" and effort == "minimal":
-        return "low"
-    return effort
+    ranked = sorted(supported, key=EFFORT_ORDER.index)
+    wanted = EFFORT_ORDER.index(effort)
+    return next((level for level in ranked if EFFORT_ORDER.index(level) >= wanted), ranked[-1])
 
 
 def routes_for(role: AIRole, settings: Settings) -> list[Route]:
@@ -110,6 +114,7 @@ def routes_for(role: AIRole, settings: Settings) -> list[Route]:
                 settings.ai_daily_budget.get(entry.route),
                 entry.route in settings.ai_vision_models,
                 entry.reasoning_effort,
+                tuple(settings.ai_reasoning_efforts.get(entry.route, ())),
             )
         )
     return routes

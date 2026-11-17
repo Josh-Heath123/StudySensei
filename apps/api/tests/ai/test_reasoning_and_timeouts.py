@@ -7,10 +7,11 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.adapter import MAX_PROVIDER_MESSAGE, ProviderError, http_error
 from app.ai.messages import user
 from app.ai.ping import run_pings
 from app.ai.routes import all_routes, routes_for, wire_effort
-from app.core.config import RouteSetting, Settings, get_settings
+from app.core.config import ReasoningEffort, RouteSetting, Settings, get_settings
 from app.models import AIUsage, User
 from tests.ai.conftest import MakeClient, Sleeps, routes
 from tests.fakes import FakeLLM, ok
@@ -30,19 +31,36 @@ def sent_effort(fake_llm: FakeLLM) -> list[str | None]:
 
 
 @pytest.mark.parametrize(
-    ("provider", "model", "effort", "sent"),
+    ("key", "effort", "sent"),
     [
-        ("gemini", GEMINI_FLASH, "low", "low"),
-        ("gemini", GEMINI_LITE, "minimal", "minimal"),
-        ("gemini", GEMINI_FLASH, None, None),
-        ("groq", GPT_OSS, "medium", "medium"),
-        ("groq", "openai/gpt-oss-20b", "minimal", "low"),  # gpt-oss has no "minimal"
-        ("groq", QWEN, "low", None),  # Qwen takes other values: not sent
-        ("ollama", "llama3.2", "low", None),
+        (f"gemini/{GEMINI_FLASH}", "minimal", "low"),  # 3.8 Flash has no "minimal"
+        (f"gemini/{GEMINI_FLASH}", "low", "low"),
+        (f"gemini/{GEMINI_FLASH}", None, None),
+        (f"gemini/{GEMINI_LITE}", "minimal", "minimal"),
+        (f"groq/{GPT_OSS}", "medium", "medium"),
+        ("groq/openai/gpt-oss-20b", "minimal", "low"),  # nor has gpt-oss
+        (f"groq/{QWEN}", "minimal", "low"),
+        ("ollama/llama3.2", "low", None),  # not listed: never sent
     ],
 )
-def test_wire_effort(provider: str, model: str, effort: str | None, sent: str | None) -> None:
-    assert wire_effort(provider, model, effort) == sent  # type: ignore[arg-type]
+def test_each_model_gets_a_level_it_supports(
+    key: str, effort: ReasoningEffort | None, sent: str | None
+) -> None:
+    supported = get_settings().ai_reasoning_efforts.get(key, [])
+
+    assert wire_effort(supported, effort) == sent
+
+
+def test_an_unsupported_level_is_raised_to_the_next_one_up_or_the_highest() -> None:
+    assert wire_effort(["low", "high"], "medium") == "high"
+    assert wire_effort(["minimal", "low"], "high") == "low"
+    assert wire_effort(["high", "low"], "minimal") == "low"  # order in config doesn't matter
+
+
+def test_every_routed_model_has_its_levels_listed() -> None:
+    defaults = get_settings()
+
+    assert {r.key for r in all_routes(defaults)} == set(defaults.ai_reasoning_efforts)
 
 
 def test_default_roles_think_minimal_for_bulk_and_low_for_smart() -> None:
@@ -82,8 +100,7 @@ async def test_each_route_sends_its_own_effort_or_none(
 
     await client.complete_text("smart", MESSAGES, purpose="t", user_id=user_a.id)
 
-    assert sent_effort(fake_llm) == ["low", "low", None]
-    assert "reasoning_effort" not in fake_llm.requests[2].body
+    assert sent_effort(fake_llm) == ["low", "low", "low"]
 
 
 async def test_a_call_can_ask_for_more_thinking(
@@ -113,7 +130,68 @@ async def test_the_ping_always_asks_for_minimal(
     for route in all_routes(client.settings):
         await client.ping(route, user_id=user_a.id)
 
-    assert sent_effort(fake_llm) == ["minimal", "low", None]
+    assert sent_effort(fake_llm) == ["low", "low", "low"]  # each model's lowest
+
+
+async def test_ping_sends_minimal_to_flash_lite_and_low_to_flash(
+    make_client: MakeClient, fake_llm: FakeLLM, user_a: User
+) -> None:
+    client = make_client(
+        ai_smart=routes(f"gemini/{GEMINI_FLASH}"), ai_bulk=routes(f"gemini/{GEMINI_LITE}")
+    )
+    fake_llm.reply(GEMINI_FLASH, ok("pong"))
+    fake_llm.reply(GEMINI_LITE, ok("pong"))
+
+    for route in all_routes(client.settings):
+        await client.ping(route, user_id=user_a.id)
+
+    assert [(s.model, s.body["reasoning_effort"]) for s in fake_llm.requests] == [
+        (GEMINI_FLASH, "low"),
+        (GEMINI_LITE, "minimal"),
+    ]
+
+
+# --- provider error messages ---
+
+
+async def test_a_400_carries_the_providers_message(
+    make_client: MakeClient, fake_llm: FakeLLM, user_a: User
+) -> None:
+    client = make_client(ai_smart=routes(f"gemini/{GEMINI_FLASH}"), ai_bulk=[])
+    body = [
+        {
+            "error": {
+                "code": 400,
+                "message": "Thinking level MINIMAL is not supported for this model.",
+                "status": "INVALID_ARGUMENT",
+            }
+        }
+    ]
+    fake_llm.reply(GEMINI_FLASH, httpx.Response(400, json=body))
+
+    with pytest.raises(ProviderError) as caught:
+        await client.ping(client.routes("smart")[0], user_id=user_a.id)
+
+    assert str(caught.value) == (
+        "gemini: HTTP 400: Thinking level MINIMAL is not supported for this model."
+    )
+
+
+def test_only_the_message_is_taken_and_trimmed() -> None:
+    long = httpx.Response(
+        400,
+        json={"error": {"message": "x" * 500, "param": "secret-prompt-text"}},
+        headers={"x-goog-api-key": "a-key"},
+    )
+    message = http_error("groq", long)
+
+    assert message.startswith("groq: HTTP 400: xxx")
+    assert len(message.removeprefix("groq: HTTP 400: ")) == MAX_PROVIDER_MESSAGE
+    assert "secret-prompt-text" not in message and "a-key" not in message
+    assert http_error("groq", httpx.Response(503, text="<html>down</html>")) == "groq: HTTP 503"
+    assert http_error("groq", httpx.Response(400, json={"error": "Bad model"})) == (
+        "groq: HTTP 400: Bad model"
+    )
 
 
 # --- timeouts ---

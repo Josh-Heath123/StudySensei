@@ -84,6 +84,38 @@ def _headers(provider: Provider) -> dict[str, str]:
     return {"Authorization": f"Bearer {provider.api_key.get_secret_value()}"}
 
 
+MAX_PROVIDER_MESSAGE = 300
+
+
+def provider_message(response: httpx.Response) -> str | None:
+    """The ``error.message`` from an error body, trimmed; nothing else from the response.
+
+    OpenAI-style bodies are ``{"error": {"message": ...}}``; Gemini's compatibility layer
+    sometimes wraps that in a list. The request and headers are never included.
+    """
+    try:
+        body: Any = response.json()
+    except ValueError:
+        return None
+    if isinstance(body, list) and body:
+        body = body[0]
+    error = body.get("error") if isinstance(body, dict) else None
+    message = error.get("message") if isinstance(error, dict) else error
+    if not isinstance(message, str) or not message.strip():
+        return None
+    message = " ".join(message.split())
+    if len(message) > MAX_PROVIDER_MESSAGE:
+        message = message[: MAX_PROVIDER_MESSAGE - 1].rstrip() + "…"
+    return message
+
+
+def http_error(name: str, response: httpx.Response) -> str:
+    """``"gemini: HTTP 400: Thinking level MINIMAL is not supported…"``."""
+    message = provider_message(response)
+    base = f"{name}: HTTP {response.status_code}"
+    return f"{base}: {message}" if message else base
+
+
 def _model_id(raw: str) -> str:
     # Gemini lists "models/gemini-…"; requests take the bare ID.
     return raw.removeprefix("models/")
@@ -115,7 +147,7 @@ class OpenAICompatAdapter:
             ) from exc
         if response.status_code >= 400:
             raise ProviderError(
-                f"{name}: HTTP {response.status_code}",
+                http_error(name, response),
                 status=response.status_code,
                 retry_after=retry_after_seconds(response),
             )

@@ -40,7 +40,7 @@ from app.ai.budget import next_reset, quota_zone, window_start
 from app.ai.errors import NOT_CONFIGURED, AIInvalidOutput, AIUnavailable
 from app.ai.messages import Message, has_images, system, user
 from app.ai.messages import assistant as assistant_message
-from app.ai.routes import AIRole, Route, routes_for, wire_effort
+from app.ai.routes import AIRole, Route, routes_for
 from app.ai.usage import UsageRecord, UsageStore
 from app.core.config import ReasoningEffort, Settings
 
@@ -225,7 +225,7 @@ class LLMClient:
             completion = await self._adapter(route).complete(
                 route.model,
                 messages,
-                reasoning_effort=wire_effort(route.provider.name, route.model, "minimal"),
+                reasoning_effort=route.effort_to_send("minimal"),
                 deadline=limit_seconds,
             )
         except ProviderError as exc:
@@ -340,9 +340,7 @@ class LLMClient:
                         route.model,
                         messages,
                         json_mode=json_mode,
-                        reasoning_effort=wire_effort(
-                            route.provider.name, route.model, effort or route.reasoning_effort
-                        ),
+                        reasoning_effort=route.effort_to_send(effort),
                     )
                 except ProviderError as exc:
                     await self._record(route, role, purpose, user_id, started, None, exc)
