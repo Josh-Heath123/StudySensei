@@ -40,13 +40,15 @@ from app.ai.budget import next_reset, quota_zone, window_start
 from app.ai.errors import NOT_CONFIGURED, AIInvalidOutput, AIUnavailable
 from app.ai.messages import Message, has_images, system, user
 from app.ai.messages import assistant as assistant_message
-from app.ai.routes import AIRole, Route, routes_for
+from app.ai.routes import AIRole, Route, routes_for, wire_effort
 from app.ai.usage import UsageRecord, UsageStore
-from app.core.config import Settings
+from app.core.config import ReasoningEffort, Settings
 
 log = logging.getLogger("studysensei.ai")
 
 BACKOFF_BASE_SECONDS = 2.0
+# The whole of one ping, so a slow model can't hold up the others.
+PING_TIMEOUT_SECONDS = 30.0
 # After a failure with no hint of when to come back.
 DEFAULT_COOLDOWN = timedelta(minutes=1)
 # When every route failed with a plain error (a bad key, an unknown model).
@@ -109,7 +111,10 @@ class LLMClient:
         self.settings = settings
         self._usage = usage
         self._http = httpx.AsyncClient(
-            transport=transport, timeout=httpx.Timeout(settings.ai_timeout_seconds)
+            transport=transport,
+            timeout=httpx.Timeout(
+                settings.ai_read_timeout_seconds, connect=settings.ai_connect_timeout_seconds
+            ),
         )
         self._sleep = sleep
         self._now = now
@@ -126,10 +131,23 @@ class LLMClient:
     # --- public API ---
 
     async def complete_text(
-        self, role: AIRole, messages: list[Message], *, purpose: str, user_id: uuid.UUID
+        self,
+        role: AIRole,
+        messages: list[Message],
+        *,
+        purpose: str,
+        user_id: uuid.UUID,
+        reasoning_effort: ReasoningEffort | None = None,
     ) -> str:
+        """``reasoning_effort`` overrides the routes' configured level for this call."""
         return await self._complete(
-            role, messages, purpose=purpose, user_id=user_id, json_mode=False, check=None
+            role,
+            messages,
+            purpose=purpose,
+            user_id=user_id,
+            json_mode=False,
+            check=None,
+            effort=reasoning_effort,
         )
 
     async def complete_json[T: BaseModel](
@@ -140,10 +158,12 @@ class LLMClient:
         *,
         purpose: str,
         user_id: uuid.UUID,
+        reasoning_effort: ReasoningEffort | None = None,
     ) -> T:
         """Ask for JSON, validate it against ``schema``, and repair it once if needed.
 
         Raises ``AIInvalidOutput`` if the repaired reply still doesn't validate.
+        ``reasoning_effort`` overrides the routes' configured level for this call.
         """
         result: list[T] = []
 
@@ -156,7 +176,13 @@ class LLMClient:
         prompt = [system(json_instruction(schema)), *messages]
         try:
             await self._complete(
-                role, prompt, purpose=purpose, user_id=user_id, json_mode=True, check=check
+                role,
+                prompt,
+                purpose=purpose,
+                user_id=user_id,
+                json_mode=True,
+                check=check,
+                effort=reasoning_effort,
             )
             return result[-1]
         except _InvalidReply as first:
@@ -171,7 +197,13 @@ class LLMClient:
             ]
         try:
             await self._complete(
-                role, repair, purpose=purpose, user_id=user_id, json_mode=True, check=check
+                role,
+                repair,
+                purpose=purpose,
+                user_id=user_id,
+                json_mode=True,
+                check=check,
+                effort=reasoning_effort,
             )
             return result[-1]
         except _InvalidReply as second:
@@ -180,20 +212,32 @@ class LLMClient:
                 f"{second.problem}"
             ) from None
 
-    async def ping(self, route: Route, *, user_id: uuid.UUID) -> PingResult:
-        """One short request to exactly this route (no fallback, no budget). Logged as "ping"."""
+    async def ping(
+        self, route: Route, *, user_id: uuid.UUID, limit_seconds: float = PING_TIMEOUT_SECONDS
+    ) -> PingResult:
+        """One short request to exactly this route (no fallback, no budget). Logged as "ping".
+
+        It thinks as little as the model allows, and gives up after ``limit_seconds``.
+        """
         messages = [user("Reply with the single word: pong")]
         started = time.monotonic()
         try:
-            completion = await self._adapter(route).complete(route.model, messages)
+            completion = await self._adapter(route).complete(
+                route.model,
+                messages,
+                reasoning_effort=wire_effort(route.provider.name, route.model, "minimal"),
+                deadline=limit_seconds,
+            )
         except ProviderError as exc:
             await self._record(route, "smart", "ping", user_id, started, None, exc)
             raise
         await self._record(route, "smart", "ping", user_id, started, completion, None)
         return PingResult(route, int((time.monotonic() - started) * 1000), completion.text.strip())
 
-    async def list_models(self, route: Route) -> list[str]:
-        return await self._adapter(route).list_models()
+    async def list_models(
+        self, route: Route, *, limit_seconds: float = PING_TIMEOUT_SECONDS
+    ) -> list[str]:
+        return await self._adapter(route).list_models(deadline=limit_seconds)
 
     # --- internals ---
 
@@ -213,7 +257,10 @@ class LLMClient:
         invalid: bool = False,
     ) -> None:
         if error is not None:
-            outcome = "rate_limited" if error.rate_limited else "error"
+            if error.timed_out:
+                outcome = "timeout"
+            else:
+                outcome = "rate_limited" if error.rate_limited else "error"
         else:
             outcome = "invalid_json" if invalid else "ok"
         await self._usage.record(
@@ -259,6 +306,7 @@ class LLMClient:
         user_id: uuid.UUID,
         json_mode: bool,
         check: Callable[[str], None] | None,
+        effort: ReasoningEffort | None,
     ) -> str:
         routes = [route for route in self.routes(role) if route.configured]
         if not routes:
@@ -289,7 +337,12 @@ class LLMClient:
                 started = time.monotonic()
                 try:
                     completion = await self._adapter(route).complete(
-                        route.model, messages, json_mode=json_mode
+                        route.model,
+                        messages,
+                        json_mode=json_mode,
+                        reasoning_effort=wire_effort(
+                            route.provider.name, route.model, effort or route.reasoning_effort
+                        ),
                     )
                 except ProviderError as exc:
                     await self._record(route, role, purpose, user_id, started, None, exc)
