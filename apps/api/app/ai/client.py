@@ -6,9 +6,9 @@
     topics = await client.complete_json("smart", messages, TopicMap,
                                         purpose="topic_extraction", user_id=user.id)
 
+A request with an image always uses the ``vision`` role, whatever role was asked for.
 For each request it walks the role's routes in order and skips a route that is:
 - on a provider without a key,
-- unable to read images when the messages have one,
 - cooling down after a 429 or 5xx, or
 - out of its daily budget (counted from ``ai_usage`` since the provider's quota reset).
 
@@ -308,17 +308,18 @@ class LLMClient:
         check: Callable[[str], None] | None,
         effort: ReasoningEffort | None,
     ) -> str:
+        if has_images(messages):
+            # Only the vision role's models read images, whatever role was asked for.
+            role = "vision"
         routes = [route for route in self.routes(role) if route.configured]
         if not routes:
-            raise AIUnavailable(NOT_CONFIGURED, retry_at=None)
-        if has_images(messages):
-            routes = [route for route in routes if route.vision]
-            if not routes:
+            if role == "vision" and any(r.configured for r in self.routes("smart")):
                 raise AIUnavailable(
-                    f"No configured {role} model can read images. "
-                    "Add GEMINI_API_KEY to apps/api/.env.",
+                    "No configured model can read images. Add a key for a provider in AI_VISION "
+                    "(GEMINI_API_KEY or GROQ_API_KEY) to apps/api/.env.",
                     retry_at=None,
                 )
+            raise AIUnavailable(NOT_CONFIGURED, retry_at=None)
 
         waits: list[datetime] = []
         for route in routes:

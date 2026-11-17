@@ -60,13 +60,28 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434/v1"
     # Ollama is off unless a model is named; it's then tried last in every role, with no budget.
     ollama_model: str | None = None
-    # Each role is an ordered list of routes, tried first to last. Gemini 3 always thinks
-    # (at its default level unless told); bulk work needs little, smart work a bit more.
+    # Each role is an ordered list of routes, tried first to last (ADR 0002, 2026-11-17 update).
+    # Ordered by free-tier daily limits and latency: gemini-3.8-flash allows ~20 requests a
+    # day and has timed out at 30 s, so it's only the last resort; Flash-Lite (~500 a day,
+    # 1-10 s) and Groq's gpt-oss (~1,000 a day) carry the load.
     ai_smart: list[RouteSetting] = _routes(
-        "low", "gemini/gemini-3.8-flash", "groq/openai/gpt-oss-120b", "groq/qwen/qwen3.8-27b"
+        "low",
+        "groq/openai/gpt-oss-120b",
+        "gemini/gemini-3.5-flash-lite",
+        "gemini/gemini-3.8-flash",
     )
-    ai_bulk: list[RouteSetting] = _routes(
-        "minimal", "gemini/gemini-3.5-flash-lite", "groq/openai/gpt-oss-20b"
+    ai_bulk: list[RouteSetting] = [
+        RouteSetting(route="gemini/gemini-3.5-flash-lite", reasoning_effort="minimal"),
+        RouteSetting(route="groq/openai/gpt-oss-20b", reasoning_effort="low"),
+    ]
+    # Any request with an image goes here instead of its own role (scanned pages, figure
+    # slides). Every model listed must accept images; gpt-oss is text-only. Ollama isn't
+    # added, since a local model may not read images.
+    ai_vision: list[RouteSetting] = _routes(
+        "low",
+        "gemini/gemini-3.5-flash-lite",
+        "groq/qwen/qwen3.8-27b",
+        "gemini/gemini-3.8-flash",
     )
     # Requests per day per "provider/model": the free-tier limit less about 10 %.
     # A model missing here has no daily budget.
@@ -77,12 +92,6 @@ class Settings(BaseSettings):
         "groq/openai/gpt-oss-20b": 900,  # free tier 1,000/day
         "groq/qwen/qwen3.8-27b": 900,  # free tier 1,000/day
     }
-    # Models that accept images; a request with an image skips the others.
-    ai_vision_models: list[str] = [
-        "gemini/gemini-3.8-flash",
-        "gemini/gemini-3.5-flash-lite",
-        "groq/qwen/qwen3.8-27b",
-    ]
     # The reasoning_effort levels each "provider/model" accepts, from its docs (2026-11-17):
     # Gemini's thinking page, Groq's reasoning page. A level a model lacks is raised to its
     # lowest supported one (minimal → low on 3.8 Flash); a model not listed is sent none.
@@ -103,7 +112,7 @@ class Settings(BaseSettings):
     # A Retry-After longer than this isn't waited for: the next model is tried instead.
     ai_max_wait_seconds: float = 20.0
 
-    @field_validator("ai_smart", "ai_bulk", mode="before")
+    @field_validator("ai_smart", "ai_bulk", "ai_vision", mode="before")
     @classmethod
     def _plain_route_strings(cls, value: object) -> object:
         """Allow ``["gemini/gemini-3.8-flash", …]`` as well as route objects."""
