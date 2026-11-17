@@ -3,6 +3,7 @@
 import logging
 from datetime import timedelta
 
+import httpx
 import pytest
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.budget import next_reset, quota_zone, window_start
 from app.ai.client import DEFAULT_COOLDOWN, LLMClient
-from app.ai.errors import NOT_CONFIGURED, AIInvalidOutput, AIUnavailable
+from app.ai.errors import NOT_CONFIGURED, AIInvalidOutput, AIRequestFailed, AIUnavailable
 from app.ai.messages import Image, system, user
 from app.ai.usage import DbUsageStore, SessionFactory
 from app.core.config import Settings
@@ -251,33 +252,47 @@ async def test_a_long_retry_after_falls_through_to_the_next_provider(
     assert [sent.model for sent in fake_llm.requests] == ["flash", "oss-120b", "oss-120b"]
 
 
-async def test_repeated_5xx_falls_through_after_one_retry(
+async def test_a_persistent_5xx_waits_instead_of_cascading(
     make_client: MakeClient, fake_llm: FakeLLM, sleeps: Sleeps, session: AsyncSession, user_a: User
 ) -> None:
     fake_llm.reply("flash", server_error(), server_error())
+
+    with pytest.raises(AIUnavailable) as caught:
+        await make_client().complete_text("smart", MESSAGES, purpose="tutor", user_id=user_a.id)
+
+    assert caught.value.retry_at == NOW + DEFAULT_COOLDOWN
+    assert sleeps.seconds == [2.0]  # retried once on the same model
+    assert [sent.model for sent in fake_llm.requests] == ["flash", "flash"]  # never Groq
+    assert await outcomes(session, user_a.id) == [
+        ("gemini/flash", "error"),
+        ("gemini/flash", "error"),
+    ]
+
+
+async def test_a_refused_request_doesnt_cascade(
+    make_client: MakeClient, fake_llm: FakeLLM, sleeps: Sleeps, session: AsyncSession, user_a: User
+) -> None:
+    fake_llm.reply("flash", httpx.Response(400, json={"error": {"message": "Invalid argument."}}))
+
+    with pytest.raises(AIRequestFailed) as caught:
+        await make_client().complete_text("smart", MESSAGES, purpose="tutor", user_id=user_a.id)
+
+    assert str(caught.value) == "gemini: HTTP 400: Invalid argument."
+    assert [sent.model for sent in fake_llm.requests] == ["flash"]
+    assert sleeps.seconds == []
+    detail = await session.scalar(select(AIUsage.detail).where(AIUsage.user_id == user_a.id))
+    assert detail == "gemini: HTTP 400: Invalid argument."
+
+
+async def test_a_request_too_large_for_one_model_moves_on(
+    make_client: MakeClient, fake_llm: FakeLLM, user_a: User
+) -> None:
+    fake_llm.reply("flash", httpx.Response(413, json={"error": {"message": "Too large"}}))
     fake_llm.reply("oss-120b", ok("From Groq"))
 
     text = await make_client().complete_text("smart", MESSAGES, purpose="tutor", user_id=user_a.id)
 
     assert text == "From Groq"
-    assert sleeps.seconds == [2.0]
-    assert await outcomes(session, user_a.id) == [
-        ("gemini/flash", "error"),
-        ("gemini/flash", "error"),
-        ("groq/oss-120b", "ok"),
-    ]
-
-
-async def test_a_bad_key_falls_through_without_waiting(
-    make_client: MakeClient, fake_llm: FakeLLM, sleeps: Sleeps, user_a: User
-) -> None:
-    fake_llm.reply("flash", unauthorized())
-    fake_llm.reply("oss-120b", ok("From Groq"))
-
-    assert await make_client().complete_text(
-        "smart", MESSAGES, purpose="tutor", user_id=user_a.id
-    ) == ("From Groq")
-    assert sleeps.seconds == []
 
 
 async def test_every_provider_out_raises_ai_unavailable_with_the_earliest_retry(
@@ -504,10 +519,10 @@ async def test_keys_never_reach_the_logs_or_usage(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.DEBUG)
-    fake_llm.reply("flash", unauthorized())
-    fake_llm.reply("oss-120b", rate_limited(3600))
+    fake_llm.reply("flash", rate_limited(3600))
+    fake_llm.reply("oss-120b", unauthorized())
 
-    with pytest.raises(AIUnavailable) as caught:
+    with pytest.raises(AIRequestFailed) as caught:
         await make_client().complete_text("smart", MESSAGES, purpose="tutor", user_id=user_a.id)
 
     rows = str(await usage(session, user_a.id))

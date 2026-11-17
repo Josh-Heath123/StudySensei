@@ -114,11 +114,20 @@ class SentRequest:
     headers: dict[str, str]
 
 
-def ok(text: str, *, input_tokens: int = 12, output_tokens: int = 5) -> httpx.Response:
+def ok(
+    text: str, *, input_tokens: int = 12, output_tokens: int = 5, finish_reason: str = "stop"
+) -> httpx.Response:
+    """A completion; ``finish_reason="length"`` makes it one cut off at the output limit."""
     return httpx.Response(
         200,
         json={
-            "choices": [{"index": 0, "message": {"role": "assistant", "content": text}}],
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": text},
+                    "finish_reason": finish_reason,
+                }
+            ],
             "usage": {"prompt_tokens": input_tokens, "completion_tokens": output_tokens},
         },
     )

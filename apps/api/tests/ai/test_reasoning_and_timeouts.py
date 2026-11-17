@@ -95,8 +95,8 @@ async def test_each_route_sends_its_own_effort_or_none(
         ],
         ai_daily_budget={},
     )
-    fake_llm.reply(GEMINI_FLASH, httpx.Response(401))
-    fake_llm.reply(GPT_OSS, httpx.Response(401))
+    fake_llm.reply(GEMINI_FLASH, httpx.Response(429, headers={"Retry-After": "3600"}))
+    fake_llm.reply(GPT_OSS, httpx.Response(429, headers={"Retry-After": "3600"}))
     fake_llm.reply(QWEN, ok("qwen"))
 
     await client.complete_text("smart", MESSAGES, purpose="t", user_id=user_a.id)
@@ -209,24 +209,24 @@ def test_connect_and_read_timeouts_come_from_config(make_client: MakeClient) -> 
     assert (timeout.connect, timeout.read) == (10.0, 90.0)
 
 
-async def test_a_timeout_is_logged_retried_then_falls_through(
+async def test_a_timeout_is_logged_and_moves_on_without_waiting(
     make_client: MakeClient,
     fake_llm: FakeLLM,
     sleeps: Sleeps,
     session: AsyncSession,
     user_a: User,
 ) -> None:
-    fake_llm.reply("flash", httpx.ReadTimeout("slow"), httpx.ConnectTimeout("no route"))
+    fake_llm.reply("flash", httpx.ReadTimeout("slow"))
     fake_llm.reply("oss-120b", ok("From Groq"))
 
     text = await make_client().complete_text("smart", MESSAGES, purpose="t", user_id=user_a.id)
 
     assert text == "From Groq"
-    assert sleeps.seconds == [2.0]  # retryable: backed off once
+    assert sleeps.seconds == []  # a slow model isn't asked again: the next one is
     outcomes = sorted(
         await session.scalars(select(AIUsage.outcome).where(AIUsage.user_id == user_a.id))
     )
-    assert outcomes == ["ok", "timeout", "timeout"]
+    assert outcomes == ["ok", "timeout"]
 
 
 async def test_timeouts_count_against_the_budget(

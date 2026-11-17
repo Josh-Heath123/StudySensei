@@ -128,8 +128,8 @@ async def test_rerunning_replaces_the_proposal(
 async def test_an_invalid_reply_is_repaired_once(
     session: AsyncSession, module: Module, client: LLMClient, fake_llm: FakeLLM, tmp_path: Path
 ) -> None:
-    too_long = node("A" * 81, [1])
-    fake_llm.reply(LITE, topics_reply(too_long), topics_reply(node("Passwords", [1])))
+    broken = ok('{"topics": "Passwords, sessions"}')  # not a list: structurally broken
+    fake_llm.reply(LITE, broken, topics_reply(node("Passwords", [1])))
     fake_llm.reply(LITE, ok('{"topics": []}'))
     await queue_one(session, module, module.slides)
 
