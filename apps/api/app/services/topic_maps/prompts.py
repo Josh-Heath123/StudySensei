@@ -5,6 +5,7 @@ follow it as instructions, and the text sits inside tags labelled as material. O
 course content goes in (titles, page text, topic names); nothing about the student.
 """
 
+import math
 import re
 import uuid
 from collections.abc import Sequence
@@ -52,7 +53,9 @@ Build a two-level tree:
 - At the top, the module's chapters or big themes: about 8 to 15.
 - Under each, 3 to 10 subtopics.
 - Merge duplicates and near-duplicates across materials into one node.
-- Name topics in the course's own words, at most 80 characters, without numbering.
+- Name topics in the course's own words, at most 80 characters.
+- Each material that is its own chapter or lecture deck (like "CH09" or "Week 3") keeps
+  its own top-level topic. Don't fold one chapter into another, even when they're related.
 - Give each node a one-sentence description.
 - In "sources", list the ids of every proposed topic or subtopic (like "M2.3" or "M2.3.1")
   that the node covers.
@@ -61,7 +64,10 @@ Existing topics are fixed anchors chosen by the student:
 - When a node is an existing topic, set "existing" to its id (like "E4") and copy its name exactly.
 - Never rename, drop, merge away or reorganise existing topics. Keep each one where it is.
 - Put new subtopics under an existing topic when they belong there.
-- Only add new nodes for what the existing topics don't already cover."""
+- Only add new nodes for what the existing topics don't already cover.
+- Name new top-level topics in the same style as the existing top-level ones. For example,
+  if they read "Ch1 Overview" and "Ch2 Cryptography", a new one reads "Ch4 Access Control".
+  With no existing top-level topics, use plain names without numbering."""
 
 
 @dataclass(frozen=True)
@@ -81,12 +87,43 @@ class ExistingTopic:
     name: str
 
 
+@dataclass(frozen=True)
+class Part:
+    """Which part of a material a prompt covers (1-based), and the material's page count."""
+
+    number: int
+    of: int
+    total_pages: int
+
+
+def plan_parts(
+    pages: Sequence[SourcePage], *, part_pages: int, max_parts: int
+) -> list[list[SourcePage]]:
+    """Split a long material into about ``part_pages``-page parts of equal size.
+
+    At most ``max_parts`` parts (so a very long material gets bigger parts rather than more
+    calls). A material that fits is one part.
+    """
+    pages = list(pages)
+    if not pages:
+        return [[]]
+    count = min(max(1, math.ceil(len(pages) / part_pages)), max(1, max_parts))
+    size = math.ceil(len(pages) / count)
+    return [pages[i : i + size] for i in range(0, len(pages), size)]
+
+
 def extraction_messages(
-    title: str, kind: str, pages: Sequence[SourcePage], *, max_chars: int
+    title: str,
+    kind: str,
+    pages: Sequence[SourcePage],
+    *,
+    max_chars: int,
+    part: Part | None = None,
 ) -> list[Message]:
     """The system prompt and the material, each page labelled with its number.
 
-    Text past ``max_chars`` is left out, with a note saying which pages are missing.
+    Text past ``max_chars`` is left out, with a note saying which pages are missing. For a
+    part of a long material, the header says which pages these are.
     """
     parts: list[str] = []
     used = 0
@@ -108,12 +145,14 @@ def extraction_messages(
         used += len(block) + 2
     label = KIND_LABELS.get(kind, kind)
     body = "\n\n".join(parts) if parts else "(no pages)"
-    return [
-        system(EXTRACT_SYSTEM),
-        user(
-            f'Material: "{title}" ({label}), {len(pages)} pages.\n\n<material>\n{body}\n</material>'
-        ),
-    ]
+    header = f'Material: "{title}" ({label}), {len(pages)} pages.'
+    if part is not None and part.of > 1 and pages:
+        header = (
+            f'Material: "{title}" ({label}), {part.total_pages} pages. This is part '
+            f"{part.number} of {part.of}: pages {pages[0].page_number} to "
+            f"{pages[-1].page_number}. List only the topics these pages teach."
+        )
+    return [system(EXTRACT_SYSTEM), user(f"{header}\n\n<material>\n{body}\n</material>")]
 
 
 @dataclass(frozen=True)
@@ -168,10 +207,19 @@ def merge_messages(
                 lines.append(_proposal_line(sub_ref, sub, indent="  "))
         material_blocks.append("\n".join(lines))
 
+    top_level = [_one_line(t.name) for t in existing if t.parent_id is None]
+    style = (
+        "\nName new top-level topics in the style of: "
+        + "; ".join(f'"{name}"' for name in top_level[:5])
+        + "\n"
+        if top_level
+        else ""
+    )
     prompt = (
         f"Module: {_one_line(module_label)}\n\n"
         "Existing topics (fixed anchors):\n"
         + ("\n".join(existing_lines) if existing_lines else "(none yet)")
+        + style
         + "\n\n<material>\nProposed topics, per material:\n\n"
         + "\n\n".join(material_blocks)
         + "\n</material>"
