@@ -7,14 +7,16 @@ from app.core.db import SessionDep
 from app.models import Topic
 from app.schemas.academics import TopicCreate, TopicMove, TopicNodeOut, TopicOut, TopicUpdate
 from app.services.academics import topics
+from app.services.topic_maps.linking import linked_page_counts
 
 router = APIRouter(tags=["topics"])
 
 
-def _to_out(node: topics.TopicNode) -> TopicNodeOut:
+def _to_out(node: topics.TopicNode, pages: dict[uuid.UUID, int]) -> TopicNodeOut:
     return TopicNodeOut(
         **TopicOut.model_validate(node.topic).model_dump(),
-        children=[_to_out(child) for child in node.children],
+        linked_pages=pages.get(node.topic.id, 0),
+        children=[_to_out(child, pages) for child in node.children],
     )
 
 
@@ -22,9 +24,11 @@ def _to_out(node: topics.TopicNode) -> TopicNodeOut:
 async def get_topic_tree(
     module_id: uuid.UUID, session: SessionDep, user: CurrentUser
 ) -> list[TopicNodeOut]:
-    """The module's topics as a nested tree, siblings in position order."""
+    """The module's topics as a nested tree, siblings in position order, each with the
+    number of material pages linked to it."""
     flat = await topics.list_topics(session, module_id, user_id=user.id)
-    return [_to_out(root) for root in topics.build_tree(flat)]
+    pages = await linked_page_counts(session, module_id, user_id=user.id)
+    return [_to_out(root, pages) for root in topics.build_tree(flat)]
 
 
 @router.post(

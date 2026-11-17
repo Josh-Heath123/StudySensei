@@ -162,6 +162,8 @@ class TopicOut(BaseModel):
 class TopicNodeOut(TopicOut):
     """A topic with its subtopics, for rendering the tree."""
 
+    # Distinct material pages linked to this topic (by cited page or by meaning).
+    linked_pages: int = 0
     children: list["TopicNodeOut"]
 
 
