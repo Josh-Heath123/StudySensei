@@ -367,7 +367,9 @@ async def test_the_original_file_is_served_inline_with_its_headers(
     alice_api: AsyncClient, alice: Rows
 ) -> None:
     data = samples.pdf(3)
-    body = (await upload(alice_api, alice.module.id, "Week 3 – “Layers”.pdf", data)).json()
+    # Non-ASCII on purpose: an en dash and curly quotes (built here, as ruff flags them).
+    name = f"Week 3 {chr(0x2013)} {chr(0x201C)}Layers{chr(0x201D)}.pdf"
+    body = (await upload(alice_api, alice.module.id, name, data)).json()
 
     response = await alice_api.get(f"/materials/{body['id']}/file")
 
@@ -377,7 +379,7 @@ async def test_the_original_file_is_served_inline_with_its_headers(
     assert headers["content-type"] == "application/pdf"
     assert headers["content-length"] == str(len(data))
     assert headers["content-disposition"] == (
-        "inline; filename=\"Week 3 _ _Layers_.pdf\"; "
+        'inline; filename="Week 3 _ _Layers_.pdf"; '
         "filename*=UTF-8''Week%203%20%E2%80%93%20%E2%80%9CLayers%E2%80%9D.pdf"
     )
     assert headers["x-content-type-options"] == "nosniff"
