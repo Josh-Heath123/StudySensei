@@ -192,10 +192,16 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
 
 - **Thinking level:** Gemini 3 models always think, at the model's own default level unless `reasoning_effort` is
   sent, and that default can make even a one-word reply slow. Each route's level (`minimal`, `low`, `medium`, `high`,
-  or empty to send nothing) goes only to providers that accept it (`routes.wire_effort`):
-  - Gemini: all four levels.
-  - Groq gpt-oss: `low`, `medium` and `high` only, so `minimal` is sent as `low`.
-  - Groq's Qwen (it takes other values) and Ollama: not sent.
+  or empty to send nothing) is checked against the levels its model accepts (`AI_REASONING_EFFORTS`, from each
+  provider's docs). A level the model lacks is raised to its lowest supported level at or above it
+  (`routes.wire_effort`), and a model that isn't listed (Ollama) is sent none:
+
+  | Model | Levels | Default |
+  | --- | --- | --- |
+  | `gemini-3.8-flash` | `low`, `medium`, `high` (no `minimal`: asking for it is a 400) | `medium` |
+  | `gemini-3.5-flash-lite` | `minimal`, `low`, `medium`, `high` | `minimal` |
+  | Groq `openai/gpt-oss-120b`, `openai/gpt-oss-20b` | `low`, `medium`, `high` | not documented |
+  | Groq `qwen/qwen3.8-27b` | `low`, `medium`, `high` (also its own `none` / `default`) | not documented |
 
   A call can ask for more with `complete_text(…, reasoning_effort="high")`. The ping always uses `minimal`.
 
@@ -229,6 +235,8 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
     or else 2 s × 2ⁿ backoff, plus jitter. The model is retried once (`AI_RETRIES`) if that wait is at most
     `AI_MAX_WAIT_SECONDS` (20 s). Otherwise it cools down (at least a minute) and the next model is tried. Other 4xx
     errors (a bad key, an unknown model) fall straight through.
+  - **Error text:** a failed request reads like `gemini: HTTP 400: Thinking level MINIMAL is not supported…`. Only the
+    body's `error.message` is used, trimmed to 300 characters, never the request or headers.
   - **Budgets** (`budget.py`): the user's `ai_usage` rows for that model since the provider's last local midnight
     (`AI_QUOTA_TIMEZONE`). They count `ok`, `error`, `invalid_json` and `timeout` (a 429 used no quota).
   - **All out:** `AIUnavailable(retry_at=…)`, set to the earliest cooldown end or budget reset. The worker reschedules
