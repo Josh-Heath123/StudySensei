@@ -8,10 +8,15 @@ import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";
 import { NativeSelect } from "@/ui/native-select";
 
+import { topicMapBusy, useTopicMap } from "../api";
+
 import {
   useDeleteMaterial,
   useMaterials,
+  useMaterialTopicStates,
   useRetryMaterial,
+  useRetryMaterialTopics,
+  type MaterialTopicState,
   useUpdateMaterial,
   useUploadMaterial,
   type Material,
@@ -28,7 +33,7 @@ import {
 } from "./kinds";
 import { MaterialSearch } from "./MaterialSearch";
 import { PagesDialog } from "./PagesDialog";
-import { pageDetails, statusText } from "./status";
+import { pageDetails, statusText, topicStateText } from "./status";
 
 type Staged = {
   key: string;
@@ -45,6 +50,9 @@ let nextKey = 0;
 /** Upload a module's slides, notes and papers, and follow their processing. */
 export function MaterialsTab({ moduleId }: { moduleId: string }) {
   const materials = useMaterials(moduleId);
+  // Topic states refresh while the module's topic map is being built.
+  const topicMap = useTopicMap(moduleId);
+  const topicStates = useMaterialTopicStates(moduleId, topicMapBusy(topicMap.data));
   const upload = useUploadMaterial(moduleId);
   const [staged, setStaged] = useState<Staged[]>([]);
   const [refused, setRefused] = useState<string[]>([]);
@@ -144,7 +152,12 @@ export function MaterialsTab({ moduleId }: { moduleId: string }) {
         {rows.length > 0 && (
           <ul aria-label="Materials" className="divide-line border-line divide-y border-y">
             {rows.map((material) => (
-              <MaterialRow key={material.id} material={material} moduleId={moduleId} />
+              <MaterialRow
+                key={material.id}
+                material={material}
+                moduleId={moduleId}
+                topics={topicStates.data?.find((s) => s.material_id === material.id)}
+              />
             ))}
           </ul>
         )}
@@ -289,9 +302,20 @@ function StagedRow({
   );
 }
 
-function MaterialRow({ material, moduleId }: { material: Material; moduleId: string }) {
+function MaterialRow({
+  material,
+  moduleId,
+  topics,
+}: {
+  material: Material;
+  moduleId: string;
+  /** Present only for materials whose topics the AI finds. */
+  topics?: MaterialTopicState;
+}) {
   const update = useUpdateMaterial(moduleId);
   const retry = useRetryMaterial(moduleId);
+  const retryTopics = useRetryMaterialTopics(moduleId);
+  const topicLine = topics ? topicStateText(topics) : null;
   const remove = useDeleteMaterial(moduleId);
   const [deleting, setDeleting] = useState(false);
   const [viewing, setViewing] = useState(false);
@@ -322,6 +346,22 @@ function MaterialRow({ material, moduleId }: { material: Material; moduleId: str
         >
           {status.text}
         </p>
+        {topicLine && (
+          <p
+            className={cn(
+              "mt-0.5 text-xs",
+              topicLine.tone === "danger" && "text-danger",
+              topicLine.tone === "muted" && "text-muted",
+            )}
+          >
+            {topicLine.text}
+          </p>
+        )}
+        {retryTopics.isError && (
+          <p role="alert" className="text-danger mt-0.5 text-xs">
+            {retryTopics.error.message}
+          </p>
+        )}
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input
@@ -338,6 +378,17 @@ function MaterialRow({ material, moduleId }: { material: Material; moduleId: str
       {material.status === "ready" && (
         <Button variant="outline" size="sm" onClick={() => setViewing(true)}>
           View text
+        </Button>
+      )}
+      {topics?.state === "failed" && (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={retryTopics.isPending}
+          onClick={() => retryTopics.mutate(material.id)}
+          aria-label={`Retry topics for ${material.title}`}
+        >
+          Retry topics
         </Button>
       )}
       {material.status === "failed" && (

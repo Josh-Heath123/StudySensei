@@ -1,17 +1,23 @@
-import { Sparkles } from "lucide-react";
+import { Eraser, Sparkles } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/ui/button";
+import { ConfirmDialog } from "@/ui/confirm-dialog";
 
-import { useAiStatus, useBuildTopicMap, useTopicMap } from "./api";
+import { useAiStatus, useBuildTopicMap, useClearAiTopics, useTopicMap } from "./api";
 import { describeTopicMap } from "./topicMap";
 
-/** "Build topic map" with honest progress and states (decision 0006). */
-export function TopicMapPanel({ moduleId }: { moduleId: string }) {
+/**
+ * "Build topic map" with honest progress and states (decision 0006), and "Clear AI
+ * topics" (decision 0007) for starting the AI's part of the tree again.
+ */
+export function TopicMapPanel({ moduleId, aiTopics }: { moduleId: string; aiTopics: number }) {
   const status = useTopicMap(moduleId);
   const ai = useAiStatus();
   const build = useBuildTopicMap(moduleId);
+  const clear = useClearAiTopics(moduleId);
   const [error, setError] = useState<string | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
 
   if (status.isPending) return null;
   if (status.isError) {
@@ -52,6 +58,15 @@ export function TopicMapPanel({ moduleId }: { moduleId: string }) {
           <Sparkles aria-hidden />
           {build.isPending ? "Starting…" : "Build topic map"}
         </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setConfirmClear(true)}
+          disabled={aiTopics === 0 || view.busy || clear.isPending}
+        >
+          <Eraser aria-hidden />
+          Clear AI topics
+        </Button>
       </div>
       {view.progress && (
         <progress
@@ -67,6 +82,14 @@ export function TopicMapPanel({ moduleId }: { moduleId: string }) {
           {error}
         </p>
       )}
+      <ConfirmDialog
+        open={confirmClear}
+        onOpenChange={setConfirmClear}
+        title={`Clear ${aiTopics} AI ${aiTopics === 1 ? "topic" : "topics"}?`}
+        description="Every topic still marked AI is deleted. Topics you made or edited stay (any under an AI topic move up). Building again re-uses the analysed materials, so it costs no new analysis."
+        confirmLabel="Clear AI topics"
+        onConfirm={() => clear.mutateAsync()}
+      />
     </div>
   );
 }

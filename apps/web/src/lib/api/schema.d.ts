@@ -167,6 +167,70 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/modules/{module_id}/topic-map/materials": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Material Topic States
+     * @description Each eligible material's topic extraction: analysed, failed (with why), or waiting.
+     */
+    get: operations["material_topic_states_modules__module_id__topic_map_materials_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/materials/{material_id}/topics/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Retry Material Topics
+     * @description Find this material's topics again: a new run with a fresh AI call budget.
+     *
+     *     422 if its topics aren't extracted (AI off, a kind that isn't analysed, or not ready).
+     */
+    post: operations["retry_material_topics_materials__material_id__topics_retry_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/modules/{module_id}/ai-topics": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Clear Ai Topics
+     * @description Delete every topic still marked AI. Topics the student made or edited stay.
+     *
+     *     The materials' proposals are kept, so building again re-merges without re-analysing.
+     */
+    delete: operations["clear_ai_topics_modules__module_id__ai_topics_delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/assessments": {
     parameters: {
       query?: never;
@@ -755,6 +819,11 @@ export interface components {
        */
       allow_ai: boolean;
     };
+    /** ClearedTopics */
+    ClearedTopics: {
+      /** Deleted */
+      deleted: number;
+    };
     /**
      * EventBatch
      * @description Events to add, in any order. Ids already stored are skipped if unchanged.
@@ -888,6 +957,28 @@ export interface components {
        * @description A failed attempt is waiting to be retried (`error` says why it failed).
        */
       readonly retrying: boolean;
+    };
+    /**
+     * MaterialTopicStatus
+     * @description Where one eligible material's topic extraction stands (the Materials tab).
+     */
+    MaterialTopicStatus: {
+      /**
+       * Material Id
+       * Format: uuid
+       */
+      material_id: string;
+      /**
+       * State
+       * @enum {string}
+       */
+      state: "analysed" | "failed" | "waiting";
+      /** Error */
+      error: string | null;
+      /** Model */
+      model: string | null;
+      /** Topics */
+      topics: number;
     };
     /** MaterialUpdate */
     MaterialUpdate: {
@@ -1834,6 +1925,99 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["TopicMapStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  material_topic_states_modules__module_id__topic_map_materials_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MaterialTopicStatus"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  retry_material_topics_materials__material_id__topics_retry_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        material_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MaterialTopicStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  clear_ai_topics_modules__module_id__ai_topics_delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClearedTopics"];
         };
       };
       /** @description Validation Error */

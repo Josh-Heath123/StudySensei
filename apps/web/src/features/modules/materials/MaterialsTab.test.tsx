@@ -5,7 +5,7 @@ import { vi } from "vitest";
 import { json, mockApi, noContent } from "@/test/mockApi";
 import { renderApp } from "@/test/render";
 
-import { aModule } from "../fixtures";
+import { aModule, aTopicMap } from "../fixtures";
 import type { Material } from "./api";
 
 function aMaterial(overrides: Partial<Material> = {}): Material {
@@ -39,6 +39,8 @@ function serve(list: Material[], routes: Parameters<typeof mockApi>[0] = {}) {
     "GET /modules/:id": () => aModule(),
     "GET /sessions/active": () => null,
     "GET /modules/:id/materials": () => list,
+    "GET /modules/:id/topic-map": () => aTopicMap(),
+    "GET /modules/:id/topic-map/materials": () => [],
     ...routes,
   });
 }
@@ -252,4 +254,52 @@ test("View text opens the extracted text a page at a time", async () => {
 
   await user.click(within(dialog).getByRole("button", { name: /Page 3/ }));
   expect(await within(dialog).findByText(/Filters transform…/)).toBeInTheDocument();
+});
+
+test("each analysed material shows its topics, and a failed one can be retried", async () => {
+  const user = userEvent.setup();
+  const slides = aMaterial({ id: "a", title: "CH09 Firewalls", status: "ready" });
+  const notes = aMaterial({ id: "b", title: "Chapter 7 notes", status: "ready", kind: "notes" });
+  const paper = aMaterial({ id: "c", title: "Exam 2024", status: "ready", kind: "past_paper" });
+  let failed = true;
+  const { calls } = serve([slides, notes, paper], {
+    "GET /modules/:id/topic-map/materials": () => [
+      { material_id: "a", state: "analysed", error: null, model: "gemini/x", topics: 7 },
+      failed
+        ? {
+            material_id: "b",
+            state: "failed",
+            error: "The AI's topic list didn't come out in the expected shape.",
+            model: null,
+            topics: 0,
+          }
+        : { material_id: "b", state: "waiting", error: null, model: null, topics: 0 },
+    ],
+    "POST /materials/:id/topics/retry": () => {
+      failed = false;
+      return { material_id: "b", state: "waiting", error: null, model: null, topics: 0 };
+    },
+  });
+  openTab();
+
+  const list = await screen.findByRole("list", { name: "Materials" });
+  const firewall = within(list).getByRole("listitem", { name: "CH09 Firewalls" });
+  expect(await within(firewall).findByText("Topics: 7 found")).toBeVisible();
+  const chapter = within(list).getByRole("listitem", { name: "Chapter 7 notes" });
+  expect(within(chapter).getByText(/Topics couldn't be found: The AI's topic list/)).toBeVisible();
+  // A past paper isn't analysed for topics: no line, no button.
+  const exam = within(list).getByRole("listitem", { name: "Exam 2024" });
+  expect(within(exam).queryByText(/Topics/)).not.toBeInTheDocument();
+  expect(within(firewall).queryByRole("button", { name: /Retry topics/ })).not.toBeInTheDocument();
+
+  await user.click(
+    within(chapter).getByRole("button", { name: "Retry topics for Chapter 7 notes" }),
+  );
+
+  await waitFor(() =>
+    expect(calls.some((c) => c.method === "POST" && c.path === "/materials/b/topics/retry")).toBe(
+      true,
+    ),
+  );
+  expect(await within(chapter).findByText("Topics: waiting to be analysed")).toBeVisible();
 });

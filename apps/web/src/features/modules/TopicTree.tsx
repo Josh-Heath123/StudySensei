@@ -18,6 +18,13 @@ import {
 import { TopicMapPanel } from "./TopicMapPanel";
 import { moveTarget } from "./treeMoves";
 
+function countAi(nodes: TopicNode[]): number {
+  return nodes.reduce(
+    (sum, node) => sum + (node.source === "ai" ? 1 : 0) + countAi(node.children),
+    0,
+  );
+}
+
 function countDescendants(node: TopicNode): number {
   return node.children.reduce((sum, child) => sum + 1 + countDescendants(child), 0);
 }
@@ -69,7 +76,7 @@ export function TopicTree({ moduleId }: { moduleId: string }) {
         AI were suggested from your materials; editing one makes it yours.
       </p>
 
-      <TopicMapPanel moduleId={moduleId} />
+      <TopicMapPanel moduleId={moduleId} aiTopics={countAi(tree.data ?? [])} />
 
       {error && (
         <p role="alert" className="text-danger mb-3 text-sm">
