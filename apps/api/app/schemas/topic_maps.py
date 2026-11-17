@@ -57,9 +57,24 @@ def read_pages(value: Any) -> list[int]:
     return list(dict.fromkeys(n for n in pages if n >= 1))[:MAX_PAGES]
 
 
+# Keys models use for a topic's name instead of "name", in the order they're tried. The
+# COS330 run's failures were topics and subtopics with no "name" at all (ADR 0008).
+NAME_KEYS = ("title", "topic", "topic_name", "subtopic", "subtopic_name", "heading", "label")
+
+
+def _has_text(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
 def _as_node(value: Any) -> Any:
-    """A bare string where a topic was expected is its name."""
-    return {"name": value} if isinstance(value, str) else value
+    """A bare string where a topic was expected is its name; a "title" (or similar) is too."""
+    if isinstance(value, str):
+        return {"name": value}
+    if isinstance(value, dict) and not _has_text(value.get("name")):
+        for key in NAME_KEYS:
+            if _has_text(value.get(key)):
+                return {**value, "name": value[key]}
+    return value
 
 
 def _fold_children(node: dict[str, Any], key: str) -> None:

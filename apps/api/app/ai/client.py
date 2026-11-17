@@ -12,10 +12,11 @@ For each request it walks the role's routes in order and skips a route that is:
 - cooling down after a 429 or 5xx, or
 - out of its daily budget (counted from ``ai_usage`` since the provider's quota reset).
 
-Failures (decision 0007): only "this model can't take it now" moves on to the next route:
-a 429, a timeout, a lost connection, or a 413 (request too large for the model's limits).
+Failures (decisions 0007, 0008): only "this model can't take it now" moves on to the next
+route: a 429, a 503 ("high demand"), a timeout, a lost connection, a 413 (request too large
+for the model's limits), or a content refusal (a filtered or empty reply; no repair spent).
 A 429 or 5xx is first retried on the same model after its Retry-After (or a jittered
-backoff) when that's short. A 5xx that persists raises ``AIUnavailable`` for later, and any
+backoff) when that's short. Another 5xx that persists raises ``AIUnavailable``, and any
 other refusal (400, 401, 404…) raises ``AIRequestFailed``: neither cascades through the
 fallbacks. A reply cut off at the output limit raises ``AITruncated`` (no repair). When
 every route is out, ``AIUnavailable`` says when to try again.
@@ -51,6 +52,7 @@ from app.ai.errors import (
     NOT_CONFIGURED,
     AICallLimitReached,
     AIInvalidOutput,
+    AIRefused,
     AIRequestFailed,
     AITruncated,
     AIUnavailable,
@@ -90,17 +92,41 @@ class AIResult[T]:
 class CallBudget:
     """At most ``limit`` provider calls, and ``max_repairs`` repair attempts, for one unit of
     work: every fallback and retry counts. ``used``/``repairs_used`` start from what earlier
-    attempts of the same job already spent (``usage.job_calls``)."""
+    attempts of the same job already spent (``usage.job_calls``).
+
+    Requests the provider turns away before running them (429, 503) don't use ``limit``:
+    they cost nothing, and a busy hour shouldn't fail the work (ADR 0008). They have their
+    own, wider ``turned_away_limit`` so a long outage still ends."""
 
     limit: int
     job_id: uuid.UUID | None = None
     used: int = 0
     repairs_used: int = 0
     max_repairs: int = 1
+    turned_away: int = 0
+    turned_away_limit: int | None = None
 
     @property
     def remaining(self) -> int:
         return max(0, self.limit - self.used)
+
+    def check(self) -> None:
+        """Raise ``AICallLimitReached`` if no further call is allowed."""
+        if self.remaining == 0:
+            raise AICallLimitReached(
+                f"Stopped after {self.limit} AI calls without a usable answer."
+            )
+        if self.turned_away_limit is not None and self.turned_away >= self.turned_away_limit:
+            raise AICallLimitReached(
+                f"The AI providers turned away {self.turned_away} requests (busy or rate limited).",
+                busy=True,
+            )
+
+    def charge(self, *, turned_away: bool) -> None:
+        if turned_away:
+            self.turned_away += 1
+        else:
+            self.used += 1
 
     @property
     def can_repair(self) -> bool:
@@ -159,11 +185,25 @@ def parse_reply[T: BaseModel](text: str, schema: type[T]) -> T:
     return schema.model_validate_json(fenced.group(1) if fenced else stripped)
 
 
+_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,29}$")
+
+
 def _problem(exc: ValidationError) -> str:
-    """A short description of what didn't validate, for the repair prompt."""
-    issues = [
+    """A short description of what didn't validate, for the repair prompt and ``detail``.
+
+    For a missing field it also names the keys the object did have (only identifier-like
+    keys, so no course text), so the next diagnosis can see e.g. "title" instead of "name".
+    """
+    errors = exc.errors()
+    issues: list[str] = []
+    for error in errors:
+        if error["type"] == "missing" and isinstance(error.get("input"), dict):
+            keys = sorted(k for k in error["input"] if isinstance(k, str) and _KEY.match(k))
+            issues.append(f"an object had keys {keys} but no {error['loc'][-1]!r}")
+            break
+    issues += [
         f"{'.'.join(str(p) for p in error['loc']) or '(root)'}: {error['msg']}"
-        for error in exc.errors()[:10]
+        for error in errors[:10]
     ]
     return "; ".join(issues)
 
@@ -370,10 +410,16 @@ class LLMClient:
             detail = str(error)
             if error.timed_out:
                 outcome = "timeout"
+            elif error.rate_limited:
+                outcome = "rate_limited"
+            elif error.overloaded:
+                outcome = "overloaded"
             else:
-                outcome = "rate_limited" if error.rate_limited else "error"
+                outcome = "error"
         elif completion is not None and completion.truncated:
             outcome, detail = "truncated", f"finish_reason {completion.finish_reason}"
+        elif completion is not None and completion.refused:
+            outcome, detail = "refused", completion.refusal
         elif invalid is not None:
             outcome, detail = "invalid_json", invalid
         else:
@@ -440,6 +486,7 @@ class LLMClient:
             raise AIUnavailable(NOT_CONFIGURED, retry_at=None)
 
         waits: list[datetime] = []
+        refusals: list[str] = []
         for route in routes:
             blocked = self._cooldown.get(route.key)
             if blocked is not None and blocked > self._now():
@@ -453,15 +500,11 @@ class LLMClient:
 
             attempt = 0
             while True:
-                if budget is not None and budget.remaining == 0:
-                    raise AICallLimitReached(
-                        f"Stopped after {budget.limit} AI calls without a usable answer."
-                    )
+                if budget is not None:
+                    budget.check()
                 await self._pacer.wait_turn(
                     route.key, self.settings.ai_requests_per_minute.get(route.key)
                 )
-                if budget is not None:
-                    budget.used += 1
                 started = time.monotonic()
                 try:
                     completion = await self._adapter(route).complete(
@@ -471,6 +514,8 @@ class LLMClient:
                         reasoning_effort=route.effort_to_send(effort),
                     )
                 except ProviderError as exc:
+                    if budget is not None:
+                        budget.charge(turned_away=exc.turned_away)
                     await self._record(
                         route, role, purpose, user_id, started, None, exc, budget=budget
                     )
@@ -484,7 +529,7 @@ class LLMClient:
                         await self._sleep(delay + self._jitter() * max(1.0, delay / 2))
                         continue
                     until = self._now() + max(timedelta(seconds=delay), DEFAULT_COOLDOWN)
-                    if exc.rate_limited or exc.timed_out or exc.status in (None, 413):
+                    if exc.turned_away or exc.timed_out or exc.status in (None, 413):
                         # This model can't take it now: the next one may.
                         self._cooldown[route.key] = until
                         waits.append(until)
@@ -497,7 +542,17 @@ class LLMClient:
                             retry_at=until,
                         ) from exc
                     raise AIRequestFailed(str(exc)) from exc
+                if budget is not None:
+                    budget.charge(turned_away=False)
                 self._cooldown.pop(route.key, None)
+                if completion.refused:
+                    # This model won't answer this content; another may. No repair is spent.
+                    await self._record(
+                        route, role, purpose, user_id, started, completion, None, budget=budget
+                    )
+                    log.warning("%s declined %s (%s)", route.key, purpose, completion.refusal)
+                    refusals.append(f"{route.key}: {completion.refusal}")
+                    break
                 if completion.truncated:
                     await self._record(
                         route, role, purpose, user_id, started, completion, None, budget=budget
@@ -524,6 +579,10 @@ class LLMClient:
                 )
                 return completion.text, route
 
+        if refusals and not waits:
+            raise AIRefused(
+                "Every AI model declined to answer for this content (" + "; ".join(refusals) + ")."
+            )
         retry_at = min(waits) if waits else self._now() + ERROR_RETRY
         raise AIUnavailable(
             f"The AI providers can't take this request now (rate limits or daily quotas). "

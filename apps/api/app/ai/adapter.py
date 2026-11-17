@@ -21,6 +21,13 @@ from app.ai.routes import Provider
 _RETRY_DELAY = re.compile(r'"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"')
 
 
+# finish_reason values (lower-cased) that mean "the model wouldn't answer this": OpenAI's
+# content_filter, and Gemini's SAFETY, PROHIBITED_CONTENT, BLOCKLIST, SPII and RECITATION.
+REFUSAL_REASONS = frozenset(
+    {"content_filter", "safety", "prohibited_content", "blocklist", "spii", "recitation"}
+)
+
+
 @dataclass(frozen=True)
 class Completion:
     text: str
@@ -32,6 +39,22 @@ class Completion:
     @property
     def truncated(self) -> bool:
         return self.finish_reason in ("length", "max_tokens", "MAX_TOKENS")
+
+    @property
+    def refused(self) -> bool:
+        """The model declined to answer: a content or safety filter, or an empty reply."""
+        if self.truncated:
+            return False
+        reason = (self.finish_reason or "").lower()
+        return reason in REFUSAL_REASONS or not self.text.strip()
+
+    @property
+    def refusal(self) -> str:
+        """Why, for ``ai_usage.detail`` (never the reply itself)."""
+        reason = (self.finish_reason or "").lower()
+        if reason in REFUSAL_REASONS:
+            return f"finish_reason {self.finish_reason}"
+        return "empty reply"
 
 
 class ProviderError(Exception):
@@ -53,6 +76,16 @@ class ProviderError(Exception):
     @property
     def rate_limited(self) -> bool:
         return self.status == 429
+
+    @property
+    def overloaded(self) -> bool:
+        """503: the model is too busy right now ("high demand"); it didn't run the request."""
+        return self.status == 503
+
+    @property
+    def turned_away(self) -> bool:
+        """Refused before running (429 or 503): no quota used, and another model may take it."""
+        return self.rate_limited or self.overloaded
 
     @property
     def retryable(self) -> bool:

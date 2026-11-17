@@ -14,9 +14,11 @@ from app.models import AIUsage
 
 SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 
-# Outcomes that used up a request of the provider's quota (a 429 was refused, so it didn't).
-# A timeout counts: the provider may well have answered after we stopped waiting.
-COUNTED_OUTCOMES = ("ok", "error", "invalid_json", "timeout", "truncated")
+# Outcomes that used up a request of the provider's quota. A timeout counts: the provider
+# may well have answered after we stopped waiting. A refusal ran (and was filtered).
+COUNTED_OUTCOMES = ("ok", "error", "invalid_json", "timeout", "truncated", "refused")
+# Requests the provider turned away before running them: 429, and 503 "high demand".
+TURNED_AWAY_OUTCOMES = ("rate_limited", "overloaded")
 
 
 @dataclass(frozen=True)
@@ -52,17 +54,32 @@ async def count_requests(
     return int(count or 0)
 
 
-async def job_calls(
-    session: AsyncSession, job_id: uuid.UUID, *, user_id: uuid.UUID
-) -> tuple[int, int]:
-    """(provider calls, repair-worthy invalid replies) a job has made so far, across retries."""
+@dataclass(frozen=True)
+class JobCalls:
+    """What a job has spent so far, across its retries and reschedules."""
+
+    # Calls the provider ran (everything but the turned-away ones).
+    ran: int
+    # Requests turned away before running (429, 503).
+    turned_away: int
+    # Replies that didn't validate (each one needed the repair).
+    invalid: int
+
+
+async def job_calls(session: AsyncSession, job_id: uuid.UUID, *, user_id: uuid.UUID) -> JobCalls:
+    """A job's provider calls so far, across retries (``JobCalls``)."""
     rows = await session.execute(
         select(AIUsage.outcome, func.count())
         .where(AIUsage.user_id == user_id, AIUsage.job_id == job_id)
         .group_by(AIUsage.outcome)
     )
     counts: dict[str, int] = {outcome: count for outcome, count in rows}
-    return sum(counts.values()), counts.get("invalid_json", 0)
+    turned_away = sum(counts.get(o, 0) for o in TURNED_AWAY_OUTCOMES)
+    return JobCalls(
+        ran=sum(counts.values()) - turned_away,
+        turned_away=turned_away,
+        invalid=counts.get("invalid_json", 0),
+    )
 
 
 class UsageStore(Protocol):
