@@ -63,14 +63,15 @@ def test_every_routed_model_has_its_levels_listed() -> None:
     assert {r.key for r in all_routes(defaults)} == set(defaults.ai_reasoning_efforts)
 
 
-def test_default_roles_think_minimal_for_bulk_and_low_for_smart() -> None:
+def test_default_thinking_levels() -> None:
     defaults = get_settings()
 
     assert {r.key: r.reasoning_effort for r in routes_for("bulk", defaults)} == {
         f"gemini/{GEMINI_LITE}": "minimal",
-        "groq/openai/gpt-oss-20b": "minimal",
+        "groq/openai/gpt-oss-20b": "low",
     }
     assert {r.reasoning_effort for r in routes_for("smart", defaults)} == {"low"}
+    assert {r.reasoning_effort for r in routes_for("vision", defaults)} == {"low"}
 
 
 def test_env_accepts_plain_strings_and_blank_effort() -> None:
@@ -123,6 +124,7 @@ async def test_the_ping_always_asks_for_minimal(
     client = make_client(
         ai_smart=routes(f"gemini/{GEMINI_FLASH}", f"groq/{GPT_OSS}", f"groq/{QWEN}", effort="high"),
         ai_bulk=[],
+        ai_vision=[],
     )
     for model in (GEMINI_FLASH, GPT_OSS, QWEN):
         fake_llm.reply(model, ok("pong"))
@@ -137,7 +139,9 @@ async def test_ping_sends_minimal_to_flash_lite_and_low_to_flash(
     make_client: MakeClient, fake_llm: FakeLLM, user_a: User
 ) -> None:
     client = make_client(
-        ai_smart=routes(f"gemini/{GEMINI_FLASH}"), ai_bulk=routes(f"gemini/{GEMINI_LITE}")
+        ai_smart=routes(f"gemini/{GEMINI_FLASH}"),
+        ai_bulk=routes(f"gemini/{GEMINI_LITE}"),
+        ai_vision=[],
     )
     fake_llm.reply(GEMINI_FLASH, ok("pong"))
     fake_llm.reply(GEMINI_LITE, ok("pong"))

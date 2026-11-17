@@ -7,7 +7,7 @@ import httpx
 
 from app.ai.adapter import retry_after_seconds
 from app.ai.budget import next_reset, quota_zone, window_start
-from app.ai.routes import ROLES, parse_route_key, routes_for
+from app.ai.routes import parse_route_key, routes_for
 from app.core.config import get_settings
 
 PACIFIC = ZoneInfo("America/Los_Angeles")
@@ -53,20 +53,34 @@ def test_default_roles_and_budgets() -> None:
 
     smart = routes_for("smart", settings)
     bulk = routes_for("bulk", settings)
+    vision = routes_for("vision", settings)
 
-    assert smart[0].key == "gemini/gemini-3.8-flash"
-    assert bulk[0].key == "gemini/gemini-3.5-flash-lite"
-    assert all(r.daily_budget is not None for r in smart + bulk)
-    assert not any(r.configured for r in smart + bulk)  # tests have no keys
-    assert any(r.vision and r.provider.name == "groq" for r in smart)
+    # 3.8 Flash (~20 a day, slow) is only ever the last resort.
+    assert [r.key for r in smart] == [
+        "groq/openai/gpt-oss-120b",
+        "gemini/gemini-3.5-flash-lite",
+        "gemini/gemini-3.8-flash",
+    ]
+    assert [r.key for r in bulk] == ["gemini/gemini-3.5-flash-lite", "groq/openai/gpt-oss-20b"]
+    assert [r.key for r in vision] == [
+        "gemini/gemini-3.5-flash-lite",
+        "groq/qwen/qwen3.8-27b",
+        "gemini/gemini-3.8-flash",
+    ]
+    assert all(r.daily_budget is not None for r in smart + bulk + vision)
+    assert not any(r.configured for r in smart + bulk + vision)  # tests have no keys
+    assert all(r.vision for r in vision)
+    assert not any(r.vision for r in smart if "gpt-oss" in r.model)  # text only
 
 
-def test_ollama_is_last_in_every_role_with_no_budget() -> None:
+def test_ollama_is_last_in_the_text_roles_with_no_budget() -> None:
     settings = get_settings().model_copy(update={"ollama_model": "llama3.2"})
 
-    for role in ROLES:
+    for role in ("smart", "bulk"):
         last = routes_for(role, settings)[-1]
         assert (last.key, last.daily_budget, last.configured) == ("ollama/llama3.2", None, True)
+    # A local model may not read images.
+    assert all(r.provider.name != "ollama" for r in routes_for("vision", settings))
 
 
 def test_retry_after_in_seconds_as_a_date_or_in_geminis_body() -> None:
