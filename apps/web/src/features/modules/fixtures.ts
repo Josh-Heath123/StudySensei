@@ -1,6 +1,6 @@
 import { toIso } from "@/lib/dates";
 
-import type { Module, TopicNode } from "./api";
+import type { AiStatus, Module, TopicMapStatus, TopicNode } from "./api";
 import type { Assessment } from "./assessments/api";
 import type { SessionRow } from "./sessions/api";
 import type { Task } from "./tasks/api";
@@ -32,6 +32,7 @@ export function aTopic(
     description: null,
     position: 0,
     source: "user",
+    linked_pages: 0,
     children: children.map((child, i) => ({ ...child, parent_id: id, position: i })),
     ...overrides,
   };
@@ -95,4 +96,24 @@ export function aSession(overrides: Partial<SessionRow> = {}): SessionRow {
     updated_at: "2026-11-12T09:01:00Z",
     ...overrides,
   };
+}
+
+/** A topic map status: by default two materials, none analysed, nothing running. */
+export function aTopicMap(overrides: Partial<TopicMapStatus> = {}): TopicMapStatus {
+  return {
+    eligible: 2,
+    analysed: 0,
+    pending: 0,
+    failed: 0,
+    merging: false,
+    waiting_until: null,
+    last_error: null,
+    merged_at: null,
+    ...overrides,
+  };
+}
+
+/** /ai/status with or without a provider configured (only what the UI reads). */
+export function anAiStatus(available = true): AiStatus {
+  return { available, providers: [], roles: {}, models: [] };
 }

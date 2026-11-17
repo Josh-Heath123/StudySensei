@@ -2,6 +2,26 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-17: Phase 2, task 6 (AI topic maps)
+
+- **Done:**
+  - **`extract_topics`** per eligible material, queued after indexing and backfilled by migration 0011. Prompt with
+    labelled pages and scanned figures; `MaterialTopics` schema; stored in `topic_proposals` with the model that answered.
+  - **`merge_topics`** with existing topics as fixed anchors. Code applies only additions (`source = ai`) and cited
+    pages (`topic_pages`). Any edit, including a move, makes a topic the student's.
+  - **`chunk_topics`** by cited pages and by local similarity (threshold 0.63, calibrated on synthetic fixtures with
+    bge-small and pinned by a real-model test). `link_topics` rebuilds it when topics change.
+  - **API and UI:** a new `long` AI role (Flash-Lite → 3.8 Flash → gpt-oss-120b). `GET /modules/{id}/topic-map` and
+    `POST …/build`, plus `linked_pages` in the tree. The Topics tab has an AI badge, page counts, and a build panel
+    with progress and honest states.
+  - **Tests:** 32 new API tests and 12 new web tests, covering the prompt, schema, repair, allow_ai, anchoring,
+    re-runs, source switching, both link methods, the backfill and cross-user cases.
+- **Decided:** ADR 0006.
+  - "Build topic map" analyses only materials without a proposal (no quota spent on repeats).
+  - A topic the student deletes can come back on the next merge; the review task should add a dismissed list.
+- **Next:** Phase 2 task 7, the upload UI with processing status, the materials viewer and module search. Before
+  that, try a real topic map on COS330 with both keys.
+
 ## 2026-11-17: Phase 2, AI routes rebalanced, vision role
 
 - **Why:** pings showed `gemini-3.8-flash` timing out at 30 s (default and `low`) on a ~20-a-day free tier, while

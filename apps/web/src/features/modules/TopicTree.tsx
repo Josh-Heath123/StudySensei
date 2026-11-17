@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
+import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { ConfirmDialog } from "@/ui/confirm-dialog";
 import { Input } from "@/ui/input";
@@ -14,6 +15,7 @@ import {
   type TopicMove,
   type TopicNode,
 } from "./api";
+import { TopicMapPanel } from "./TopicMapPanel";
 import { moveTarget } from "./treeMoves";
 
 function countDescendants(node: TopicNode): number {
@@ -63,8 +65,11 @@ export function TopicTree({ moduleId }: { moduleId: string }) {
         Topics
       </h2>
       <p className="text-muted mb-4 text-sm">
-        Build the module's topic tree. Use the arrows to reorder, indent and outdent.
+        Build the module's topic tree. Use the arrows to reorder, indent and outdent. Topics marked
+        AI were suggested from your materials; editing one makes it yours.
       </p>
+
+      <TopicMapPanel moduleId={moduleId} />
 
       {error && (
         <p role="alert" className="text-danger mb-3 text-sm">
@@ -182,6 +187,20 @@ function TopicItem({
           >
             {node.name}
           </button>
+        )}
+        {!renaming && (
+          <span className="flex shrink-0 items-center gap-2">
+            {node.linked_pages > 0 && (
+              <span className="text-muted text-xs">
+                {node.linked_pages} {node.linked_pages === 1 ? "page" : "pages"}
+              </span>
+            )}
+            {node.source === "ai" && (
+              <Badge variant="secondary" title="Suggested by AI from your materials">
+                AI
+              </Badge>
+            )}
+          </span>
         )}
 
         <div className="flex shrink-0 items-center opacity-60 group-focus-within:opacity-100 group-hover:opacity-100">

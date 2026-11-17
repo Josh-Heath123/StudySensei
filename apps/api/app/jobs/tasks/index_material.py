@@ -3,6 +3,7 @@
 Queued by extract_text when it succeeds. Re-running replaces the material's chunks,
 so a retry never duplicates them. Scanned pages are skipped until a vision step
 reads them. Embedding is local, so it runs whatever ``allow_ai`` says (decision 0005).
+Then it queues topic extraction for an eligible material, or a relink (decision 0006).
 """
 
 import asyncio
@@ -14,6 +15,7 @@ from app.jobs.tasks.extract_text import job_material, record_failure
 from app.models import Chunk, MaterialPage
 from app.services.search.embedding import get_embedder
 from app.services.search.indexing import PageText, build_chunks
+from app.services.topic_maps import is_eligible, queue_extraction, queue_linking
 
 _INSERT_BATCH = 200
 
@@ -62,6 +64,11 @@ async def run(ctx: JobContext) -> None:
         await ctx.session.execute(insert(Chunk), values[start : start + _INSERT_BATCH])
     material.status = "ready"
     material.error = None
+    # Next: its topics (decision 0006), or, for a material the AI doesn't map, just links.
+    if is_eligible(material):
+        queue_extraction(ctx.session, material)
+    else:
+        await queue_linking(ctx.session, material.module_id, user_id=user_id)
     await ctx.session.commit()
 
 

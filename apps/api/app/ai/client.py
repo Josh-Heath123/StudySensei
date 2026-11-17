@@ -61,6 +61,14 @@ def _now() -> datetime:
 
 
 @dataclass(frozen=True)
+class AIResult[T]:
+    """A validated reply and the route (provider + model) that gave it."""
+
+    value: T
+    route: Route
+
+
+@dataclass(frozen=True)
 class PingResult:
     route: Route
     latency_ms: int
@@ -140,7 +148,7 @@ class LLMClient:
         reasoning_effort: ReasoningEffort | None = None,
     ) -> str:
         """``reasoning_effort`` overrides the routes' configured level for this call."""
-        return await self._complete(
+        text, _ = await self._complete(
             role,
             messages,
             purpose=purpose,
@@ -149,6 +157,7 @@ class LLMClient:
             check=None,
             effort=reasoning_effort,
         )
+        return text
 
     async def complete_json[T: BaseModel](
         self,
@@ -165,6 +174,27 @@ class LLMClient:
         Raises ``AIInvalidOutput`` if the repaired reply still doesn't validate.
         ``reasoning_effort`` overrides the routes' configured level for this call.
         """
+        result = await self.complete_json_result(
+            role,
+            messages,
+            schema,
+            purpose=purpose,
+            user_id=user_id,
+            reasoning_effort=reasoning_effort,
+        )
+        return result.value
+
+    async def complete_json_result[T: BaseModel](
+        self,
+        role: AIRole,
+        messages: list[Message],
+        schema: type[T],
+        *,
+        purpose: str,
+        user_id: uuid.UUID,
+        reasoning_effort: ReasoningEffort | None = None,
+    ) -> AIResult[T]:
+        """``complete_json``, also saying which provider and model answered."""
         result: list[T] = []
 
         def check(text: str) -> None:
@@ -175,7 +205,7 @@ class LLMClient:
 
         prompt = [system(json_instruction(schema)), *messages]
         try:
-            await self._complete(
+            _, route = await self._complete(
                 role,
                 prompt,
                 purpose=purpose,
@@ -184,7 +214,7 @@ class LLMClient:
                 check=check,
                 effort=reasoning_effort,
             )
-            return result[-1]
+            return AIResult(result[-1], route)
         except _InvalidReply as first:
             log.info("AI reply for %s didn't validate; asking for a repair", purpose)
             repair = [
@@ -196,7 +226,7 @@ class LLMClient:
                 ),
             ]
         try:
-            await self._complete(
+            _, route = await self._complete(
                 role,
                 repair,
                 purpose=purpose,
@@ -205,7 +235,7 @@ class LLMClient:
                 check=check,
                 effort=reasoning_effort,
             )
-            return result[-1]
+            return AIResult(result[-1], route)
         except _InvalidReply as second:
             raise AIInvalidOutput(
                 f"The AI reply for {purpose} didn't match its schema after a repair attempt: "
@@ -307,7 +337,7 @@ class LLMClient:
         json_mode: bool,
         check: Callable[[str], None] | None,
         effort: ReasoningEffort | None,
-    ) -> str:
+    ) -> tuple[str, Route]:
         if has_images(messages):
             # Only the vision role's models read images, whatever role was asked for.
             role = "vision"
@@ -370,7 +400,7 @@ class LLMClient:
                         )
                         raise
                 await self._record(route, role, purpose, user_id, started, completion, None)
-                return completion.text
+                return completion.text, route
 
         retry_at = min(waits) if waits else self._now() + ERROR_RETRY
         raise AIUnavailable(

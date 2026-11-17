@@ -37,6 +37,8 @@ def settings() -> Settings:
             "ai_daily_budget": {"gemini/flash": 3, "groq/oss-120b": 5, "gemini/flash-lite": 10},
             # The only image reader in these tests (vision tests add a second).
             "ai_vision": routes("gemini/flash"),
+            # Whole documents (topic maps): Flash-Lite first, then Groq.
+            "ai_long": routes("gemini/flash-lite", "groq/oss-120b"),
             "ai_retries": 1,
             "ai_max_wait_seconds": 20.0,
         }

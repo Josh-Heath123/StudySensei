@@ -73,7 +73,8 @@ export interface paths {
     };
     /**
      * Get Topic Tree
-     * @description The module's topics as a nested tree, siblings in position order.
+     * @description The module's topics as a nested tree, siblings in position order, each with the
+     *     number of material pages linked to it.
      */
     get: operations["get_topic_tree_modules__module_id__topics_get"];
     put?: never;
@@ -117,6 +118,49 @@ export interface paths {
     put?: never;
     /** Move Topic */
     post: operations["move_topic_topics__topic_id__move_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/modules/{module_id}/topic-map": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Topic Map Status
+     * @description How far the AI topic map has got: materials analysed of those eligible, the merge,
+     *     and whether jobs are waiting for AI rate limits to reset (`waiting_until`).
+     */
+    get: operations["topic_map_status_modules__module_id__topic_map_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/modules/{module_id}/topic-map/build": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Build Topic Map
+     * @description Analyse every eligible material not analysed yet, then merge into the topic tree.
+     *
+     *     Existing topics are never renamed, moved or deleted; only new topics are added.
+     */
+    post: operations["build_topic_map_modules__module_id__topic_map_build_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1259,6 +1303,25 @@ export interface components {
       /** Position */
       position?: number | null;
     };
+    /** TopicMapStatus */
+    TopicMapStatus: {
+      /** Eligible */
+      eligible: number;
+      /** Analysed */
+      analysed: number;
+      /** Pending */
+      pending: number;
+      /** Failed */
+      failed: number;
+      /** Merging */
+      merging: boolean;
+      /** Waiting Until */
+      waiting_until: string | null;
+      /** Last Error */
+      last_error: string | null;
+      /** Merged At */
+      merged_at: string | null;
+    };
     /**
      * TopicMove
      * @description Move a topic under ``parent_id`` (null = top level) at index ``position``.
@@ -1297,6 +1360,11 @@ export interface components {
        * @enum {string}
        */
       source: "user" | "ai";
+      /**
+       * Linked Pages
+       * @default 0
+       */
+      linked_pages: number;
       /** Children */
       children: components["schemas"]["TopicNodeOut"][];
     };
@@ -1704,6 +1772,68 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["TopicOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  topic_map_status_modules__module_id__topic_map_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TopicMapStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  build_topic_map_modules__module_id__topic_map_build_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TopicMapStatus"];
         };
       };
       /** @description Validation Error */

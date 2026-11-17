@@ -34,7 +34,9 @@ class SourceChunk:
 class SourcePage:
     page_number: int
     title: str | None
+    # Empty for a scanned page (no text layer): prompts show it as a figure.
     text: str
+    is_scanned: bool = False
 
 
 async def chunks_for_prompt(
@@ -62,7 +64,7 @@ async def chunks_for_prompt(
 async def material_pages_for_prompt(
     session: AsyncSession, material_id: uuid.UUID, *, user_id: uuid.UUID
 ) -> tuple[str, list[SourcePage]]:
-    """A material's title and text pages (scanned pages have none) for a prompt.
+    """A material's title and every page for a prompt (scanned pages flagged, with no text).
 
     Raises ``Invalid`` if the material has ``allow_ai`` off, ``NotFound`` if it isn't the user's.
     """
@@ -74,7 +76,12 @@ async def material_pages_for_prompt(
     if not material.allow_ai:
         raise Invalid(AI_OFF)
     rows = await session.execute(
-        select(MaterialPage.page_number, MaterialPage.title, MaterialPage.text)
+        select(
+            MaterialPage.page_number,
+            MaterialPage.title,
+            MaterialPage.text,
+            MaterialPage.is_scanned,
+        )
         .join(
             Material,
             (Material.id == MaterialPage.material_id) & (Material.user_id == MaterialPage.user_id),
@@ -82,10 +89,12 @@ async def material_pages_for_prompt(
         .where(
             MaterialPage.user_id == user_id,
             MaterialPage.material_id == material_id,
-            MaterialPage.is_scanned.is_(False),
             # Checked again in the query, so a flag turned off meanwhile still holds.
             Material.allow_ai.is_(True),
         )
         .order_by(MaterialPage.page_number)
     )
-    return material.title, [SourcePage(*row) for row in rows]
+    return material.title, [
+        SourcePage(number, title, "" if scanned else text, scanned)
+        for number, title, text, scanned in rows
+    ]

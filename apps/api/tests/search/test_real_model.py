@@ -50,7 +50,9 @@ async def test_an_exact_phrase_from_a_slide_ranks_that_slide_first(
             )
         uploaded[name] = material.id
 
-    assert await run_jobs(session, tmp_path) == 6  # extract + index for each file
+    # extract + index for each file, then topic extraction for each (it fails: no AI key
+    # in tests) and one merge that relinks.
+    assert await run_jobs(session, tmp_path) == 10
 
     embedder = get_embedder()
     tokens = await session.scalars(select(Chunk.token_count).where(Chunk.user_id == user_id))

@@ -236,7 +236,7 @@
           "topics"
         ],
         "summary": "Get Topic Tree",
-        "description": "The module's topics as a nested tree, siblings in position order.",
+        "description": "The module's topics as a nested tree, siblings in position order, each with the\nnumber of material pages linked to it.",
         "operationId": "get_topic_tree_modules__module_id__topics_get",
         "parameters": [
           {
@@ -453,6 +453,94 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TopicOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/modules/{module_id}/topic-map": {
+      "get": {
+        "tags": [
+          "topics"
+        ],
+        "summary": "Topic Map Status",
+        "description": "How far the AI topic map has got: materials analysed of those eligible, the merge,\nand whether jobs are waiting for AI rate limits to reset (`waiting_until`).",
+        "operationId": "topic_map_status_modules__module_id__topic_map_get",
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicMapStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/modules/{module_id}/topic-map/build": {
+      "post": {
+        "tags": [
+          "topics"
+        ],
+        "summary": "Build Topic Map",
+        "description": "Analyse every eligible material not analysed yet, then merge into the topic tree.\n\nExisting topics are never renamed, moved or deleted; only new topics are added.",
+        "operationId": "build_topic_map_modules__module_id__topic_map_build_post",
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicMapStatus"
                 }
               }
             }
@@ -3787,6 +3875,77 @@
         ],
         "title": "TopicCreate"
       },
+      "TopicMapStatus": {
+        "properties": {
+          "eligible": {
+            "type": "integer",
+            "title": "Eligible"
+          },
+          "analysed": {
+            "type": "integer",
+            "title": "Analysed"
+          },
+          "pending": {
+            "type": "integer",
+            "title": "Pending"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "merging": {
+            "type": "boolean",
+            "title": "Merging"
+          },
+          "waiting_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waiting Until"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "merged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merged At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "eligible",
+          "analysed",
+          "pending",
+          "failed",
+          "merging",
+          "waiting_until",
+          "last_error",
+          "merged_at"
+        ],
+        "title": "TopicMapStatus"
+      },
       "TopicMove": {
         "properties": {
           "parent_id": {
@@ -3866,6 +4025,11 @@
               "ai"
             ],
             "title": "Source"
+          },
+          "linked_pages": {
+            "type": "integer",
+            "title": "Linked Pages",
+            "default": 0
           },
           "children": {
             "items": {

@@ -83,6 +83,16 @@ class Settings(BaseSettings):
         "groq/qwen/qwen3.8-27b",
         "gemini/gemini-3.8-flash",
     )
+    # Whole documents in one prompt (topic maps: every page of a material, or every
+    # material's proposal for the merge). Flash-Lite leads: a 1M-token context and ~500
+    # requests a day. Groq is last: its free tier allows 8K tokens a minute and 200K a day,
+    # so a whole deck would use a big share of the day (ADR 0006).
+    ai_long: list[RouteSetting] = _routes(
+        "low",
+        "gemini/gemini-3.5-flash-lite",
+        "gemini/gemini-3.8-flash",
+        "groq/openai/gpt-oss-120b",
+    )
     # Requests per day per "provider/model": the free-tier limit less about 10 %.
     # A model missing here has no daily budget.
     ai_daily_budget: dict[str, int] = {
@@ -104,6 +114,15 @@ class Settings(BaseSettings):
     }
     # When each provider's daily quota resets (midnight in this time zone).
     ai_quota_timezone: dict[str, str] = {"gemini": "America/Los_Angeles", "groq": "UTC"}
+    # Topic maps (ADR 0006). A material's text beyond this many characters is cut off
+    # (about 100K tokens: a long textbook still fits Flash-Lite with room to answer).
+    topic_max_chars: int = 400_000
+    # A chunk links to a topic by similarity when the cosine of the topic's "name:
+    # description" and the chunk is at least this, keeping at most this many per topic.
+    # Calibrated with bge-small on tests/topic_maps/linking_fixtures.py: passages that teach
+    # the topic scored 0.63-0.90, others 0.41-0.62 (test_real_model_threshold.py pins it).
+    topic_link_threshold: float = 0.63
+    topic_link_max_chunks: int = 12
     # Connecting gives up quickly; reading allows for a long answer (and thinking) to arrive.
     ai_connect_timeout_seconds: float = 10.0
     ai_read_timeout_seconds: float = 90.0
@@ -112,7 +131,7 @@ class Settings(BaseSettings):
     # A Retry-After longer than this isn't waited for: the next model is tried instead.
     ai_max_wait_seconds: float = 20.0
 
-    @field_validator("ai_smart", "ai_bulk", "ai_vision", mode="before")
+    @field_validator("ai_smart", "ai_bulk", "ai_vision", "ai_long", mode="before")
     @classmethod
     def _plain_route_strings(cls, value: object) -> object:
         """Allow ``["gemini/gemini-3.8-flash", …]`` as well as route objects."""

@@ -5,7 +5,7 @@ import hashlib
 import json
 import math
 import re
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -65,6 +65,7 @@ class FakeLLM:
     def __init__(self) -> None:
         self.script: dict[str, list[httpx.Response | Exception]] = {}
         self.delays: dict[str, float] = {}
+        self.hooks: dict[str, Callable[[], Awaitable[None]]] = {}
         self.requests: list[SentRequest] = []
 
     def reply(self, model: str, *responses: httpx.Response | Exception) -> None:
@@ -72,6 +73,10 @@ class FakeLLM:
 
     def slow(self, model: str, seconds: float) -> None:
         self.delays[model] = seconds
+
+    def before_reply(self, model: str, hook: Callable[[], Awaitable[None]]) -> None:
+        """Run ``hook`` once, the next time ``model`` is asked (to change things mid-call)."""
+        self.hooks[model] = hook
 
     async def _handle(self, request: httpx.Request) -> httpx.Response:
         if request.method == "GET" and request.url.path.endswith("/models"):
@@ -82,6 +87,8 @@ class FakeLLM:
         self.requests.append(SentRequest(request.url.host, model, body, dict(request.headers)))
         if model in self.delays:
             await asyncio.sleep(self.delays[model])
+        if model in self.hooks:
+            await self.hooks.pop(model)()
         queued = self.script.get(model)
         if not queued:
             raise AssertionError(f"FakeLLM: no reply scripted for {model!r}")

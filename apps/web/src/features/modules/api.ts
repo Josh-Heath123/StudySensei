@@ -122,3 +122,54 @@ export function useDeleteTopic(moduleId: string) {
     unwrap(api.DELETE("/topics/{topic_id}", { params: { path: { topic_id: topicId } } })),
   );
 }
+
+// --- Topic map (decision 0006) -------------------------------------------------------
+
+export type TopicMapStatus = components["schemas"]["TopicMapStatus"];
+export type AiStatus = components["schemas"]["AIStatusOut"];
+
+const TOPIC_MAP_POLL_MS = 3000;
+
+/** Busy while materials are being analysed or merged; polled until it isn't. */
+export const topicMapBusy = (s: TopicMapStatus | undefined) =>
+  s !== undefined && (s.pending > 0 || s.merging);
+
+export function useTopicMap(moduleId: string) {
+  const queryClient = useQueryClient();
+  return useQuery({
+    queryKey: ["topic-map", moduleId],
+    queryFn: async () => {
+      const previous = queryClient.getQueryData<TopicMapStatus>(["topic-map", moduleId]);
+      const status = await unwrap(
+        api.GET("/modules/{module_id}/topic-map", { params: { path: { module_id: moduleId } } }),
+      );
+      // New topics and page links appear as jobs finish: refresh the tree while it's busy.
+      if (topicMapBusy(previous)) {
+        void queryClient.invalidateQueries({ queryKey: keys.topics(moduleId) });
+      }
+      return status;
+    },
+    refetchInterval: (query) => (topicMapBusy(query.state.data) ? TOPIC_MAP_POLL_MS : false),
+  });
+}
+
+export function useBuildTopicMap(moduleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.POST("/modules/{module_id}/topic-map/build", {
+          params: { path: { module_id: moduleId } },
+        }),
+      ),
+    onSuccess: (status) => queryClient.setQueryData(["topic-map", moduleId], status),
+  });
+}
+
+export function useAiStatus() {
+  return useQuery({
+    queryKey: ["ai-status"],
+    queryFn: () => unwrap(api.GET("/ai/status")),
+    staleTime: 60_000,
+  });
+}

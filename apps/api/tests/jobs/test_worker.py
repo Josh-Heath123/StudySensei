@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.jobs import queue
 from app.jobs.context import Handler, JobContext
-from app.jobs.kinds import EXTRACT_TEXT, INDEX_MATERIAL
+from app.jobs.kinds import EXTRACT_TEXT, EXTRACT_TOPICS, INDEX_MATERIAL
 from app.jobs.tasks import extract_text
 from app.jobs.worker import GAVE_UP, HANDLERS, UNEXPECTED, SessionFactory, run_once
 from app.models import Job, Material, User
@@ -106,7 +106,12 @@ async def test_a_job_runs_and_the_material_is_ready(
     await session.refresh(material)
     assert (material.status, material.error) == ("ready", None)
     assert (await the_job(session, user_id, INDEX_MATERIAL)).status == "succeeded"
-    assert await run_once(sessions, storage, now=lambda: T0) is False
+    # Slides with AI allowed: topic extraction is next (decision 0006).
+    topics = await the_job(session, user_id, EXTRACT_TOPICS)
+    assert (topics.status, topics.payload) == (
+        "queued",
+        {"material_id": str(material.id), "module_id": str(material.module_id)},
+    )
 
 
 async def test_a_failed_attempt_is_retried_with_backoff_then_succeeds(

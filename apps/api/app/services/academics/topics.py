@@ -8,6 +8,7 @@ from app.models import Topic
 from app.schemas.academics import TopicCreate, TopicUpdate
 from app.services.academics.modules import get_module
 from app.services.errors import Invalid, NotFound
+from app.services.topic_maps import queue_linking
 
 
 @dataclass
@@ -102,6 +103,8 @@ async def create_topic(
     )
     _place(siblings, topic, data.position)
     session.add(topic)
+    await session.flush()
+    await queue_linking(session, module_id, user_id=user_id)
     await session.commit()
     return topic
 
@@ -114,6 +117,7 @@ async def update_topic(
         setattr(topic, name, value)
     # Any user edit makes the topic the user's, so AI re-runs never overwrite it.
     topic.source = "user"
+    await queue_linking(session, topic.module_id, user_id=user_id)
     await session.commit()
     return topic
 
@@ -150,6 +154,8 @@ async def move_topic(
         ):
             raise Invalid("A topic can't be moved under itself or one of its subtopics")
     old_parent_id = topic.parent_id
+    # Moving is an edit too: the topic becomes the user's.
+    topic.source = "user"
     new_siblings = await _siblings(
         session, topic.module_id, new_parent_id, user_id=user_id, exclude=topic.id
     )

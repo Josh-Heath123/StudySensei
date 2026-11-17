@@ -89,6 +89,9 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("GET", "/materials/{material}/pages/1", None),
     # Search
     ("GET", "/modules/{module}/search?q=password", None),
+    # Topic maps
+    ("GET", "/modules/{module}/topic-map", None),
+    ("POST", "/modules/{module}/topic-map/build", None),
 ]
 
 
