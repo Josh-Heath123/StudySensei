@@ -1,6 +1,7 @@
 """Long materials in parts, cut-off replies, and the per-material call cap (ADR 0007)."""
 
 import functools
+import json
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -14,12 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.client import LLMClient
 from app.ai.sources import SourcePage
 from app.jobs.worker import run_once
-from app.models import Job, Material, TopicProposal, User
+from app.models import AIUsage, Job, Material, TopicProposal, User
 from app.models import Module as ModuleRow
 from app.services.topic_maps import queue_extraction
 from app.services.topic_maps.prompts import plan_parts
 from app.storage.local import LocalStorage
-from tests.fakes import FakeLLM, ok
+from tests.fakes import FakeLLM, ok, overloaded
 from tests.search.conftest import Page, add_material, run_jobs
 from tests.topic_maps.conftest import LITE, Module, node, topics_reply
 from tests.topic_maps.extraction_helpers import proposal_of
@@ -225,3 +226,75 @@ async def test_a_refused_request_fails_at_once_without_fallbacks(
     job = await session.get(Job, job_id, populate_existing=True)
     assert job is not None and (job.status, job.attempts) == ("failed", 1)
     assert [r.model for r in fake_llm.requests] == [LITE]
+
+
+# --- the COS330 failures after ADR 0007 (ADR 0008) ---
+
+
+async def test_a_busy_model_doesnt_use_up_the_materials_calls(
+    session: AsyncSession, module: Module, client: LLMClient, fake_llm: FakeLLM, tmp_path: Path
+) -> None:
+    """Chapter 7: four 503s in a row (two runs) used the whole cap. Now Groq answers."""
+    fake_llm.reply(LITE, overloaded(), overloaded(), overloaded(), overloaded())
+    fake_llm.reply("oss-120b", topics_reply(node("Firewalls", [1])), ok('{"topics": []}'))
+    job_id = await queue_for(session, module.slides)
+
+    await run_with_retries(session, tmp_path)
+
+    job = await session.get(Job, job_id, populate_existing=True)
+    assert job is not None and job.status == "succeeded"
+    saved = await proposal_of(session, module.slides)
+    assert [t["name"] for t in saved["topics"]] == ["Firewalls"]
+    outcomes = await session.scalars(select(AIUsage.outcome).where(AIUsage.job_id == job_id))
+    assert sorted(outcomes) == ["ok", "overloaded", "overloaded"]
+
+
+async def test_names_under_title_need_no_repair(
+    session: AsyncSession, module: Module, client: LLMClient, fake_llm: FakeLLM, tmp_path: Path
+) -> None:
+    """Chapters 1 and 5: every topic and subtopic came back without "name"."""
+    fake_llm.reply(
+        LITE,
+        ok(
+            json.dumps(
+                {
+                    "topics": [
+                        {
+                            "title": "Passwords",
+                            "description": "Storing them.",
+                            "pages": ["1"],
+                            "subtopics": [{"title": "Hashing", "pages": "1"}],
+                        }
+                    ]
+                }
+            )
+        ),
+        ok('{"topics": []}'),
+    )
+    job_id = await queue_for(session, module.slides)
+
+    await run_jobs(session, tmp_path)
+
+    saved = await proposal_of(session, module.slides)
+    assert saved["topics"][0]["name"] == "Passwords"
+    assert saved["topics"][0]["subtopics"][0]["name"] == "Hashing"
+    outcomes = await session.scalars(select(AIUsage.outcome).where(AIUsage.job_id == job_id))
+    assert list(outcomes) == ["ok"]
+
+
+async def test_a_reply_with_no_name_records_which_keys_it_had(
+    session: AsyncSession, module: Module, client: LLMClient, fake_llm: FakeLLM, tmp_path: Path
+) -> None:
+    """So the next diagnosis can see the key the model used, without storing any text."""
+    nameless = ok(json.dumps({"topics": [{"caption": "Passwords", "pages": [1]}]}))
+    fake_llm.reply(LITE, nameless, nameless)
+    job_id = await queue_for(session, module.slides)
+
+    await run_jobs(session, tmp_path)
+
+    detail = await session.scalar(
+        select(AIUsage.detail).where(AIUsage.job_id == job_id, AIUsage.outcome == "invalid_json")
+    )
+    assert detail is not None
+    assert detail.startswith("an object had keys ['caption', 'pages'] but no 'name'")
+    assert "Passwords" not in detail
