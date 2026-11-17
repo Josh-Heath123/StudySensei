@@ -2,6 +2,20 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-17: Phase 2, LLM client follow-up (thinking level, timeouts, ping output)
+
+- **Why:** the ping hung on `gemini-3.8-flash` with no output. Gemini 3 always thinks at its default level unless told
+  otherwise, and the old single 90 s timeout gave no feedback while it waited.
+- **Done:**
+  - each route in config has a `reasoning_effort` (bulk `minimal`, smart `low`), sent only to Gemini and Groq's gpt-oss
+    (`minimal` is sent as `low`, its lowest); a call can override it
+  - a 10 s connect timeout and a separate 90 s read timeout; a timeout is retryable, logged as `timeout` (migration
+    0009) and counts against the budget
+  - the ping prints `→ provider/model …` first, flushed, and then `ok`/`FAIL`. It uses `minimal` and gives each model
+    30 s in total, then moves on
+  - 16 new tests on the fake transport, including a slow fake that trips the ping limit while the next model still answers
+- **Next:** run `uv run python -m app.ai.ping` with real keys, then Phase 2 task 6 (topic extraction).
+
 ## 2026-11-17: Phase 2, task 5 (LLM client)
 
 - **Done:**
