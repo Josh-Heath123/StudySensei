@@ -141,7 +141,8 @@ Derived tables can always be rebuilt from source tables.
 - `ai_usage` (0008): user, provider, model, role, purpose, input/output tokens, latency, outcome (`ok`, `rate_limited`,
   `error`, `invalid_json`, and `timeout` from 0009). Never prompt or reply text. Roles `vision` (0010) and `long` (0011).
   0012 adds `job_id` (the job that made the call), `detail` (why it failed: HTTP status and provider message, or
-  what didn't validate; ≤ 300 characters) and the `truncated` outcome.
+  what didn't validate; ≤ 300 characters) and the `truncated` outcome. 0013 adds `overloaded` (a 503, turned away
+  before running) and `refused` (the model declined the content; decision 0008).
 - `topic_proposals`, `topic_pages`, `chunk_topics` (0011), plus `UNIQUE (id, module_id)` on `chunks`; the migration
   queues `extract_topics` for every eligible indexed material.
 
@@ -255,23 +256,28 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   - **Timeouts:** 10 s to connect (`AI_CONNECT_TIMEOUT_SECONDS`) and 90 s to wait for the reply
     (`AI_READ_TIMEOUT_SECONDS`). A timeout is logged as `timeout` and counts against the budget (the provider may
     have answered after we stopped waiting).
-  - **What moves on to the next model** (decision 0007): only "this model can't take it now". That means a 429, a
-    timeout, a lost connection, or a 413 (too large for that model's limits).
+  - **What moves on to the next model** (decisions 0007, 0008): only "this model can't take it now". That means a
+    429, a 503 ("high demand", logged `overloaded`), a timeout, a lost connection, or a 413 (too large for that
+    model's limits). Also a content refusal: `finish_reason` `content_filter` / `SAFETY` / `PROHIBITED_CONTENT` (and
+    similar) or an empty reply, logged `refused`. It spends no repair and doesn't cool the model down; if every model
+    refuses, `AIRefused` fails the job with each model's reason.
     - A 429 or 5xx is first retried once on the same model when the wait (the `Retry-After` header or HTTP date,
       Gemini's `retryDelay`, or 2 s × 2ⁿ backoff, plus jitter) is at most `AI_MAX_WAIT_SECONDS` (20 s). Otherwise
       the model cools down (at least a minute).
-    - A persistent 5xx raises `AIUnavailable` (the job waits).
+    - Any other persistent 5xx (500, 502, 504) raises `AIUnavailable` (the job waits).
     - Any other refusal (400, 401, 404…) raises `AIRequestFailed` with the provider's message, and the job fails at
       once.
     - Invalid output is repaired once at most and never moves to another model.
   - **Cut off:** a reply with `finish_reason` `length` raises `AITruncated` (logged `truncated`, not repaired).
   - **Call budgets:** a caller can pass a `CallBudget` (calls and repairs for one unit of work, every fallback
-    included). Topic jobs count their calls across retries from `ai_usage.job_id`.
+    included). Topic jobs count their calls across retries from `ai_usage.job_id`. Requests turned away before
+    running (429, 503) don't use that cap; they have their own wider one (`TOPIC_MAX_TURNED_AWAY`, 20) so an outage
+    still ends (decision 0008).
   - **Error text:** a failed request reads like `gemini: HTTP 400: Thinking level MINIMAL is not supported…`. Only the
     body's `error.message` is used, trimmed to 300 characters, never the request or headers.
   - **Budgets** (`budget.py`): the user's `ai_usage` rows for that model since the provider's last local midnight
-    (`AI_QUOTA_TIMEZONE`). They count `ok`, `error`, `invalid_json`, `timeout` and `truncated`. A 429 isn't counted:
-    it was refused before running (decision 0007).
+    (`AI_QUOTA_TIMEZONE`). They count `ok`, `error`, `invalid_json`, `timeout`, `truncated` and `refused`. A 429 or
+    503 isn't counted: it was turned away before running (decisions 0007, 0008).
   - **All out:** `AIUnavailable(retry_at=…)`, set to the earliest cooldown end or budget reset. The worker reschedules
     the job for then without using an attempt (`queue.reschedule`), and the API answers 503 with `Retry-After`. With no
     provider configured, `retry_at` is None: jobs fail with "AI isn't set up yet…", and nothing crashes.
@@ -336,8 +342,10 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
        parent, and page ranges such as "3-5" read. Only broken structure is repaired, and only once.
      - **Long materials** go in parts of about 40 pages (at most 3 parts), and their topics are combined. A cut-off
        part is split in half. Finished parts are saved in the job's payload.
-     - **At most 4 provider calls per material per run** (fallbacks, the repair and retries all count). Retry from
-       the Materials tab starts a new run.
+     - **At most 4 provider calls per material per run** (fallbacks, the repair and retries all count; 429s and
+       503s don't, up to 20 of them). Retry from the Materials tab starts a new run.
+     - A topic's name is also read from `title`, `topic`, `heading` or `label` when `name` is missing (decision 0008).
+       A reply with no name at all records which keys it had (identifier-like keys only) in `ai_usage.detail`.
    - **`merge_topics`**, once the module's last extraction ends or from "Build topic map": one call turns the
      proposals into the module tree (about 8–15 top topics, 3–10 subtopics each). Existing topics are fixed anchors.
      Code adds only new topics (`source = ai`) and cited pages (`topic_pages`), and never renames, moves or deletes.
