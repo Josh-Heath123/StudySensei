@@ -5,7 +5,7 @@ import { json, mockApi, noContent, type ApiCall } from "@/test/mockApi";
 import { renderApp } from "@/test/render";
 
 import type { TopicNode } from "./api";
-import { aModule, aTopic, roots } from "./fixtures";
+import { aModule, aTopic, aTopicMap, anAiStatus, roots } from "./fixtures";
 
 // Patterns
 //   Creational
@@ -24,6 +24,8 @@ function renderTree(tree: TopicNode[] = TREE) {
   const api = mockApi({
     "GET /modules/:id": () => aModule(),
     "GET /modules/:id/topics": () => tree,
+    "GET /modules/:id/topic-map": () => aTopicMap(),
+    "GET /ai/status": () => anAiStatus(),
     "POST /modules/:id/topics": ({ body }) =>
       json({ ...aTopic("new", "x"), ...(body as object) }, 201),
     "PATCH /topics/:id": ({ body }) => ({ ...aTopic("x", "x"), ...(body as object) }),
@@ -136,6 +138,8 @@ test("shows the server's message when a move fails", async () => {
   mockApi({
     "GET /modules/:id": () => aModule(),
     "GET /modules/:id/topics": () => TREE,
+    "GET /modules/:id/topic-map": () => aTopicMap(),
+    "GET /ai/status": () => anAiStatus(),
     "POST /topics/:id/move": () =>
       json({ detail: "A topic can't be moved under itself or one of its subtopics" }, 422),
   });
