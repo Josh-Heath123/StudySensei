@@ -17,7 +17,23 @@ class AIUnavailable(Exception):
 
 
 class AIInvalidOutput(Exception):
-    """The reply still didn't match the schema after one repair attempt."""
+    """The reply still didn't match the schema after one repair attempt (or none was allowed)."""
+
+
+class AIRequestFailed(Exception):
+    """A provider refused the request for a reason another model won't fix (a bad key, a
+    bad request). Not retried and not passed on to fallbacks (decision 0007). The message
+    names the model and carries the provider's own error text; it's safe to show."""
+
+
+class AICallLimitReached(AIRequestFailed):
+    """The caller's ``CallBudget`` is spent: no more provider calls for this run."""
+
+
+class AITruncated(Exception):
+    """The reply was cut off at the model's output limit (finish_reason "length").
+
+    Not repaired: asking again gives the same cut. Callers send less (smaller parts)."""
 
 
 NOT_CONFIGURED = (

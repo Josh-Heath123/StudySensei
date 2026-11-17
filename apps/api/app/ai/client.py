@@ -12,9 +12,18 @@ For each request it walks the role's routes in order and skips a route that is:
 - cooling down after a 429 or 5xx, or
 - out of its daily budget (counted from ``ai_usage`` since the provider's quota reset).
 
-A 429 or 5xx is retried on the same model after its Retry-After (or a jittered backoff)
-when that's short, and otherwise falls through to the next route. When every route is out,
-``AIUnavailable`` says when to try again. Every request is logged in ``ai_usage``.
+Failures (decision 0007): only "this model can't take it now" moves on to the next route:
+a 429, a timeout, a lost connection, or a 413 (request too large for the model's limits).
+A 429 or 5xx is first retried on the same model after its Retry-After (or a jittered
+backoff) when that's short. A 5xx that persists raises ``AIUnavailable`` for later, and any
+other refusal (400, 401, 404…) raises ``AIRequestFailed``: neither cascades through the
+fallbacks. A reply cut off at the output limit raises ``AITruncated`` (no repair). When
+every route is out, ``AIUnavailable`` says when to try again.
+
+Pacing: each model has a requests-per-minute limit (``AI_REQUESTS_PER_MINUTE``, the free
+tier less a margin); a request waits its turn instead of collecting 429s. An optional
+``CallBudget`` caps the provider calls (and repairs) for one unit of work across fallbacks.
+Every request is logged in ``ai_usage``.
 
 Privacy: the client sends exactly the messages it's given and nothing about the user.
 Callers build prompts from course content gathered through ``app.ai.sources``, which
@@ -28,8 +37,9 @@ import random
 import re
 import time
 import uuid
+from collections import deque
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -37,7 +47,14 @@ from pydantic import BaseModel, ValidationError
 
 from app.ai.adapter import Completion, OpenAICompatAdapter, ProviderError
 from app.ai.budget import next_reset, quota_zone, window_start
-from app.ai.errors import NOT_CONFIGURED, AIInvalidOutput, AIUnavailable
+from app.ai.errors import (
+    NOT_CONFIGURED,
+    AICallLimitReached,
+    AIInvalidOutput,
+    AIRequestFailed,
+    AITruncated,
+    AIUnavailable,
+)
 from app.ai.messages import Message, has_images, system, user
 from app.ai.messages import assistant as assistant_message
 from app.ai.routes import AIRole, Route, routes_for
@@ -53,6 +70,7 @@ PING_TIMEOUT_SECONDS = 30.0
 DEFAULT_COOLDOWN = timedelta(minutes=1)
 # When every route failed with a plain error (a bad key, an unknown model).
 ERROR_RETRY = timedelta(minutes=10)
+PACING_WINDOW_SECONDS = 60.0
 _FENCE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL)
 
 
@@ -66,6 +84,51 @@ class AIResult[T]:
 
     value: T
     route: Route
+
+
+@dataclass
+class CallBudget:
+    """At most ``limit`` provider calls, and ``max_repairs`` repair attempts, for one unit of
+    work: every fallback and retry counts. ``used``/``repairs_used`` start from what earlier
+    attempts of the same job already spent (``usage.job_calls``)."""
+
+    limit: int
+    job_id: uuid.UUID | None = None
+    used: int = 0
+    repairs_used: int = 0
+    max_repairs: int = 1
+
+    @property
+    def remaining(self) -> int:
+        return max(0, self.limit - self.used)
+
+    @property
+    def can_repair(self) -> bool:
+        return self.repairs_used < self.max_repairs and self.remaining > 0
+
+
+@dataclass
+class _Pacer:
+    """A sliding one-minute window of request times per model (this process only)."""
+
+    sleep: Callable[[float], Awaitable[None]]
+    clock: Callable[[], float]
+    sent: dict[str, deque[float]] = field(default_factory=dict)
+
+    async def wait_turn(self, key: str, per_minute: int | None) -> None:
+        if not per_minute or per_minute <= 0:
+            return
+        window = self.sent.setdefault(key, deque())
+        while True:
+            now = self.clock()
+            while window and now - window[0] >= PACING_WINDOW_SECONDS:
+                window.popleft()
+            if len(window) < per_minute:
+                window.append(now)
+                return
+            wait = PACING_WINDOW_SECONDS - (now - window[0])
+            log.info("%s: %s requests in the last minute; waiting %.1fs", key, len(window), wait)
+            await self.sleep(wait)
 
 
 @dataclass(frozen=True)
@@ -115,6 +178,7 @@ class LLMClient:
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         now: Callable[[], datetime] = _now,
         jitter: Callable[[], float] = random.random,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.settings = settings
         self._usage = usage
@@ -129,6 +193,7 @@ class LLMClient:
         self._jitter = jitter
         # Route key → when it may be tried again after a 429/5xx (this process only).
         self._cooldown: dict[str, datetime] = {}
+        self._pacer = _Pacer(sleep, clock)
 
     async def aclose(self) -> None:
         await self._http.aclose()
@@ -156,6 +221,7 @@ class LLMClient:
             json_mode=False,
             check=None,
             effort=reasoning_effort,
+            budget=None,
         )
         return text
 
@@ -168,11 +234,12 @@ class LLMClient:
         purpose: str,
         user_id: uuid.UUID,
         reasoning_effort: ReasoningEffort | None = None,
+        budget: CallBudget | None = None,
     ) -> T:
         """Ask for JSON, validate it against ``schema``, and repair it once if needed.
 
-        Raises ``AIInvalidOutput`` if the repaired reply still doesn't validate.
-        ``reasoning_effort`` overrides the routes' configured level for this call.
+        Raises ``AIInvalidOutput`` if the repaired reply still doesn't validate (or the
+        budget allows no repair). ``reasoning_effort`` overrides the routes' level.
         """
         result = await self.complete_json_result(
             role,
@@ -181,6 +248,7 @@ class LLMClient:
             purpose=purpose,
             user_id=user_id,
             reasoning_effort=reasoning_effort,
+            budget=budget,
         )
         return result.value
 
@@ -193,6 +261,7 @@ class LLMClient:
         purpose: str,
         user_id: uuid.UUID,
         reasoning_effort: ReasoningEffort | None = None,
+        budget: CallBudget | None = None,
     ) -> AIResult[T]:
         """``complete_json``, also saying which provider and model answered."""
         result: list[T] = []
@@ -213,9 +282,16 @@ class LLMClient:
                 json_mode=True,
                 check=check,
                 effort=reasoning_effort,
+                budget=budget,
             )
             return AIResult(result[-1], route)
         except _InvalidReply as first:
+            if budget is not None and not budget.can_repair:
+                raise AIInvalidOutput(
+                    f"The AI reply for {purpose} didn't match its schema: {first.problem}"
+                ) from None
+            if budget is not None:
+                budget.repairs_used += 1
             log.info("AI reply for %s didn't validate; asking for a repair", purpose)
             repair = [
                 *prompt,
@@ -234,6 +310,7 @@ class LLMClient:
                 json_mode=True,
                 check=check,
                 effort=reasoning_effort,
+                budget=budget,
             )
             return AIResult(result[-1], route)
         except _InvalidReply as second:
@@ -284,15 +361,23 @@ class LLMClient:
         completion: Completion | None,
         error: ProviderError | None,
         *,
-        invalid: bool = False,
+        invalid: str | None = None,
+        budget: CallBudget | None = None,
     ) -> None:
+        """One ``ai_usage`` row. ``detail`` says why it failed, never what was said."""
+        detail: str | None = None
         if error is not None:
+            detail = str(error)
             if error.timed_out:
                 outcome = "timeout"
             else:
                 outcome = "rate_limited" if error.rate_limited else "error"
+        elif completion is not None and completion.truncated:
+            outcome, detail = "truncated", f"finish_reason {completion.finish_reason}"
+        elif invalid is not None:
+            outcome, detail = "invalid_json", invalid
         else:
-            outcome = "invalid_json" if invalid else "ok"
+            outcome = "ok"
         await self._usage.record(
             UsageRecord(
                 user_id=user_id,
@@ -304,6 +389,8 @@ class LLMClient:
                 output_tokens=completion.output_tokens if completion else 0,
                 latency_ms=int((time.monotonic() - started) * 1000),
                 outcome=outcome,
+                job_id=budget.job_id if budget else None,
+                detail=detail,
             )
         )
 
@@ -337,6 +424,7 @@ class LLMClient:
         json_mode: bool,
         check: Callable[[str], None] | None,
         effort: ReasoningEffort | None,
+        budget: CallBudget | None,
     ) -> tuple[str, Route]:
         if has_images(messages):
             # Only the vision role's models read images, whatever role was asked for.
@@ -365,6 +453,15 @@ class LLMClient:
 
             attempt = 0
             while True:
+                if budget is not None and budget.remaining == 0:
+                    raise AICallLimitReached(
+                        f"Stopped after {budget.limit} AI calls without a usable answer."
+                    )
+                await self._pacer.wait_turn(
+                    route.key, self.settings.ai_requests_per_minute.get(route.key)
+                )
+                if budget is not None:
+                    budget.used += 1
                 started = time.monotonic()
                 try:
                     completion = await self._adapter(route).complete(
@@ -374,12 +471,12 @@ class LLMClient:
                         reasoning_effort=route.effort_to_send(effort),
                     )
                 except ProviderError as exc:
-                    await self._record(route, role, purpose, user_id, started, None, exc)
+                    await self._record(
+                        route, role, purpose, user_id, started, None, exc, budget=budget
+                    )
                     log.warning("%s failed (%s) for %s", route.key, exc, purpose)
-                    if not exc.retryable:
-                        break  # a bad key or unknown model: the next route might work
                     delay = self._delay(exc, attempt)
-                    if (
+                    if (exc.rate_limited or (exc.status or 0) >= 500) and (
                         attempt < self.settings.ai_retries
                         and delay <= self.settings.ai_max_wait_seconds
                     ):
@@ -387,19 +484,44 @@ class LLMClient:
                         await self._sleep(delay + self._jitter() * max(1.0, delay / 2))
                         continue
                     until = self._now() + max(timedelta(seconds=delay), DEFAULT_COOLDOWN)
-                    self._cooldown[route.key] = until
-                    waits.append(until)
-                    break
+                    if exc.rate_limited or exc.timed_out or exc.status in (None, 413):
+                        # This model can't take it now: the next one may.
+                        self._cooldown[route.key] = until
+                        waits.append(until)
+                        break
+                    if (exc.status or 0) >= 500:
+                        self._cooldown[route.key] = until
+                        raise AIUnavailable(
+                            f"{route.key} is having problems ({exc}). Trying again after "
+                            f"{until.astimezone(UTC):%Y-%m-%d %H:%M} UTC.",
+                            retry_at=until,
+                        ) from exc
+                    raise AIRequestFailed(str(exc)) from exc
                 self._cooldown.pop(route.key, None)
+                if completion.truncated:
+                    await self._record(
+                        route, role, purpose, user_id, started, completion, None, budget=budget
+                    )
+                    raise AITruncated(f"{route.key}: the reply was cut off at its output limit")
                 if check is not None:
                     try:
                         check(completion.text)
-                    except _InvalidReply:
+                    except _InvalidReply as invalid:
                         await self._record(
-                            route, role, purpose, user_id, started, completion, None, invalid=True
+                            route,
+                            role,
+                            purpose,
+                            user_id,
+                            started,
+                            completion,
+                            None,
+                            invalid=invalid.problem,
+                            budget=budget,
                         )
                         raise
-                await self._record(route, role, purpose, user_id, started, completion, None)
+                await self._record(
+                    route, role, purpose, user_id, started, completion, None, budget=budget
+                )
                 return completion.text, route
 
         retry_at = min(waits) if waits else self._now() + ERROR_RETRY

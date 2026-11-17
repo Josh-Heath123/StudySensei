@@ -26,6 +26,12 @@ class Completion:
     text: str
     input_tokens: int
     output_tokens: int
+    # "stop" normally; "length" when the reply hit the output limit and was cut off.
+    finish_reason: str | None = None
+
+    @property
+    def truncated(self) -> bool:
+        return self.finish_reason in ("length", "max_tokens", "MAX_TOKENS")
 
 
 class ProviderError(Exception):
@@ -173,7 +179,8 @@ class OpenAICompatAdapter:
             body["reasoning_effort"] = reasoning_effort
         data = await self._send("POST", "chat/completions", body, deadline)
         try:
-            text = data["choices"][0]["message"]["content"] or ""
+            choice = data["choices"][0]
+            text = choice["message"]["content"] or ""
         except (KeyError, IndexError, TypeError) as exc:
             raise ProviderError(
                 f"{self.provider.name}: unexpected reply shape", status=502, retry_after=None
@@ -183,6 +190,7 @@ class OpenAICompatAdapter:
             text=str(text),
             input_tokens=int(usage.get("prompt_tokens") or 0),
             output_tokens=int(usage.get("completion_tokens") or 0),
+            finish_reason=choice.get("finish_reason"),
         )
 
     async def list_models(self, deadline: float | None = None) -> list[str]:

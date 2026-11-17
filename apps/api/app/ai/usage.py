@@ -16,7 +16,7 @@ SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 
 # Outcomes that used up a request of the provider's quota (a 429 was refused, so it didn't).
 # A timeout counts: the provider may well have answered after we stopped waiting.
-COUNTED_OUTCOMES = ("ok", "error", "invalid_json", "timeout")
+COUNTED_OUTCOMES = ("ok", "error", "invalid_json", "timeout", "truncated")
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,8 @@ class UsageRecord:
     output_tokens: int
     latency_ms: int
     outcome: str
+    job_id: uuid.UUID | None = None
+    detail: str | None = None
 
 
 async def count_requests(
@@ -48,6 +50,19 @@ async def count_requests(
         )
     )
     return int(count or 0)
+
+
+async def job_calls(
+    session: AsyncSession, job_id: uuid.UUID, *, user_id: uuid.UUID
+) -> tuple[int, int]:
+    """(provider calls, repair-worthy invalid replies) a job has made so far, across retries."""
+    rows = await session.execute(
+        select(AIUsage.outcome, func.count())
+        .where(AIUsage.user_id == user_id, AIUsage.job_id == job_id)
+        .group_by(AIUsage.outcome)
+    )
+    counts: dict[str, int] = {outcome: count for outcome, count in rows}
+    return sum(counts.values()), counts.get("invalid_json", 0)
 
 
 class UsageStore(Protocol):
@@ -88,6 +103,8 @@ class DbUsageStore:
                     output_tokens=row.output_tokens,
                     latency_ms=row.latency_ms,
                     outcome=row.outcome,
+                    job_id=row.job_id,
+                    detail=row.detail[:300] if row.detail else None,
                 )
             )
             await session.commit()
