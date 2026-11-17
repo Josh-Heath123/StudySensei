@@ -79,6 +79,25 @@ async def complete(session: AsyncSession, job: Job, now: datetime) -> None:
     await session.commit()
 
 
+async def reschedule(session: AsyncSession, job: Job, run_after: datetime, reason: str) -> None:
+    """Put a job back to run at ``run_after`` without using up an attempt. Commits.
+
+    For waits that aren't the job's fault, such as AI quotas running out.
+    """
+    await session.execute(
+        update(Job)
+        .where(Job.id == job.id)
+        .values(
+            status="queued",
+            run_after=run_after,
+            locked_at=None,
+            attempts=Job.attempts - 1,
+            last_error=reason[:MAX_ERROR_CHARS],
+        )
+    )
+    await session.commit()
+
+
 async def fail(
     session: AsyncSession, job: Job, error: str, now: datetime, *, give_up: bool = False
 ) -> bool:

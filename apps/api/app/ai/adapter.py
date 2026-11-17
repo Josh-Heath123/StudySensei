@@ -1,0 +1,133 @@
+"""The one OpenAI-compatible adapter, used for every provider (decision 0002).
+
+It sends ``POST {base_url}/chat/completions`` and ``GET {base_url}/models`` with httpx.
+It knows nothing about roles, budgets or fallback; the client does.
+Error messages never include the key or the prompt.
+"""
+
+import re
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
+from typing import Any
+
+import httpx
+
+from app.ai.messages import Message, to_wire
+from app.ai.routes import Provider
+
+# Gemini puts the wait in the error body ("retryDelay": "37s") rather than a header.
+_RETRY_DELAY = re.compile(r'"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"')
+
+
+@dataclass(frozen=True)
+class Completion:
+    text: str
+    input_tokens: int
+    output_tokens: int
+
+
+class ProviderError(Exception):
+    """A failed request. ``retryable`` for 429, 5xx, timeouts and lost connections."""
+
+    def __init__(self, message: str, *, status: int | None, retry_after: float | None) -> None:
+        super().__init__(message)
+        self.status = status
+        self.retry_after = retry_after
+
+    @property
+    def rate_limited(self) -> bool:
+        return self.status == 429
+
+    @property
+    def retryable(self) -> bool:
+        return self.status is None or self.status == 429 or self.status >= 500
+
+
+def retry_after_seconds(response: httpx.Response, now: datetime | None = None) -> float | None:
+    """Seconds to wait from a Retry-After header (seconds or HTTP date), or Gemini's retryDelay."""
+    header = response.headers.get("retry-after")
+    if header:
+        header = header.strip()
+        try:
+            return max(0.0, float(header))
+        except ValueError:
+            pass
+        try:
+            when = parsedate_to_datetime(header)
+        except (TypeError, ValueError):
+            when = None
+        if when is not None:
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=UTC)
+            return max(0.0, (when - (now or datetime.now(UTC))).total_seconds())
+    match = _RETRY_DELAY.search(response.text)
+    return float(match.group(1)) if match else None
+
+
+def _url(provider: Provider, path: str) -> str:
+    return provider.base_url.rstrip("/") + "/" + path
+
+
+def _headers(provider: Provider) -> dict[str, str]:
+    if provider.api_key is None:
+        return {}
+    return {"Authorization": f"Bearer {provider.api_key.get_secret_value()}"}
+
+
+def _model_id(raw: str) -> str:
+    # Gemini lists "models/gemini-…"; requests take the bare ID.
+    return raw.removeprefix("models/")
+
+
+class OpenAICompatAdapter:
+    def __init__(self, provider: Provider, http: httpx.AsyncClient) -> None:
+        self.provider = provider
+        self._http = http
+
+    async def _send(self, method: str, path: str, body: dict[str, Any] | None) -> Any:
+        name = self.provider.name
+        try:
+            response = await self._http.request(
+                method, _url(self.provider, path), json=body, headers=_headers(self.provider)
+            )
+        except httpx.TimeoutException as exc:
+            raise ProviderError(f"{name}: timed out", status=None, retry_after=None) from exc
+        except httpx.TransportError as exc:
+            raise ProviderError(
+                f"{name}: couldn't connect ({type(exc).__name__})", status=None, retry_after=None
+            ) from exc
+        if response.status_code >= 400:
+            raise ProviderError(
+                f"{name}: HTTP {response.status_code}",
+                status=response.status_code,
+                retry_after=retry_after_seconds(response),
+            )
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise ProviderError(f"{name}: reply wasn't JSON", status=502, retry_after=None) from exc
+
+    async def complete(
+        self, model: str, messages: list[Message], *, json_mode: bool = False
+    ) -> Completion:
+        body: dict[str, Any] = {"model": model, "messages": [to_wire(m) for m in messages]}
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
+        data = await self._send("POST", "chat/completions", body)
+        try:
+            text = data["choices"][0]["message"]["content"] or ""
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ProviderError(
+                f"{self.provider.name}: unexpected reply shape", status=502, retry_after=None
+            ) from exc
+        usage = data.get("usage") or {}
+        return Completion(
+            text=str(text),
+            input_tokens=int(usage.get("prompt_tokens") or 0),
+            output_tokens=int(usage.get("completion_tokens") or 0),
+        )
+
+    async def list_models(self) -> list[str]:
+        data = await self._send("GET", "models", None)
+        return sorted(_model_id(str(item["id"])) for item in data.get("data", []))

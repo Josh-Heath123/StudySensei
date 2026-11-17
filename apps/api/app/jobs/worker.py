@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.errors import AIUnavailable
 from app.core.config import get_settings
 from app.core.db import get_engine, get_sessionmaker
 from app.jobs import queue
@@ -57,7 +58,19 @@ async def run_once(
         try:
             if handler is None:
                 raise JobError(f"Unknown job kind {job.kind!r}")
-            await handler.run(ctx)
+            try:
+                await handler.run(ctx)
+            except AIUnavailable as exc:
+                if exc.retry_at is None:
+                    # No provider is set up: waiting won't help, so fail with the reason.
+                    raise JobError(str(exc), retry=False) from exc
+                raise
+        except AIUnavailable as exc:
+            # Rate limits or quotas: not the job's fault, so run it again when they reset.
+            await session.rollback()
+            assert exc.retry_at is not None
+            await queue.reschedule(session, job, exc.retry_at, f"AIUnavailable: {exc}")
+            log.info("Job %s (%s) waits for AI until %s", job.id, job.kind, exc.retry_at)
         except Exception as exc:
             await session.rollback()
             expected = isinstance(exc, JobError)
