@@ -81,7 +81,7 @@ the web app calls the API through the typed `openapi-fetch` client. CI fails if 
 | --- | --- |
 | Modules | `GET/POST /modules`, `GET/PATCH/DELETE /modules/{id}` |
 | Topics | `GET /modules/{id}/topics` (nested tree; each node has `linked_pages`), `POST /modules/{id}/topics`, `PATCH/DELETE /topics/{id}`, `POST /topics/{id}/move` `{parent_id, position}` (any edit makes an AI topic `source = user`) |
-| Topic maps | `GET /modules/{id}/topic-map` (eligible / analysed / pending / failed materials, `merging`, `waiting_until`, `last_error`, `merged_at`), `POST /modules/{id}/topic-map/build` (decision 0006); `GET /modules/{id}/topic-map/materials` (each eligible material: `analysed` / `failed` with `error` / `waiting`), `POST /materials/{id}/topics/retry` (a new run; 422 if its topics aren't found), `DELETE /modules/{id}/ai-topics` (`{deleted}`; decision 0007) |
+| Topic maps | `GET /modules/{id}/topic-map` (eligible / analysed / pending / failed materials, `merging`, `waiting_until`, `last_error`, `merged_at`), `POST /modules/{id}/topic-map/build` (decision 0006); `GET /modules/{id}/topic-map/materials` (each eligible material: `analysed` / `failed` with `error` / `waiting`), `POST /materials/{id}/topics/retry` (a new run; 422 if its topics aren't found), `DELETE /modules/{id}/ai-topics` (`{deleted}`; decision 0007). The status also has `review` (kept, renamed, merged, dismissed, unreviewed). Review (decision 0009): `POST /topics/{id}/keep`, `POST /topics/{id}/merge-into` (`{target_id}`; 422 for itself, a subtopic or another module), `POST /topics/{id}/dismiss` (`{dismissed}`; 422 unless still AI), `POST /modules/{id}/topics/keep-all` (`{kept}`), `GET /modules/{id}/dismissed-topics`, `POST /dismissed-topics/{id}/restore`, `GET /topics/{id}/pages` (linked pages by material: number, label, `pages` or `similarity` with score), `DELETE /topics/{id}/pages/{material_id}/{page}` (unlink, remembered) |
 | Assessments | `GET/POST /modules/{id}/assessments`, `GET /assessments?status=` (all modules), `GET/PATCH/DELETE /assessments/{id}` (responses include `topic_ids`; sending `topic_ids` replaces the whole set) |
 | Tasks | `GET/POST /modules/{id}/tasks`, `GET /tasks?status=` (all modules), `GET/PATCH/DELETE /tasks/{id}` (`status: "done"` sets `completed_at`) |
 | Sessions | `POST /sessions`, `GET /sessions/active`, `GET/DELETE /sessions/{id}`, `POST /sessions/{id}/events`, `PUT /sessions/{id}/reflection`, `GET /modules/{id}/sessions?limit=&offset=` (a page `{items, total, limit, offset}`: the open session first, then newest first; limit 1–100, default 20), `GET /modules/{id}/sessions/summary?week_start=` (session count and active seconds, all time and since `week_start`) |
@@ -123,7 +123,7 @@ Derived tables can always be rebuilt from source tables.
 | People and settings | `users`, `ai_credentials`, `consents`, `push_subscriptions` | Keys Fernet-encrypted; consent per feature with timestamps |
 | Academic structure | `modules`, `topics` (tree via `parent_id`), `assessments`, `assessment_topics`, `tasks` | `topics.source` is `ai` or `user`; user edits never overwritten |
 | Materials | `materials`, `material_pages` (text per page, `is_scanned`), `chunks` (one page each: page number, position, text, token count, `embedding vector(384)`, generated `tsv tsvector`), `chunk_topics` (chunk, topic, score, method `pages`/`similarity`) |
-| Topic maps | `topic_proposals` (one per material: validated AI JSON + provider and model), `topic_pages` (pages each topic was drawn from) | Decision 0006 | `materials.kind`: slides, notes, study_guide, tutorial, past_paper, test, assignment, outline, other; `status`, `error`, `page_count`, `allow_ai`; `UNIQUE (module_id, sha256)` |
+| Topic maps | `topic_proposals` (one per material: validated AI JSON + provider and model), `topic_pages` (pages each topic was drawn from), `topic_reviews` (what the student did with each AI topic; outlives it), `topic_unlinks` (pages unlinked from a topic) | Decisions 0006, 0009 | `materials.kind`: slides, notes, study_guide, tutorial, past_paper, test, assignment, outline, other; `status`, `error`, `page_count`, `allow_ai`; `UNIQUE (module_id, sha256)` |
 | Past papers | `past_questions`, `past_question_topics` | Profile computed by queries, never stored as AI output |
 | Planning | `availability_rules`, `availability_exceptions`, `plan_blocks` | `plan_version` on each block |
 | Sessions | `study_sessions`, `session_events`, `session_minutes` | No images or audio, ever |
@@ -142,7 +142,9 @@ Derived tables can always be rebuilt from source tables.
   `error`, `invalid_json`, and `timeout` from 0009). Never prompt or reply text. Roles `vision` (0010) and `long` (0011).
   0012 adds `job_id` (the job that made the call), `detail` (why it failed: HTTP status and provider message, or
   what didn't validate; ≤ 300 characters) and the `truncated` outcome. 0013 adds `overloaded` (a 503, turned away
-  before running) and `refused` (the model declined the content; decision 0008).
+  before running) and `refused` (the model declined the content; decision 0008). 0014 adds `too_large` (a 413).
+- `topic_reviews` and `topic_unlinks` (0014; decision 0009). `topic_reviews.target_id` is a single-column FK with
+  `ON DELETE SET NULL` (a composite one would null `module_id`); `topic_id` has no FK, as the row outlives it.
 - `topic_proposals`, `topic_pages`, `chunk_topics` (0011), plus `UNIQUE (id, module_id)` on `chunks`; the migration
   queues `extract_topics` for every eligible indexed material.
 
@@ -258,7 +260,7 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
     have answered after we stopped waiting).
   - **What moves on to the next model** (decisions 0007, 0008): only "this model can't take it now". That means a
     429, a 503 ("high demand", logged `overloaded`), a timeout, a lost connection, or a 413 (too large for that
-    model's limits). Also a content refusal: `finish_reason` `content_filter` / `SAFETY` / `PROHIBITED_CONTENT` (and
+    model's limits, logged `too_large`; the model isn't cooled down, as a smaller request may fit). Also a content refusal: `finish_reason` `content_filter` / `SAFETY` / `PROHIBITED_CONTENT` (and
     similar) or an empty reply, logged `refused`. It spends no repair and doesn't cool the model down; if every model
     refuses, `AIRefused` fails the job with each model's reason.
     - A 429 or 5xx is first retried once on the same model when the wait (the `Retry-After` header or HTTP date,
@@ -271,13 +273,13 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   - **Cut off:** a reply with `finish_reason` `length` raises `AITruncated` (logged `truncated`, not repaired).
   - **Call budgets:** a caller can pass a `CallBudget` (calls and repairs for one unit of work, every fallback
     included). Topic jobs count their calls across retries from `ai_usage.job_id`. Requests turned away before
-    running (429, 503) don't use that cap; they have their own wider one (`TOPIC_MAX_TURNED_AWAY`, 20) so an outage
-    still ends (decision 0008).
+    running (429, 503, 413) don't use that cap; they have their own wider one (`TOPIC_MAX_TURNED_AWAY`, 20) so an
+    outage still ends (decisions 0008, 0009).
   - **Error text:** a failed request reads like `gemini: HTTP 400: Thinking level MINIMAL is not supported…`. Only the
     body's `error.message` is used, trimmed to 300 characters, never the request or headers.
   - **Budgets** (`budget.py`): the user's `ai_usage` rows for that model since the provider's last local midnight
-    (`AI_QUOTA_TIMEZONE`). They count `ok`, `error`, `invalid_json`, `timeout`, `truncated` and `refused`. A 429 or
-    503 isn't counted: it was turned away before running (decisions 0007, 0008).
+    (`AI_QUOTA_TIMEZONE`). They count `ok`, `error`, `invalid_json`, `timeout`, `truncated` and `refused`. A 429,
+    503 or 413 isn't counted: it was turned away before running (decisions 0007–0009).
   - **All out:** `AIUnavailable(retry_at=…)`, set to the earliest cooldown end or budget reset. The worker reschedules
     the job for then without using an attempt (`queue.reschedule`), and the API answers 503 with `Retry-After`. With no
     provider configured, `retry_at` is None: jobs fail with "AI isn't set up yet…", and nothing crashes.
@@ -351,15 +353,27 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
      Code adds only new topics (`source = ai`) and cited pages (`topic_pages`), and never renames, moves or deletes.
      New top-level topics follow the existing ones' naming style ("Ch1 Overview", so "Ch4 Access Control"), and a
      separate chapter or lecture deck keeps its own top-level topic.
+     - **Compact input** (decision 0009): each proposal is its id, name and cited page count. Descriptions are added
+       (top-level first) only while the whole request stays under `TOPIC_MERGE_MAX_TOKENS` (7,000, estimated at 3.5
+       characters a token), so Groq's 8K tokens a minute can take it when Gemini can't. COS330's 460 proposals come
+       to about 24.8K characters without descriptions, against 68.7K with them.
+     - **The student's review wins:** a dismissed name is never added again (nor anything under it), and the AI's
+       old name of a renamed or merged-away topic adds to the topic that carries it now.
    - **Linking** (no AI): `chunk_topics` from cited pages (`pages`), and from local embeddings of "name: description"
      (`similarity`, cosine ≥ 0.63, top 12 per topic). Rebuilt after each merge and by `link_topics` when topics change.
+     Pages the student unlinked (`topic_unlinks`) are never linked to that topic again.
    - **UI:**
      - **Topics tab:** an "AI" badge, linked page counts, a "Build topic map" panel with progress and honest states,
        and "Clear AI topics" behind a confirm. Clearing keeps the student's topics (moving any under an AI topic up)
        and the proposals, so building again re-merges for free.
      - **Materials tab:** each eligible material's topic state (found, failed with the reason, or waiting) and
        "Retry topics".
-     - The review UI comes next.
+     - **Review** (decision 0009): each AI topic has Keep, Rename (inline), Merge into and Dismiss. Any of them, or
+       any edit, makes it the student's and records the outcome in `topic_reviews`. A "Review" filter shows only AI
+       topics (and the topics holding them), with "N of M reviewed" and "Keep all remaining". One line sums up the
+       outcomes ("Review: 40 kept, 6 renamed, 3 merged, 2 dismissed"). "Dismissed topics" lists them, with Restore.
+     - **Linked pages:** clicking a topic lists its pages by material (cited, or similar with the score), each
+       opening the page-text view, and Unlink for a wrong one.
 6. **Past papers:** segment into questions with marks, map to topics, and classify type and difficulty. Code recomputes the profile.
 7. **Search:** vector and keyword (top 20 each) → reciprocal rank fusion → module filter → current-topic boost → top 8 cited as [S1]–[S8].
    - **Built (Phase 2):** `GET /modules/{id}/search?q=&limit=8`. Vector: exact cosine scan of the module's chunks;
