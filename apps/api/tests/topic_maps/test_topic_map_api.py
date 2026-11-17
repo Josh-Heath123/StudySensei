@@ -125,6 +125,49 @@ async def test_status_shows_when_the_ai_is_resting_and_what_failed(
     assert datetime.fromisoformat(body["waiting_until"]) == back_at
 
 
+def a_job(module: Module, kind: str, status: str, at: datetime, error: str | None = None) -> Job:
+    return Job(
+        user_id=module.user_id,
+        kind=kind,
+        payload={"module_id": str(module.module_id), "material_id": str(module.slides)},
+        status=status,
+        attempts=1,
+        created_at=at - timedelta(minutes=1),
+        finished_at=at,
+        last_error=error,
+    )
+
+
+async def test_a_failure_before_the_latest_successful_merge_isnt_shown(
+    api: AsyncClient, session: AsyncSession, module: Module
+) -> None:
+    """COS330: a merge failed at 22:05, then one succeeded at 22:18; the error was stale."""
+    at = datetime(2026, 11, 17, 22, 0, tzinfo=UTC)
+    limit = "JobError: Stopped after 4 AI calls for the topic map without a usable answer."
+    session.add_all(
+        [
+            a_job(module, MERGE_TOPICS, "failed", at + timedelta(minutes=5), limit),
+            a_job(module, MERGE_TOPICS, "succeeded", at + timedelta(minutes=18)),
+        ]
+    )
+    await session.commit()
+
+    body = (await api.get(f"/modules/{module.module_id}/topic-map")).json()
+
+    assert body["last_error"] is None
+    assert datetime.fromisoformat(body["merged_at"]) == at + timedelta(minutes=18)
+
+    # A failure after that merge is shown.
+    session.add(
+        a_job(module, EXTRACT_TOPICS, "failed", at + timedelta(minutes=30), "JobError: Bad shape.")
+    )
+    await session.commit()
+
+    body = (await api.get(f"/modules/{module.module_id}/topic-map")).json()
+
+    assert body["last_error"] == "Bad shape."
+
+
 async def test_the_tree_shows_linked_pages_and_the_ai_source(
     api: AsyncClient, session: AsyncSession, module: Module
 ) -> None:

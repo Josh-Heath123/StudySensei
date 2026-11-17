@@ -5,6 +5,7 @@ follow it as instructions, and the text sits inside tags labelled as material. O
 course content goes in (titles, page text, topic names); nothing about the student.
 """
 
+import logging
 import math
 import re
 import uuid
@@ -14,6 +15,8 @@ from dataclasses import dataclass
 from app.ai.messages import Message, system, user
 from app.ai.sources import SourcePage
 from app.schemas.topic_maps import MaterialTopics, ProposedSubtopic
+
+log = logging.getLogger("studysensei.topic_maps")
 
 KIND_LABELS = {
     "slides": "lecture slides",
@@ -169,14 +172,16 @@ def _one_line(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-# Characters per token, cautiously. COS330's full merge prompt was 68,720 characters and
-# Gemini counted 14,907 tokens (4.6 a token); ids like "M12.3.4" tokenise worse than prose.
-CHARS_PER_TOKEN = 3.5
+# Characters per token for the merge request only, cautiously. Its ids ("M12.3.4"), short
+# names and page counts are token-dense: COS330's compact request was 27,216 characters,
+# counted as 9,031 tokens by Gemini and 9,080-9,103 by Groq (about 3.0 a token). The
+# descriptive prose of the full prompt ran at 4.6. 2.5 leaves a margin under Groq's 8K.
+MERGE_CHARS_PER_TOKEN = 2.5
 
 
-def estimate_tokens(text: str) -> int:
-    """A cautious estimate of a text's tokens, without a tokenizer."""
-    return math.ceil(len(text) / CHARS_PER_TOKEN)
+def estimate_merge_tokens(text: str) -> int:
+    """A cautious estimate of a merge request's tokens, without a tokenizer."""
+    return math.ceil(len(text) / MERGE_CHARS_PER_TOKEN)
 
 
 def merge_messages(
@@ -264,7 +269,21 @@ def merge_messages(
         described = {ref for ref, _ in candidates}
     else:
         described = set()
-        spare = max_tokens * CHARS_PER_TOKEN - len(render(set()) + MERGE_SYSTEM + overhead)
+        budget = int(max_tokens * MERGE_CHARS_PER_TOKEN)
+        bare = len(render(set()) + MERGE_SYSTEM + overhead)
+        if bare > budget:
+            # Never dropped: every proposal must stay citable. A model with a small
+            # tokens-a-minute limit will turn this away (413) and the next one gets it.
+            log.warning(
+                "The merge request is %d characters with no descriptions, over its budget of "
+                "%d (%d tokens at %.1f characters each), for %d proposals",
+                bare,
+                budget,
+                max_tokens,
+                MERGE_CHARS_PER_TOKEN,
+                len(proposal_refs),
+            )
+        spare = budget - bare
         for ref, node in candidates:
             cost = len(_description(node))
             if cost <= spare:
