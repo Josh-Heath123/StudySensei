@@ -13,8 +13,8 @@ from pydantic import SecretStr
 
 from app.core.config import ReasoningEffort, RouteSetting, Settings
 
-AIRole = Literal["smart", "bulk"]
-ROLES: tuple[AIRole, ...] = ("smart", "bulk")
+AIRole = Literal["smart", "bulk", "vision"]
+ROLES: tuple[AIRole, ...] = ("smart", "bulk", "vision")
 PROVIDERS = ("gemini", "groq", "ollama")
 
 
@@ -98,12 +98,22 @@ def wire_effort(
     return next((level for level in ranked if EFFORT_ORDER.index(level) >= wanted), ranked[-1])
 
 
+def role_settings(role: AIRole, settings: Settings) -> list[RouteSetting]:
+    return {"smart": settings.ai_smart, "bulk": settings.ai_bulk, "vision": settings.ai_vision}[
+        role
+    ]
+
+
 def routes_for(role: AIRole, settings: Settings) -> list[Route]:
-    """Every route in the role, in order, configured or not. Ollama (when set) goes last."""
+    """Every route in the role, in order, configured or not.
+
+    Ollama (when set) goes last in the text roles, but not in ``vision``.
+    """
     by_name = providers(settings)
-    entries = list(settings.ai_smart if role == "smart" else settings.ai_bulk)
-    if settings.ollama_model is not None:
+    entries = list(role_settings(role, settings))
+    if settings.ollama_model is not None and role != "vision":
         entries.append(RouteSetting(route=f"ollama/{settings.ollama_model}"))
+    vision = {entry.route for entry in settings.ai_vision}
     routes = []
     for entry in entries:
         provider, model = parse_route_key(entry.route)
@@ -112,7 +122,7 @@ def routes_for(role: AIRole, settings: Settings) -> list[Route]:
                 by_name[provider],
                 model,
                 settings.ai_daily_budget.get(entry.route),
-                entry.route in settings.ai_vision_models,
+                entry.route in vision,
                 entry.reasoning_effort,
                 tuple(settings.ai_reasoning_efforts.get(entry.route, ())),
             )

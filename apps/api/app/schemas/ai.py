@@ -16,6 +16,7 @@ class AIModelStatus(BaseModel):
     provider: str
     model: str
     configured: bool
+    # In the vision role, which takes every request that includes an image.
     vision: bool
     # Requests the client allows itself per day (the free tier less a margin); null = no limit.
     daily_budget: int | None

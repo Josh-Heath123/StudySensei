@@ -15,7 +15,7 @@ from app.ai.messages import Image, system, user
 from app.ai.usage import DbUsageStore, SessionFactory
 from app.core.config import Settings
 from app.models import AIUsage, User
-from tests.ai.conftest import GEMINI_KEY, GROQ_KEY, NOW, MakeClient, Sleeps
+from tests.ai.conftest import GEMINI_KEY, GROQ_KEY, NOW, MakeClient, Sleeps, routes
 from tests.fakes import FakeLLM, ok, rate_limited, server_error, unauthorized
 
 MESSAGES = [system("You are a tutor."), user("What is a microservice?")]
@@ -108,18 +108,20 @@ async def test_no_user_details_reach_the_provider(
     assert user_a.display_name is not None and user_a.display_name not in sent
 
 
-async def test_an_image_goes_only_to_a_vision_model(
-    make_client: MakeClient, fake_llm: FakeLLM, user_a: User
+async def test_an_image_goes_to_the_vision_role_whatever_role_was_asked(
+    make_client: MakeClient, fake_llm: FakeLLM, session: AsyncSession, user_a: User
 ) -> None:
     # Gemini flash is the only vision model; with it rate-limited, no fallback can read images.
     page = Image(b"\x89PNG fake", "image/png")
     fake_llm.reply("flash", ok("Page text"))
 
     text = await make_client().complete_text(
-        "smart", [user("Transcribe this page.", page)], purpose="scan", user_id=user_a.id
+        "bulk", [user("Transcribe this page.", page)], purpose="scan", user_id=user_a.id
     )
 
     assert text == "Page text"
+    role = await session.scalar(select(AIUsage.role).where(AIUsage.user_id == user_a.id))
+    assert role == "vision"
     content = fake_llm.requests[0].body["messages"][0]["content"]
     assert content[0] == {"type": "text", "text": "Transcribe this page."}
     assert content[1] == {"type": "image_url", "image_url": {"url": page.data_url()}}
@@ -131,6 +133,49 @@ async def test_an_image_goes_only_to_a_vision_model(
             "smart", [user("Again.", page)], purpose="scan", user_id=user_a.id
         )
     assert [sent.model for sent in fake_llm.requests] == ["flash", "flash"]  # never oss-120b
+
+
+async def test_vision_falls_back_along_its_own_routes(
+    make_client: MakeClient, fake_llm: FakeLLM, user_a: User
+) -> None:
+    client = make_client(ai_vision=routes("gemini/flash-lite", "groq/qwen-vl"))
+    fake_llm.reply("flash-lite", rate_limited(3600))
+    fake_llm.reply("qwen-vl", ok("From Qwen"))
+    page = Image(b"page")
+
+    text = await client.complete_text(
+        "smart", [user("Read it.", page)], purpose="scan", user_id=user_a.id
+    )
+
+    assert text == "From Qwen"
+    assert [sent.model for sent in fake_llm.requests] == ["flash-lite", "qwen-vl"]
+
+
+async def test_text_requests_never_use_the_vision_role(
+    make_client: MakeClient, fake_llm: FakeLLM, user_a: User
+) -> None:
+    client = make_client(ai_vision=routes("groq/qwen-vl"))
+    fake_llm.reply("flash", ok("text"))
+
+    await client.complete_text("smart", MESSAGES, purpose="tutor", user_id=user_a.id)
+
+    assert [sent.model for sent in fake_llm.requests] == ["flash"]
+
+
+async def test_no_vision_key_says_so_plainly(
+    make_client: MakeClient, fake_llm: FakeLLM, user_a: User
+) -> None:
+    # Groq is set up for text, but the only vision model is on Gemini, which has no key.
+    client = make_client(gemini_api_key=None)
+
+    with pytest.raises(AIUnavailable) as caught:
+        await client.complete_text(
+            "smart", [user("Read it.", Image(b"page"))], purpose="scan", user_id=user_a.id
+        )
+
+    assert caught.value.retry_at is None
+    assert "No configured model can read images" in str(caught.value)
+    assert fake_llm.requests == []
 
 
 # --- 429, 5xx and fallback ---

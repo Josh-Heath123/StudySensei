@@ -27,8 +27,9 @@ async def test_with_no_keys_ai_is_unavailable(alice_api: AsyncClient) -> None:
         "groq": False,
         "ollama": False,
     }
-    assert body["roles"]["smart"][0] == "gemini/gemini-3.8-flash"
+    assert body["roles"]["smart"][0] == "groq/openai/gpt-oss-120b"
     assert body["roles"]["bulk"][0] == "gemini/gemini-3.5-flash-lite"
+    assert body["roles"]["vision"][0] == "gemini/gemini-3.5-flash-lite"
     flash = model(body, "gemini/gemini-3.8-flash")
     assert (flash["configured"], flash["used_today"], flash["daily_budget"]) == (False, 0, 18)
     assert flash["resets_at"] is not None

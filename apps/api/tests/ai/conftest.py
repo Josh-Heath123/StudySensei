@@ -35,7 +35,8 @@ def settings() -> Settings:
             "ai_smart": routes("gemini/flash", "groq/oss-120b"),
             "ai_bulk": routes("gemini/flash-lite", "groq/oss-20b"),
             "ai_daily_budget": {"gemini/flash": 3, "groq/oss-120b": 5, "gemini/flash-lite": 10},
-            "ai_vision_models": ["gemini/flash"],
+            # The only image reader in these tests (vision tests add a second).
+            "ai_vision": routes("gemini/flash"),
             "ai_retries": 1,
             "ai_max_wait_seconds": 20.0,
         }
