@@ -81,7 +81,7 @@ the web app calls the API through the typed `openapi-fetch` client. CI fails if 
 | --- | --- |
 | Modules | `GET/POST /modules`, `GET/PATCH/DELETE /modules/{id}` |
 | Topics | `GET /modules/{id}/topics` (nested tree; each node has `linked_pages`), `POST /modules/{id}/topics`, `PATCH/DELETE /topics/{id}`, `POST /topics/{id}/move` `{parent_id, position}` (any edit makes an AI topic `source = user`) |
-| Topic maps | `GET /modules/{id}/topic-map` (eligible / analysed / pending / failed materials, `merging`, `waiting_until`, `last_error`, `merged_at`), `POST /modules/{id}/topic-map/build` (decision 0006) |
+| Topic maps | `GET /modules/{id}/topic-map` (eligible / analysed / pending / failed materials, `merging`, `waiting_until`, `last_error`, `merged_at`), `POST /modules/{id}/topic-map/build` (decision 0006); `GET /modules/{id}/topic-map/materials` (each eligible material: `analysed` / `failed` with `error` / `waiting`), `POST /materials/{id}/topics/retry` (a new run; 422 if its topics aren't found), `DELETE /modules/{id}/ai-topics` (`{deleted}`; decision 0007) |
 | Assessments | `GET/POST /modules/{id}/assessments`, `GET /assessments?status=` (all modules), `GET/PATCH/DELETE /assessments/{id}` (responses include `topic_ids`; sending `topic_ids` replaces the whole set) |
 | Tasks | `GET/POST /modules/{id}/tasks`, `GET /tasks?status=` (all modules), `GET/PATCH/DELETE /tasks/{id}` (`status: "done"` sets `completed_at`) |
 | Sessions | `POST /sessions`, `GET /sessions/active`, `GET/DELETE /sessions/{id}`, `POST /sessions/{id}/events`, `PUT /sessions/{id}/reflection`, `GET /modules/{id}/sessions?limit=&offset=` (a page `{items, total, limit, offset}`: the open session first, then newest first; limit 1–100, default 20), `GET /modules/{id}/sessions/summary?week_start=` (session count and active seconds, all time and since `week_start`) |
@@ -140,6 +140,8 @@ Derived tables can always be rebuilt from source tables.
 - `chunks` (0007), with a GIN index on `tsv` and no vector index (decision 0005)
 - `ai_usage` (0008): user, provider, model, role, purpose, input/output tokens, latency, outcome (`ok`, `rate_limited`,
   `error`, `invalid_json`, and `timeout` from 0009). Never prompt or reply text. Roles `vision` (0010) and `long` (0011).
+  0012 adds `job_id` (the job that made the call), `detail` (why it failed: HTTP status and provider message, or
+  what didn't validate; ≤ 300 characters) and the `truncated` outcome.
 - `topic_proposals`, `topic_pages`, `chunk_topics` (0011), plus `UNIQUE (id, module_id)` on `chunks`; the migration
   queues `extract_topics` for every eligible indexed material.
 
@@ -247,17 +249,29 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   item for manual review.
 - **Routing per request:** the client walks the role's models in order. It skips a model whose provider has no key,
   that can't read the images, that is cooling down after a 429/5xx, or whose daily budget is spent.
+  - **Pacing:** each model has a requests-per-minute limit (`AI_REQUESTS_PER_MINUTE`, the free tier less a margin:
+    Flash-Lite 12, 3.8 Flash 4, Groq 25). A request waits its turn in a one-minute window (per process) instead of
+    collecting 429s.
   - **Timeouts:** 10 s to connect (`AI_CONNECT_TIMEOUT_SECONDS`) and 90 s to wait for the reply
-    (`AI_READ_TIMEOUT_SECONDS`). A timeout is logged as `timeout`, is retryable, and counts against the budget
-    (the provider may have answered after we stopped waiting).
-  - **429/5xx/timeouts:** the wait is the `Retry-After` (a header, an HTTP date, or Gemini's `retryDelay` in the body),
-    or else 2 s × 2ⁿ backoff, plus jitter. The model is retried once (`AI_RETRIES`) if that wait is at most
-    `AI_MAX_WAIT_SECONDS` (20 s). Otherwise it cools down (at least a minute) and the next model is tried. Other 4xx
-    errors (a bad key, an unknown model) fall straight through.
+    (`AI_READ_TIMEOUT_SECONDS`). A timeout is logged as `timeout` and counts against the budget (the provider may
+    have answered after we stopped waiting).
+  - **What moves on to the next model** (decision 0007): only "this model can't take it now". That means a 429, a
+    timeout, a lost connection, or a 413 (too large for that model's limits).
+    - A 429 or 5xx is first retried once on the same model when the wait (the `Retry-After` header or HTTP date,
+      Gemini's `retryDelay`, or 2 s × 2ⁿ backoff, plus jitter) is at most `AI_MAX_WAIT_SECONDS` (20 s). Otherwise
+      the model cools down (at least a minute).
+    - A persistent 5xx raises `AIUnavailable` (the job waits).
+    - Any other refusal (400, 401, 404…) raises `AIRequestFailed` with the provider's message, and the job fails at
+      once.
+    - Invalid output is repaired once at most and never moves to another model.
+  - **Cut off:** a reply with `finish_reason` `length` raises `AITruncated` (logged `truncated`, not repaired).
+  - **Call budgets:** a caller can pass a `CallBudget` (calls and repairs for one unit of work, every fallback
+    included). Topic jobs count their calls across retries from `ai_usage.job_id`.
   - **Error text:** a failed request reads like `gemini: HTTP 400: Thinking level MINIMAL is not supported…`. Only the
     body's `error.message` is used, trimmed to 300 characters, never the request or headers.
   - **Budgets** (`budget.py`): the user's `ai_usage` rows for that model since the provider's last local midnight
-    (`AI_QUOTA_TIMEZONE`). They count `ok`, `error`, `invalid_json` and `timeout` (a 429 used no quota).
+    (`AI_QUOTA_TIMEZONE`). They count `ok`, `error`, `invalid_json`, `timeout` and `truncated`. A 429 isn't counted:
+    it was refused before running (decision 0007).
   - **All out:** `AIUnavailable(retry_at=…)`, set to the earliest cooldown end or budget reset. The worker reschedules
     the job for then without using an attempt (`queue.reschedule`), and the API answers 503 with `Retry-After`. With no
     provider configured, `retry_at` is None: jobs fail with "AI isn't set up yet…", and nothing crashes.
@@ -318,13 +332,26 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
      when it's indexed. Pages are labelled `[page N]` (scanned ones `[page N: figure, no text]`) inside `<material>`
      tags, and the system prompt says it's untrusted content. The reply is `MaterialTopics` (topics ≤ 80 characters,
      one sentence each, cited pages, ≤ 10 subtopics), stored as the material's `topic_proposals` row.
+     - **Lenient** (decision 0007): over-long text is clipped, extra subtopics dropped, a third level folded into its
+       parent, and page ranges such as "3-5" read. Only broken structure is repaired, and only once.
+     - **Long materials** go in parts of about 40 pages (at most 3 parts), and their topics are combined. A cut-off
+       part is split in half. Finished parts are saved in the job's payload.
+     - **At most 4 provider calls per material per run** (fallbacks, the repair and retries all count). Retry from
+       the Materials tab starts a new run.
    - **`merge_topics`**, once the module's last extraction ends or from "Build topic map": one call turns the
      proposals into the module tree (about 8–15 top topics, 3–10 subtopics each). Existing topics are fixed anchors.
      Code adds only new topics (`source = ai`) and cited pages (`topic_pages`), and never renames, moves or deletes.
+     New top-level topics follow the existing ones' naming style ("Ch1 Overview", so "Ch4 Access Control"), and a
+     separate chapter or lecture deck keeps its own top-level topic.
    - **Linking** (no AI): `chunk_topics` from cited pages (`pages`), and from local embeddings of "name: description"
      (`similarity`, cosine ≥ 0.63, top 12 per topic). Rebuilt after each merge and by `link_topics` when topics change.
-   - **UI:** an "AI" badge, linked page counts, and a "Build topic map" panel with progress and honest states. The
-     review UI comes next.
+   - **UI:**
+     - **Topics tab:** an "AI" badge, linked page counts, a "Build topic map" panel with progress and honest states,
+       and "Clear AI topics" behind a confirm. Clearing keeps the student's topics (moving any under an AI topic up)
+       and the proposals, so building again re-merges for free.
+     - **Materials tab:** each eligible material's topic state (found, failed with the reason, or waiting) and
+       "Retry topics".
+     - The review UI comes next.
 6. **Past papers:** segment into questions with marks, map to topics, and classify type and difficulty. Code recomputes the profile.
 7. **Search:** vector and keyword (top 20 each) → reciprocal rank fusion → module filter → current-topic boost → top 8 cited as [S1]–[S8].
    - **Built (Phase 2):** `GET /modules/{id}/search?q=&limit=8`. Vector: exact cosine scan of the module's chunks;

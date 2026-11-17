@@ -2,6 +2,29 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-18: Phase 2, topic map fixes after the first COS330 run
+
+- **Found:** 21 materials took 142 extraction calls and 13 merge calls, where ~22 were needed.
+  - **Flash-Lite:** 66 replies were `invalid_json`, and 28 calls failed with HTTP errors.
+  - **3.8 Flash:** all 18 of its daily budget went (8 timeouts at 90 s).
+  - **Groq:** 10 errors, probably requests too large for its tokens-per-minute limit.
+  - **Failed materials:** 3, the Chapter 1, 5 and 7 notes.
+  - **Cause:** errors cascaded through every fallback, and rescheduled jobs repeated the whole cascade. No failure
+    reasons were stored. Details are in ADR 0007.
+- **Done:**
+  - **Diagnosis and output:** `ai_usage.job_id`, `detail` and a `truncated` outcome (0012); lenient topic schemas;
+    `finish_reason` checks.
+  - **Bounded runs:** parts of about 40 pages, combined; cut-off parts split; finished parts saved for retries; at most
+    4 calls and 1 repair per material per run.
+  - **Client:** only 429, timeouts, lost connections and 413 move on to another model; a persistent 5xx waits; other
+    refusals fail. Per-model requests-per-minute pacing.
+  - **Merge prompt:** keeps the module's naming style and one top-level topic per chapter deck.
+  - **UI:** per-material topic state with "Retry topics" on the Materials tab; "Clear AI topics" on the Topics tab.
+  - **Tests:** 42 new API tests and 4 new web tests.
+- **Decided:** 429s don't count toward the daily budget, but do count toward the per-run cap (ADR 0007).
+- **Next:** rebuild COS330 (Clear AI topics, then Build topic map) and check `ai_usage`: about one call per material.
+  Then Phase 2 task 7.
+
 ## 2026-11-17: Phase 2, task 6 (AI topic maps)
 
 - **Done:**
