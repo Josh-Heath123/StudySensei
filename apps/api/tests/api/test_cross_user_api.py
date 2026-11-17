@@ -12,7 +12,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AIUsage, Material, User
+from app.models import AIUsage, Material, TopicReview, User
 from app.storage.local import LocalStorage
 from tests.academics.conftest import Rows
 from tests.materials import samples
@@ -95,6 +95,19 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("GET", "/modules/{module}/topic-map/materials", None),
     ("POST", "/materials/{material}/topics/retry", None),
     ("DELETE", "/modules/{module}/ai-topics", None),
+    # Topic review (decision 0009)
+    ("POST", "/topics/{topic}/keep", None),
+    ("POST", "/topics/{topic}/merge-into", {"target_id": "{my_topic}"}),
+    # Merging his topic into hers.
+    ("POST", "/topics/{my_topic}/merge-into", {"target_id": "{topic}"}),
+    ("POST", "/topics/{topic}/dismiss", None),
+    ("POST", "/modules/{module}/topics/keep-all", None),
+    ("GET", "/modules/{module}/dismissed-topics", None),
+    ("POST", "/dismissed-topics/{dismissed}/restore", None),
+    ("GET", "/topics/{topic}/pages", None),
+    ("DELETE", "/topics/{topic}/pages/{material}/1", None),
+    # Unlinking a page of her material from his topic.
+    ("DELETE", "/topics/{my_topic}/pages/{material}/1", None),
 ]
 
 
@@ -122,6 +135,26 @@ async def materials(session: AsyncSession, alice: Rows, bob: Rows) -> dict[str, 
     return made
 
 
+@pytest.fixture
+async def dismissed(session: AsyncSession, alice: Rows, bob: Rows) -> dict[str, TopicReview]:
+    """One dismissed AI topic each (so restorable)."""
+    made = {}
+    for name, rows in (("alice", alice), ("bob", bob)):
+        review = TopicReview(
+            user_id=rows.user.id,
+            module_id=rows.module.id,
+            topic_id=uuid.uuid4(),
+            name="Dismissed",
+            name_key="dismissed",
+            outcome="dismissed",
+            snapshot={"description": None, "parent_id": None, "pages": []},
+        )
+        session.add(review)
+        made[name] = review
+    await session.commit()
+    return made
+
+
 def fill(value: Any, ids: dict[str, str]) -> Any:
     if isinstance(value, str):
         return value.format(**ids)
@@ -133,7 +166,10 @@ def fill(value: Any, ids: dict[str, str]) -> Any:
 
 
 def ids_of(
-    alice: Rows, bob: Rows, materials: dict[str, Material]
+    alice: Rows,
+    bob: Rows,
+    materials: dict[str, Material],
+    dismissed: dict[str, TopicReview],
 ) -> tuple[dict[str, str], dict[str, str]]:
     """(Alice's real IDs, the same keys with random IDs). Bob's own IDs are in both."""
     mine = {
@@ -151,6 +187,7 @@ def ids_of(
         "task": str(alice.task.id),
         "session": str(alice.study_session.id),
         "material": str(materials["alice"].id),
+        "dismissed": str(dismissed["alice"].id),
     }
     missing = {key: str(uuid.uuid4()) for key in hers}
     return {**hers, **mine}, {**missing, **mine}
@@ -177,12 +214,13 @@ async def test_bob_gets_the_same_404_as_for_a_missing_id(
     alice: Rows,
     bob: Rows,
     materials: dict[str, Material],
+    dismissed: dict[str, TopicReview],
     method: str,
     path: str,
     body: dict[str, Any] | None,
 ) -> None:
     before = (await snapshot(alice_api, alice), await snapshot(bob_api, bob))
-    hers, missing = ids_of(alice, bob, materials)
+    hers, missing = ids_of(alice, bob, materials, dismissed)
 
     attempt = await bob_api.request(method, fill(path, hers), json=fill(body, hers))
     baseline = await bob_api.request(method, fill(path, missing), json=fill(body, missing))

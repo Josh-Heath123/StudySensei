@@ -107,9 +107,9 @@ async def test_the_budget_counts_every_call_including_fallbacks(
     user_a: User,
 ) -> None:
     client = client_with(settings, fake_llm, usage_sessions, Clock(), ai_retries=0)
-    too_large = httpx.Response(413, json={"error": {"message": "Request too large"}})
-    fake_llm.reply("flash", too_large)
-    fake_llm.reply("oss-120b", too_large)
+    # A lost connection moves on to the next model, and it counts: the request may have run.
+    fake_llm.reply("flash", httpx.ConnectError("reset"))
+    fake_llm.reply("oss-120b", httpx.ConnectError("reset"))
     budget = CallBudget(limit=1)
 
     with pytest.raises(AICallLimitReached) as raised:

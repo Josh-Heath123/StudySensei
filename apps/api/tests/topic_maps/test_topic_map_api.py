@@ -44,6 +44,7 @@ async def test_status_counts_only_eligible_materials(api: AsyncClient, module: M
         "waiting_until": None,
         "last_error": None,
         "merged_at": None,
+        "review": {"kept": 0, "renamed": 0, "merged": 0, "dismissed": 0, "unreviewed": 0},
     }
 
 

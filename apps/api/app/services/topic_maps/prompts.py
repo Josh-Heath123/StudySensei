@@ -169,12 +169,32 @@ def _one_line(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+# Characters per token, cautiously. COS330's full merge prompt was 68,720 characters and
+# Gemini counted 14,907 tokens (4.6 a token); ids like "M12.3.4" tokenise worse than prose.
+CHARS_PER_TOKEN = 3.5
+
+
+def estimate_tokens(text: str) -> int:
+    """A cautious estimate of a text's tokens, without a tokenizer."""
+    return math.ceil(len(text) / CHARS_PER_TOKEN)
+
+
 def merge_messages(
     module_label: str,
     existing: Sequence[ExistingTopic],
     materials: Sequence[MaterialForPrompt],
+    *,
+    max_tokens: int | None = None,
+    overhead: str = "",
 ) -> tuple[list[Message], MergeRefs]:
-    """The merge prompt, and the ids it uses. Page numbers stay on our side of the call."""
+    """The merge prompt, and the ids it uses. Page numbers stay on our side of the call.
+
+    Compact (decision 0009): each proposed topic is its id, its name and how many pages it
+    cites. Descriptions are added, top-level topics first, only while the whole request
+    (this prompt, the system prompt and ``overhead``, the JSON instruction the client adds)
+    stays within ``max_tokens``, so a model with a small tokens-a-minute limit (Groq's 8K)
+    can still take it. None adds every description.
+    """
     existing_refs: dict[str, uuid.UUID] = {}
     ref_of: dict[uuid.UUID, str] = {}
     for number, topic in enumerate(existing, start=1):
@@ -193,19 +213,20 @@ def merge_messages(
     ]
 
     proposal_refs: dict[str, tuple[uuid.UUID, tuple[int, ...]]] = {}
-    material_blocks: list[str] = []
+    # Per material: its header, then (ref, proposal, is a subtopic) for each proposed node.
+    blocks: list[tuple[str, list[tuple[str, ProposedSubtopic, bool]]]] = []
     for m_number, material in enumerate(materials, start=1):
         label = KIND_LABELS.get(material.kind, material.kind)
-        lines = [f'Material M{m_number}: "{_one_line(material.title)}" ({label})']
+        nodes: list[tuple[str, ProposedSubtopic, bool]] = []
         for t_number, proposed in enumerate(material.topics.topics, start=1):
             ref = f"M{m_number}.{t_number}"
             proposal_refs[ref] = (material.material_id, tuple(proposed.pages))
-            lines.append(_proposal_line(ref, proposed, indent=""))
+            nodes.append((ref, proposed, False))
             for s_number, sub in enumerate(proposed.subtopics, start=1):
                 sub_ref = f"{ref}.{s_number}"
                 proposal_refs[sub_ref] = (material.material_id, tuple(sub.pages))
-                lines.append(_proposal_line(sub_ref, sub, indent="  "))
-        material_blocks.append("\n".join(lines))
+                nodes.append((sub_ref, sub, True))
+        blocks.append((f'Material M{m_number}: "{_one_line(material.title)}" ({label})', nodes))
 
     top_level = [_one_line(t.name) for t in existing if t.parent_id is None]
     style = (
@@ -215,20 +236,52 @@ def merge_messages(
         if top_level
         else ""
     )
-    prompt = (
-        f"Module: {_one_line(module_label)}\n\n"
-        "Existing topics (fixed anchors):\n"
-        + ("\n".join(existing_lines) if existing_lines else "(none yet)")
-        + style
-        + "\n\n<material>\nProposed topics, per material:\n\n"
-        + "\n\n".join(material_blocks)
-        + "\n</material>"
-    )
+
+    def render(described: set[str]) -> str:
+        material_blocks = [
+            "\n".join(
+                [header]
+                + [_proposal_line(ref, node, sub, ref in described) for ref, node, sub in nodes]
+            )
+            for header, nodes in blocks
+        ]
+        return (
+            f"Module: {_one_line(module_label)}\n\n"
+            "Existing topics (fixed anchors):\n"
+            + ("\n".join(existing_lines) if existing_lines else "(none yet)")
+            + style
+            + "\n\n<material>\nProposed topics, per material, as: id name (pages cited): "
+            "description. Some descriptions may be left out to keep this short.\n\n"
+            + "\n\n".join(material_blocks)
+            + "\n</material>"
+        )
+
+    # Top-level proposals first, then subtopics, each in the materials' order.
+    candidates = [(ref, node) for _, nodes in blocks for ref, node, sub in nodes if not sub]
+    candidates += [(ref, node) for _, nodes in blocks for ref, node, sub in nodes if sub]
+    candidates = [(ref, node) for ref, node in candidates if node.description.strip()]
+    if max_tokens is None:
+        described = {ref for ref, _ in candidates}
+    else:
+        described = set()
+        spare = max_tokens * CHARS_PER_TOKEN - len(render(set()) + MERGE_SYSTEM + overhead)
+        for ref, node in candidates:
+            cost = len(_description(node))
+            if cost <= spare:
+                described.add(ref)
+                spare -= cost
+    prompt = render(described)
     return [system(MERGE_SYSTEM), user(prompt)], MergeRefs(existing_refs, proposal_refs)
 
 
-def _proposal_line(ref: str, topic: ProposedSubtopic, *, indent: str) -> str:
-    return f"{indent}{ref} {_one_line(topic.name)}: {_one_line(topic.description)}"
+def _description(topic: ProposedSubtopic) -> str:
+    return f": {_one_line(topic.description)}"
+
+
+def _proposal_line(ref: str, topic: ProposedSubtopic, subtopic: bool, described: bool) -> str:
+    pages = len(topic.pages)
+    line = f"{'  ' if subtopic else ''}{ref} {_one_line(topic.name)} ({pages} p)"
+    return line + _description(topic) if described else line
 
 
 def _tree_order(topics: Sequence[ExistingTopic]) -> list[ExistingTopic]:

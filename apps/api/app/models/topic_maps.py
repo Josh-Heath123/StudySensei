@@ -113,3 +113,75 @@ class ChunkTopic(TimestampedBase):
     # Cosine similarity of the chunk and the topic's "name: description" (1.0 for pages).
     score: Mapped[float] = mapped_column(Float)
     method: Mapped[str] = mapped_column(String(20))
+
+
+REVIEW_OUTCOMES = ("kept", "renamed", "merged", "dismissed")
+
+
+class TopicReview(TimestampedBase):
+    """What the student did with one AI topic (decision 0009).
+
+    One row per AI topic, written the first time the student acts on it, and kept after the
+    topic itself is gone (a merge or a dismissal):
+
+    - ``kept`` / ``renamed``: it stays, now the student's. ``target_id`` is the topic itself.
+    - ``merged``: folded into ``target_id``.
+    - ``dismissed``: deleted. Its name is blocked from coming back in a merge, and
+      ``snapshot`` holds what's needed to restore it.
+
+    ``name`` is the AI's name at the first review. For a row with a ``target_id`` it works as
+    an alias: a merge that proposes that name again adds to the target, not a duplicate.
+    """
+
+    __tablename__ = "topic_reviews"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["module_id", "user_id"], ["modules.id", "modules.user_id"], ondelete="CASCADE"
+        ),
+        # Single-column on purpose: SET NULL on a composite key would null module_id too.
+        # The service only ever points it at a topic in the same module.
+        ForeignKeyConstraint(["target_id"], ["topics.id"], ondelete="SET NULL"),
+        # topic_id is the reviewed topic's id. It has no foreign key: the row outlives it.
+        UniqueConstraint("module_id", "topic_id", name="uq_topic_reviews_topic"),
+        CheckConstraint(_in("outcome", REVIEW_OUTCOMES), name="ck_topic_reviews_outcome"),
+        Index("ix_topic_reviews_user_module", "user_id", "module_id"),
+    )
+
+    user_id: Mapped[uuid.UUID]
+    module_id: Mapped[uuid.UUID]
+    topic_id: Mapped[uuid.UUID]
+    target_id: Mapped[uuid.UUID | None]
+    name: Mapped[str] = mapped_column(String(200))
+    # ``merge.name_key(name)``: how the merge compares names.
+    name_key: Mapped[str] = mapped_column(String(200))
+    outcome: Mapped[str] = mapped_column(String(20))
+    # Dismissed only: {"description", "parent_id", "pages": [[material_id, page], ...]}.
+    snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+
+class TopicUnlink(TimestampedBase):
+    """A page the student unlinked from a topic. Relinking never links it again."""
+
+    __tablename__ = "topic_unlinks"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["topic_id", "user_id"], ["topics.id", "topics.user_id"], ondelete="CASCADE"
+        ),
+        ForeignKeyConstraint(
+            ["topic_id", "module_id"], ["topics.id", "topics.module_id"], ondelete="CASCADE"
+        ),
+        ForeignKeyConstraint(
+            ["material_id", "module_id"],
+            ["materials.id", "materials.module_id"],
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint("topic_id", "material_id", "page_number", name="uq_topic_unlinks"),
+        CheckConstraint("page_number >= 1", name="ck_topic_unlinks_number"),
+        Index("ix_topic_unlinks_user_module", "user_id", "module_id"),
+    )
+
+    user_id: Mapped[uuid.UUID]
+    module_id: Mapped[uuid.UUID]
+    topic_id: Mapped[uuid.UUID]
+    material_id: Mapped[uuid.UUID]
+    page_number: Mapped[int] = mapped_column(Integer)

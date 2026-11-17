@@ -9,6 +9,7 @@ from app.schemas.academics import TopicCreate, TopicUpdate
 from app.services.academics.modules import get_module
 from app.services.errors import Invalid, NotFound
 from app.services.topic_maps import queue_linking
+from app.services.topic_maps.review import record_edit
 
 
 @dataclass
@@ -113,8 +114,11 @@ async def update_topic(
     session: AsyncSession, topic_id: uuid.UUID, data: TopicUpdate, *, user_id: uuid.UUID
 ) -> Topic:
     topic = await get_topic(session, topic_id, user_id=user_id)
+    old_name = topic.name
     for name, value in data.model_dump(exclude_unset=True).items():
         setattr(topic, name, value)
+    # An AI topic's review: renamed, or kept with a small edit (decision 0009).
+    await record_edit(session, topic, old_name=old_name, user_id=user_id)
     # Any user edit makes the topic the user's, so AI re-runs never overwrite it.
     topic.source = "user"
     await queue_linking(session, topic.module_id, user_id=user_id)
@@ -154,7 +158,8 @@ async def move_topic(
         ):
             raise Invalid("A topic can't be moved under itself or one of its subtopics")
     old_parent_id = topic.parent_id
-    # Moving is an edit too: the topic becomes the user's.
+    # Moving is an edit too: the topic becomes the user's (and an AI one counts as kept).
+    await record_edit(session, topic, old_name=topic.name, user_id=user_id)
     topic.source = "user"
     new_siblings = await _siblings(
         session, topic.module_id, new_parent_id, user_id=user_id, exclude=topic.id

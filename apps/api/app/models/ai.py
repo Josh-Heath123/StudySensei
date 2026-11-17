@@ -22,6 +22,7 @@ AI_OUTCOMES = (
     "truncated",
     "overloaded",
     "refused",
+    "too_large",
 )
 
 

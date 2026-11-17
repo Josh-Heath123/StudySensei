@@ -83,9 +83,15 @@ class ProviderError(Exception):
         return self.status == 503
 
     @property
+    def too_large(self) -> bool:
+        """413: over this model's limits (Groq: tokens a minute). Another model may take it."""
+        return self.status == 413
+
+    @property
     def turned_away(self) -> bool:
-        """Refused before running (429 or 503): no quota used, and another model may take it."""
-        return self.rate_limited or self.overloaded
+        """Refused before running (429, 503 or 413): no quota used, and another model may
+        take it. These don't count toward a ``CallBudget``'s limit (ADRs 0008, 0009)."""
+        return self.rate_limited or self.overloaded or self.too_large
 
     @property
     def retryable(self) -> bool:

@@ -694,6 +694,388 @@
         }
       }
     },
+    "/topics/{topic_id}/keep": {
+      "post": {
+        "tags": [
+          "topics"
+        ],
+        "summary": "Keep Topic",
+        "description": "Confirm an AI topic as it is: it becomes the student's, counted as kept.",
+        "operationId": "keep_topic_topics__topic_id__keep_post",
+        "parameters": [
+          {
+            "name": "topic_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Topic Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/topics/{topic_id}/merge-into": {
+      "post": {
+        "tags": [
+          "topics"
+        ],
+        "summary": "Merge Topic Into",
+        "description": "Fold this topic into ``target_id``: its subtopics, cited pages and page links move\nthere, then it's deleted. Returns the target. 422 for a topic in another module, the\ntopic itself, or one of its subtopics.",
+        "operationId": "merge_topic_into_topics__topic_id__merge_into_post",
+        "parameters": [
+          {
+            "name": "topic_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Topic Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeInto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/topics/{topic_id}/dismiss": {
+      "post": {
+        "tags": [
+          "topics"
+        ],
+        "summary": "Dismiss Topic",
+        "description": "Delete an AI topic (and its subtopics still marked AI) and remember the names, so a\nmerge never adds them again. The student's subtopics move up. 422 if it isn't AI.",
+        "operationId": "dismiss_topic_topics__topic_id__dismiss_post",
+        "parameters": [
+          {
+            "name": "topic_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Topic Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DismissedCount"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/modules/{module_id}/topics/keep-all": {
+      "post": {
+        "tags": [
+          "topics"
+        ],
+        "summary": "Keep All Topics",
+        "description": "Confirm every topic still marked AI.",
+        "operationId": "keep_all_topics_modules__module_id__topics_keep_all_post",
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeptCount"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/modules/{module_id}/dismissed-topics": {
+      "get": {
+        "tags": [
+          "topics"
+        ],
+        "summary": "Dismissed Topics",
+        "operationId": "dismissed_topics_modules__module_id__dismissed_topics_get",
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DismissedTopicOut"
+                  },
+                  "title": "Response Dismissed Topics Modules  Module Id  Dismissed Topics Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dismissed-topics/{dismissed_id}/restore": {
+      "post": {
+        "tags": [
+          "topics"
+        ],
+        "summary": "Restore Topic",
+        "description": "Bring a dismissed topic back (as kept), with its description and cited pages.",
+        "operationId": "restore_topic_dismissed_topics__dismissed_id__restore_post",
+        "parameters": [
+          {
+            "name": "dismissed_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Dismissed Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/topics/{topic_id}/pages": {
+      "get": {
+        "tags": [
+          "topics"
+        ],
+        "summary": "Topic Pages",
+        "description": "The pages linked to a topic, grouped by material: cited by the AI, or similar\n(with the score).",
+        "operationId": "topic_pages_topics__topic_id__pages_get",
+        "parameters": [
+          {
+            "name": "topic_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Topic Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LinkedMaterialOut"
+                  },
+                  "title": "Response Topic Pages Topics  Topic Id  Pages Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/topics/{topic_id}/pages/{material_id}/{page_number}": {
+      "delete": {
+        "tags": [
+          "topics"
+        ],
+        "summary": "Unlink Topic Page",
+        "description": "Unlink a page from a topic. Remembered: relinking never links it again.",
+        "operationId": "unlink_topic_page_topics__topic_id__pages__material_id___page_number__delete",
+        "parameters": [
+          {
+            "name": "topic_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Topic Id"
+            }
+          },
+          {
+            "name": "material_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Material Id"
+            }
+          },
+          {
+            "name": "page_number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Page Number"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/assessments": {
       "get": {
         "tags": [
@@ -2592,6 +2974,44 @@
         ],
         "title": "ClearedTopics"
       },
+      "DismissedCount": {
+        "properties": {
+          "dismissed": {
+            "type": "integer",
+            "title": "Dismissed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dismissed"
+        ],
+        "title": "DismissedCount"
+      },
+      "DismissedTopicOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "dismissed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Dismissed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "dismissed_at"
+        ],
+        "title": "DismissedTopicOut"
+      },
       "EventBatch": {
         "properties": {
           "events": {
@@ -2733,6 +3153,85 @@
           "database"
         ],
         "title": "HealthResponse"
+      },
+      "KeptCount": {
+        "properties": {
+          "kept": {
+            "type": "integer",
+            "title": "Kept"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kept"
+        ],
+        "title": "KeptCount"
+      },
+      "LinkedMaterialOut": {
+        "properties": {
+          "material_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Material Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/LinkedPageOut"
+            },
+            "type": "array",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "material_id",
+          "title",
+          "pages"
+        ],
+        "title": "LinkedMaterialOut"
+      },
+      "LinkedPageOut": {
+        "properties": {
+          "page_number": {
+            "type": "integer",
+            "title": "Page Number"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "pages",
+              "similarity"
+            ],
+            "title": "Method"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "page_number",
+          "label",
+          "method",
+          "score"
+        ],
+        "title": "LinkedPageOut"
       },
       "MaterialOut": {
         "properties": {
@@ -2972,6 +3471,21 @@
         "additionalProperties": false,
         "type": "object",
         "title": "MaterialUpdate"
+      },
+      "MergeInto": {
+        "properties": {
+          "target_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "target_id"
+        ],
+        "title": "MergeInto"
       },
       "ModuleCreate": {
         "properties": {
@@ -4134,6 +4648,9 @@
               }
             ],
             "title": "Merged At"
+          },
+          "review": {
+            "$ref": "#/components/schemas/TopicReviewStats"
           }
         },
         "type": "object",
@@ -4145,7 +4662,8 @@
           "merging",
           "waiting_until",
           "last_error",
-          "merged_at"
+          "merged_at",
+          "review"
         ],
         "title": "TopicMapStatus"
       },
@@ -4360,6 +4878,40 @@
           "confidence"
         ],
         "title": "TopicRatingOut"
+      },
+      "TopicReviewStats": {
+        "properties": {
+          "kept": {
+            "type": "integer",
+            "title": "Kept"
+          },
+          "renamed": {
+            "type": "integer",
+            "title": "Renamed"
+          },
+          "merged": {
+            "type": "integer",
+            "title": "Merged"
+          },
+          "dismissed": {
+            "type": "integer",
+            "title": "Dismissed"
+          },
+          "unreviewed": {
+            "type": "integer",
+            "title": "Unreviewed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kept",
+          "renamed",
+          "merged",
+          "dismissed",
+          "unreviewed"
+        ],
+        "title": "TopicReviewStats",
+        "description": "What the student did with the AI's topics (decision 0009). Each AI topic counts once,\nby the last thing done to it; ``unreviewed`` are those still marked AI."
       },
       "TopicUpdate": {
         "properties": {

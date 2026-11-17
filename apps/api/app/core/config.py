@@ -135,6 +135,10 @@ class Settings(BaseSettings):
     # Requests turned away before running (429, 503 "high demand") don't use that cap: they
     # cost nothing. This wider cap ends a run during a long outage instead (ADR 0008).
     topic_max_turned_away: int = 20
+    # The merge request's size, in estimated tokens (system prompt, JSON instruction and
+    # prompt). Descriptions are added only while it fits, so Groq (8K tokens a minute on the
+    # free tier) can take it when Gemini can't (ADR 0009).
+    topic_merge_max_tokens: int = 7000
     # A chunk links to a topic by similarity when the cosine of the topic's "name:
     # description" and the chunk is at least this, keeping at most this many per topic.
     # Calibrated with bge-small on tests/topic_maps/linking_fixtures.py: passages that teach

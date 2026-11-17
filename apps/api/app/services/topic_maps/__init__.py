@@ -11,8 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.jobs import queue
 from app.jobs.kinds import EXTRACT_TOPICS, LINK_TOPICS, MERGE_TOPICS
-from app.models import Chunk, Job, Material, Topic, TopicProposal
-from app.schemas.topic_maps import MaterialTopicStatus, TopicMapStatus, TopicState
+from app.models import Chunk, Job, Material, Topic, TopicProposal, TopicReview
+from app.schemas.topic_maps import (
+    MaterialTopicStatus,
+    TopicMapStatus,
+    TopicReviewStats,
+    TopicState,
+)
 from app.services.academics.modules import get_module
 from app.services.errors import Invalid, NotFound
 
@@ -173,6 +178,32 @@ async def topic_map_status(
         waiting_until=min(resting) if resting else None,
         last_error=readable(errors[-1].last_error) if errors else None,
         merged_at=max((job.finished_at for job in merges if job.finished_at), default=None),
+        review=await review_stats(session, module_id, user_id=user_id),
+    )
+
+
+async def review_stats(
+    session: AsyncSession, module_id: uuid.UUID, *, user_id: uuid.UUID
+) -> TopicReviewStats:
+    outcomes: dict[str, int] = {
+        outcome: int(count)
+        for outcome, count in await session.execute(
+            select(TopicReview.outcome, func.count())
+            .where(TopicReview.module_id == module_id, TopicReview.user_id == user_id)
+            .group_by(TopicReview.outcome)
+        )
+    }
+    unreviewed = await session.scalar(
+        select(func.count())
+        .select_from(Topic)
+        .where(Topic.module_id == module_id, Topic.user_id == user_id, Topic.source == "ai")
+    )
+    return TopicReviewStats(
+        kept=outcomes.get("kept", 0),
+        renamed=outcomes.get("renamed", 0),
+        merged=outcomes.get("merged", 0),
+        dismissed=outcomes.get("dismissed", 0),
+        unreviewed=int(unreviewed or 0),
     )
 
 
@@ -319,6 +350,28 @@ async def clear_ai_topics(
     again re-merges without re-analysing the materials.
     """
     await get_module(session, module_id, user_id=user_id)
+    doomed = set(
+        await session.scalars(
+            select(Topic.id).where(
+                Topic.module_id == module_id, Topic.user_id == user_id, Topic.source == "ai"
+            )
+        )
+    )
+    if not doomed:
+        return 0
+    await remove_topics(session, module_id, doomed, user_id=user_id)
+    await queue_linking(session, module_id, user_id=user_id)
+    await session.commit()
+    return len(doomed)
+
+
+async def remove_topics(
+    session: AsyncSession, module_id: uuid.UUID, doomed: set[uuid.UUID], *, user_id: uuid.UUID
+) -> None:
+    """Delete ``doomed`` topics but none of the others: a surviving topic under a doomed one
+    moves up to its nearest surviving ancestor (or the top level), after its new siblings
+    and in the old tree's reading order. Every sibling list is renumbered. Doesn't commit.
+    """
     topics = list(
         await session.scalars(
             select(Topic)
@@ -327,9 +380,6 @@ async def clear_ai_topics(
         )
     )
     by_id = {topic.id: topic for topic in topics}
-    doomed = {topic.id for topic in topics if topic.source == "ai"}
-    if not doomed:
-        return 0
     # Reading order of the whole tree, so re-homed topics keep their order.
     children: dict[uuid.UUID | None, list[Topic]] = {}
     for topic in topics:
@@ -353,12 +403,12 @@ async def clear_ai_topics(
             topic.position = 100_000 + order.get(topic.id, 0)
     await session.flush()
     await session.execute(delete(Topic).where(Topic.user_id == user_id, Topic.id.in_(doomed)))
+    for topic_id in doomed:
+        if topic_id in by_id:
+            session.expunge(by_id[topic_id])
     siblings: dict[uuid.UUID | None, list[Topic]] = {}
     for topic in kept:
         siblings.setdefault(topic.parent_id, []).append(topic)
     for group in siblings.values():
         for position, topic in enumerate(sorted(group, key=lambda t: (t.position, t.name))):
             topic.position = position
-    await queue_linking(session, module_id, user_id=user_id)
-    await session.commit()
-    return len(doomed)

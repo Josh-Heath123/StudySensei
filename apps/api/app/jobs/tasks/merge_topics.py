@@ -10,7 +10,7 @@ import uuid
 
 from sqlalchemy import select
 
-from app.ai.client import CallBudget, get_llm_client
+from app.ai.client import CallBudget, get_llm_client, json_instruction
 from app.ai.errors import AICallLimitReached, AIInvalidOutput
 from app.ai.usage import job_calls
 from app.core.config import get_settings
@@ -100,7 +100,13 @@ async def run(ctx: JobContext) -> None:
     )
 
     if materials:
-        messages, refs = merge_messages(label, existing, materials)
+        messages, refs = merge_messages(
+            label,
+            existing,
+            materials,
+            max_tokens=settings.topic_merge_max_tokens,
+            overhead=json_instruction(ModuleTopicMap),
+        )
         try:
             tree = await get_llm_client().complete_json(
                 "long",

@@ -414,6 +414,8 @@ class LLMClient:
                 outcome = "rate_limited"
             elif error.overloaded:
                 outcome = "overloaded"
+            elif error.too_large:
+                outcome = "too_large"
             else:
                 outcome = "error"
         elif completion is not None and completion.truncated:
@@ -529,7 +531,11 @@ class LLMClient:
                         await self._sleep(delay + self._jitter() * max(1.0, delay / 2))
                         continue
                     until = self._now() + max(timedelta(seconds=delay), DEFAULT_COOLDOWN)
-                    if exc.turned_away or exc.timed_out or exc.status in (None, 413):
+                    if exc.too_large:
+                        # Too big for this model's limits, not a busy model: the next model
+                        # may take it, and this one stays free for smaller requests.
+                        break
+                    if exc.turned_away or exc.timed_out or exc.status is None:
                         # This model can't take it now: the next one may.
                         self._cooldown[route.key] = until
                         waits.append(until)
