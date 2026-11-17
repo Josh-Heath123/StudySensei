@@ -165,8 +165,16 @@ async def topic_map_status(
         and (job.last_error or "").startswith("AIUnavailable")
     ]
     merges = [job for job in jobs if job.kind == MERGE_TOPICS and job.status == "succeeded"]
+    merged_at = max((job.finished_at for job in merges if job.finished_at), default=None)
+    # Only failures since the latest successful merge: an older one is already behind us.
     errors = sorted(
-        (job for job in jobs if job.status == "failed" and job.last_error),
+        (
+            job
+            for job in jobs
+            if job.status == "failed"
+            and job.last_error
+            and (merged_at is None or (job.finished_at or job.updated_at) > merged_at)
+        ),
         key=lambda job: job.finished_at or job.updated_at,
     )
     return TopicMapStatus(
@@ -177,7 +185,7 @@ async def topic_map_status(
         merging=any(job.kind == MERGE_TOPICS for job in pending),
         waiting_until=min(resting) if resting else None,
         last_error=readable(errors[-1].last_error) if errors else None,
-        merged_at=max((job.finished_at for job in merges if job.finished_at), default=None),
+        merged_at=merged_at,
         review=await review_stats(session, module_id, user_id=user_id),
     )
 
