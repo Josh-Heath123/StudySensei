@@ -558,6 +558,142 @@
         }
       }
     },
+    "/modules/{module_id}/topic-map/materials": {
+      "get": {
+        "tags": [
+          "topics"
+        ],
+        "summary": "Material Topic States",
+        "description": "Each eligible material's topic extraction: analysed, failed (with why), or waiting.",
+        "operationId": "material_topic_states_modules__module_id__topic_map_materials_get",
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MaterialTopicStatus"
+                  },
+                  "title": "Response Material Topic States Modules  Module Id  Topic Map Materials Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/materials/{material_id}/topics/retry": {
+      "post": {
+        "tags": [
+          "topics"
+        ],
+        "summary": "Retry Material Topics",
+        "description": "Find this material's topics again: a new run with a fresh AI call budget.\n\n422 if its topics aren't extracted (AI off, a kind that isn't analysed, or not ready).",
+        "operationId": "retry_material_topics_materials__material_id__topics_retry_post",
+        "parameters": [
+          {
+            "name": "material_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Material Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialTopicStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/modules/{module_id}/ai-topics": {
+      "delete": {
+        "tags": [
+          "topics"
+        ],
+        "summary": "Clear Ai Topics",
+        "description": "Delete every topic still marked AI. Topics the student made or edited stay.\n\nThe materials' proposals are kept, so building again re-merges without re-analysing.",
+        "operationId": "clear_ai_topics_modules__module_id__ai_topics_delete",
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClearedTopics"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/assessments": {
       "get": {
         "tags": [
@@ -2443,6 +2579,19 @@
         ],
         "title": "Body_upload_material_modules__module_id__materials_post"
       },
+      "ClearedTopics": {
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "title": "ClearedTopics"
+      },
       "EventBatch": {
         "properties": {
           "events": {
@@ -2716,6 +2865,60 @@
           "retrying"
         ],
         "title": "MaterialOut"
+      },
+      "MaterialTopicStatus": {
+        "properties": {
+          "material_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Material Id"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "analysed",
+              "failed",
+              "waiting"
+            ],
+            "title": "State"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "topics": {
+            "type": "integer",
+            "title": "Topics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "material_id",
+          "state",
+          "error",
+          "model",
+          "topics"
+        ],
+        "title": "MaterialTopicStatus",
+        "description": "Where one eligible material's topic extraction stands (the Materials tab)."
       },
       "MaterialUpdate": {
         "properties": {

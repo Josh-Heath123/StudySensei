@@ -1,5 +1,5 @@
 import type { Material } from "./api";
-import { pageDetails, statusText } from "./status";
+import { pageDetails, statusText, topicStateText } from "./status";
 
 const material = (overrides: Partial<Material>): Material => ({
   id: "m",
@@ -53,4 +53,19 @@ test("page details appear once pages are known", () => {
     "12 pages",
     "4 scanned",
   ]);
+});
+
+test("topic lines say what was found, why it failed, or that it's waiting", () => {
+  expect(topicStateText({ state: "analysed", error: null, topics: 7 })).toEqual({
+    text: "Topics: 7 found",
+    tone: "default",
+  });
+  expect(topicStateText({ state: "failed", error: "Bad shape.", topics: 0 })).toEqual({
+    text: "Topics couldn't be found: Bad shape.",
+    tone: "danger",
+  });
+  expect(topicStateText({ state: "failed", error: null, topics: 0 }).text).toBe(
+    "Topics couldn't be found.",
+  );
+  expect(topicStateText({ state: "waiting", error: null, topics: 0 }).tone).toBe("muted");
 });

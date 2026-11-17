@@ -139,3 +139,40 @@ export function useSearch(moduleId: string, query: string) {
       ),
   });
 }
+
+// --- Topics found per material (decisions 0006, 0007) ------------------------------
+
+export type MaterialTopicState = components["schemas"]["MaterialTopicStatus"];
+
+const topicStateKey = (moduleId: string) => ["materials", "topics", moduleId] as const;
+
+/** Each eligible material's topic state; refreshed every few seconds while `poll`. */
+export function useMaterialTopicStates(moduleId: string, poll: boolean) {
+  return useQuery({
+    queryKey: topicStateKey(moduleId),
+    queryFn: () =>
+      unwrap(
+        api.GET("/modules/{module_id}/topic-map/materials", {
+          params: { path: { module_id: moduleId } },
+        }),
+      ),
+    refetchInterval: poll ? POLL_MS * 2 : false,
+  });
+}
+
+export function useRetryMaterialTopics(moduleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (materialId: string) =>
+      unwrap(
+        api.POST("/materials/{material_id}/topics/retry", {
+          params: { path: { material_id: materialId } },
+        }),
+      ),
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: topicStateKey(moduleId) }),
+        queryClient.invalidateQueries({ queryKey: ["topic-map", moduleId] }),
+      ]),
+  });
+}

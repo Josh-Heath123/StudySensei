@@ -10,8 +10,9 @@ import uuid
 
 from sqlalchemy import select
 
-from app.ai.client import get_llm_client
-from app.ai.errors import AIInvalidOutput
+from app.ai.client import CallBudget, get_llm_client
+from app.ai.errors import AICallLimitReached, AIInvalidOutput
+from app.ai.usage import job_calls
 from app.core.config import get_settings
 from app.jobs.context import JobContext, JobError
 from app.models import Material, Module, Topic, TopicProposal
@@ -23,6 +24,7 @@ from app.services.topic_maps.merge import apply_merge
 from app.services.topic_maps.prompts import ExistingTopic, MaterialForPrompt, merge_messages
 
 INVALID = "The AI's merged topic map didn't come out in the expected shape."
+LIMIT = "Stopped after {limit} AI calls for the topic map without a usable answer."
 
 
 async def job_module(ctx: JobContext) -> Module | None:
@@ -80,16 +82,31 @@ async def run(ctx: JobContext) -> None:
             .order_by(Topic.position, Topic.name)
         )
     ]
+    calls, invalid = await job_calls(ctx.session, ctx.job.id, user_id=user_id)
     await ctx.session.commit()  # don't hold a transaction open during the AI call
+    # Bounded like an extraction (ADR 0007): fallbacks, the repair and retries all count.
+    budget = CallBudget(
+        limit=get_settings().topic_max_calls,
+        job_id=ctx.job.id,
+        used=calls,
+        repairs_used=min(invalid, 1),
+    )
 
     if materials:
         messages, refs = merge_messages(label, existing, materials)
         try:
             tree = await get_llm_client().complete_json(
-                "long", messages, ModuleTopicMap, purpose="topic_merge", user_id=user_id
+                "long",
+                messages,
+                ModuleTopicMap,
+                purpose="topic_merge",
+                user_id=user_id,
+                budget=budget,
             )
+        except AICallLimitReached as exc:
+            raise JobError(LIMIT.format(limit=budget.limit), retry=False) from exc
         except AIInvalidOutput as exc:
-            raise JobError(INVALID) from exc
+            raise JobError(INVALID, retry=budget.remaining > 0) from exc
         if await job_module(ctx) is None:
             return  # the module was deleted meanwhile
         await apply_merge(ctx.session, module_id, tree, refs, user_id=user_id)

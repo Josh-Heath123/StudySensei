@@ -12,7 +12,13 @@ from app.ai.client import LLMClient
 from app.jobs import queue
 from app.jobs.kinds import MERGE_TOPICS
 from app.models import Topic, TopicPage, TopicProposal
-from app.services.topic_maps.prompts import UNTRUSTED
+from app.schemas.topic_maps import MaterialTopics
+from app.services.topic_maps.prompts import (
+    UNTRUSTED,
+    ExistingTopic,
+    MaterialForPrompt,
+    merge_messages,
+)
 from tests.fakes import FakeLLM, ok
 from tests.search.conftest import run_jobs
 from tests.topic_maps.conftest import LITE, PRIVATE, Module, node
@@ -223,3 +229,30 @@ async def test_no_proposals_means_no_ai_call(
 
     assert fake_llm.requests == []
     assert set(await topics(session, module)) == {"Microservices"}
+
+
+def test_the_merge_prompt_asks_for_the_modules_naming_style_and_whole_chapters() -> None:
+    existing = [
+        ExistingTopic(uuid.uuid4(), None, "Ch1 Overview"),
+        ExistingTopic(uuid.uuid4(), None, "Ch2 Cryptography"),
+    ]
+    existing.append(ExistingTopic(uuid.uuid4(), existing[0].id, "Security goals"))
+    materials = [
+        MaterialForPrompt(uuid.uuid4(), "CH09", "slides", MaterialTopics(topics=[])),
+    ]
+
+    (system, prompt), _ = merge_messages("COS330 Computer Security", existing, materials)
+
+    assert 'Name new top-level topics in the style of: "Ch1 Overview"; "Ch2 Cryptography"' in (
+        prompt.text
+    )
+    assert "Security goals" not in prompt.text.split("style of:")[1].split("\n")[0]
+    assert '"Ch4 Access Control"' in system.text
+    assert "keeps\n  its own top-level topic" in system.text
+    assert "Don't fold one chapter into another" in system.text
+
+
+def test_without_top_level_topics_there_is_no_style_line() -> None:
+    (_, prompt), _ = merge_messages("COS330", [], [])
+
+    assert "style of" not in prompt.text

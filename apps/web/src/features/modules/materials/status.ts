@@ -29,3 +29,24 @@ export function pageDetails(material: Material): string[] {
   if (material.scanned_page_count) details.push(`${material.scanned_page_count} scanned`);
   return details;
 }
+
+/** A material's topic line on the Materials tab (decision 0007). */
+export function topicStateText(state: {
+  state: "analysed" | "failed" | "waiting";
+  error: string | null;
+  topics: number;
+}): { text: string; tone: "default" | "danger" | "muted" } {
+  if (state.state === "analysed") {
+    return {
+      text: `Topics: ${state.topics} found`,
+      tone: "default",
+    };
+  }
+  if (state.state === "failed") {
+    return {
+      text: `Topics couldn't be found${state.error ? `: ${state.error}` : "."}`,
+      tone: "danger",
+    };
+  }
+  return { text: "Topics: waiting to be analysed", tone: "muted" };
+}

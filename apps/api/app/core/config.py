@@ -102,6 +102,15 @@ class Settings(BaseSettings):
         "groq/openai/gpt-oss-20b": 900,  # free tier 1,000/day
         "groq/qwen/qwen3.8-27b": 900,  # free tier 1,000/day
     }
+    # Requests per minute per "provider/model": the free-tier RPM less a margin. The client
+    # waits its turn rather than collecting 429s (ADR 0007). Missing means no pacing.
+    ai_requests_per_minute: dict[str, int] = {
+        "gemini/gemini-3.8-flash": 4,  # free tier 5/min
+        "gemini/gemini-3.5-flash-lite": 12,  # free tier 15/min
+        "groq/openai/gpt-oss-120b": 25,  # free tier 30/min
+        "groq/openai/gpt-oss-20b": 25,  # free tier 30/min
+        "groq/qwen/qwen3.8-27b": 25,  # free tier 30/min
+    }
     # The reasoning_effort levels each "provider/model" accepts, from its docs (2026-11-17):
     # Gemini's thinking page, Groq's reasoning page. A level a model lacks is raised to its
     # lowest supported one (minimal → low on 3.8 Flash); a model not listed is sent none.
@@ -117,6 +126,12 @@ class Settings(BaseSettings):
     # Topic maps (ADR 0006). A material's text beyond this many characters is cut off
     # (about 100K tokens: a long textbook still fits Flash-Lite with room to answer).
     topic_max_chars: int = 400_000
+    # A material longer than this many pages is analysed in parts of about this size, so
+    # each reply stays well inside the output limit; the parts' topics are combined.
+    topic_part_pages: int = 40
+    # Provider calls one material may use per run, counting fallbacks, the one repair and
+    # job retries (ADR 0007). Parts are sized so a material fits with one call to spare.
+    topic_max_calls: int = 4
     # A chunk links to a topic by similarity when the cosine of the topic's "name:
     # description" and the chunk is at least this, keeping at most this many per topic.
     # Calibrated with bge-small on tests/topic_maps/linking_fixtures.py: passages that teach

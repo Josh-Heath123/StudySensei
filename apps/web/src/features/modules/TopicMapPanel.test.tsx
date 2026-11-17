@@ -20,6 +20,7 @@ function renderTopics({
     "GET /modules/:id/topic-map": () => status[Math.min(call++, status.length - 1)],
     "POST /modules/:id/topic-map/build": () => aTopicMap({ pending: 2 }),
     "GET /ai/status": () => ai,
+    "DELETE /modules/:id/ai-topics": () => ({ deleted: 2 }),
   });
   renderApp("/modules/m1?tab=topics");
   return { ...api, user: userEvent.setup() };
@@ -98,4 +99,35 @@ test("a rate-limited wait is shown with failures explained", async () => {
   const panel = await screen.findByRole("region", { name: "AI topic map" });
   expect(within(panel).getByText(/The AI is resting until/)).toBeVisible();
   expect(within(panel).getByText(/1 material couldn't be analysed/)).toBeVisible();
+});
+
+test("Clear AI topics asks first, then deletes them", async () => {
+  const { calls, user } = renderTopics({
+    tree: roots(
+      aTopic("t1", "Ch1 Overview"),
+      aTopic("t2", "Ch9 Firewalls", [aTopic("t3", "Packet filters", [], { source: "ai" })], {
+        source: "ai",
+      }),
+    ),
+    status: [aTopicMap({ analysed: 2 })],
+  });
+  const panel = await screen.findByRole("region", { name: "AI topic map" });
+
+  await user.click(await within(panel).findByRole("button", { name: "Clear AI topics" }));
+  const dialog = await screen.findByRole("dialog", { name: "Clear 2 AI topics?" });
+  expect(dialog).toHaveTextContent("Topics you made or edited stay");
+  await user.click(within(dialog).getByRole("button", { name: "Clear AI topics" }));
+
+  await waitFor(() =>
+    expect(calls.some((c) => c.method === "DELETE" && c.path === "/modules/m1/ai-topics")).toBe(
+      true,
+    ),
+  );
+});
+
+test("with no AI topics there's nothing to clear", async () => {
+  renderTopics();
+
+  const panel = await screen.findByRole("region", { name: "AI topic map" });
+  expect(await within(panel).findByRole("button", { name: "Clear AI topics" })).toBeDisabled();
 });

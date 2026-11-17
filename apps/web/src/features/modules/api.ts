@@ -173,3 +173,21 @@ export function useAiStatus() {
     staleTime: 60_000,
   });
 }
+
+/** Delete every topic still marked AI (the student's own and edited ones stay). */
+export function useClearAiTopics(moduleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.DELETE("/modules/{module_id}/ai-topics", {
+          params: { path: { module_id: moduleId } },
+        }),
+      ),
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: keys.topics(moduleId) }),
+        queryClient.invalidateQueries({ queryKey: ["topic-map", moduleId] }),
+      ]),
+  });
+}

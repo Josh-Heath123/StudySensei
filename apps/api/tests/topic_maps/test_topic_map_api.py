@@ -211,3 +211,135 @@ async def test_adding_a_topic_queues_one_relink(
         assert response.json()["source"] == "user"
 
     assert len(await jobs(session, LINK_TOPICS)) == 1  # the second found one already waiting
+
+
+# --- per-material states and retry (the Materials tab) -----------------------------
+
+
+async def test_each_eligible_material_shows_its_topic_state(
+    api: AsyncClient, session: AsyncSession, module: Module
+) -> None:
+    session.add(
+        TopicProposal(
+            user_id=module.user_id,
+            module_id=module.module_id,
+            material_id=module.notes,
+            provider="gemini",
+            model=LITE,
+            topics={"topics": [{"name": "Normal forms", "description": "", "pages": [1]}]},
+        )
+    )
+    session.add(
+        Job(
+            user_id=module.user_id,
+            kind=EXTRACT_TOPICS,
+            payload={"material_id": str(module.slides), "module_id": str(module.module_id)},
+            status="failed",
+            attempts=3,
+            finished_at=datetime.now(UTC),
+            last_error="JobError: The AI's topic list didn't come out in the expected shape.",
+        )
+    )
+    await session.commit()
+
+    response = await api.get(f"/modules/{module.module_id}/topic-map/materials")
+
+    assert response.status_code == 200
+    states = {row["material_id"]: row for row in response.json()}
+    # Not the past paper, not the material with AI off.
+    assert set(states) == {str(module.slides), str(module.notes)}
+    assert states[str(module.notes)] == {
+        "material_id": str(module.notes),
+        "state": "analysed",
+        "error": None,
+        "model": f"gemini/{LITE}",
+        "topics": 1,
+    }
+    failed = states[str(module.slides)]
+    assert (failed["state"], failed["error"]) == (
+        "failed",
+        "The AI's topic list didn't come out in the expected shape.",
+    )
+
+    retried = await api.post(f"/materials/{module.slides}/topics/retry")
+    again = await api.post(f"/materials/{module.slides}/topics/retry")
+
+    assert retried.status_code == 200
+    assert retried.json()["state"] == "waiting"
+    assert again.json()["state"] == "waiting"
+    pending = [job for job in await jobs(session, EXTRACT_TOPICS) if job.status == "queued"]
+    assert [job.payload["material_id"] for job in pending] == [str(module.slides)]  # once
+
+
+async def test_retry_refuses_a_material_whose_topics_arent_found(
+    api: AsyncClient, module: Module
+) -> None:
+    for material_id in (module.private, module.past_paper):
+        response = await api.post(f"/materials/{material_id}/topics/retry")
+        assert response.status_code == 422
+        assert "AI allowed" in response.json()["detail"]
+
+
+# --- clearing AI topics -----------------------------------------------------------
+
+
+async def test_clearing_ai_topics_keeps_the_students_and_rehomes_them(
+    api: AsyncClient, session: AsyncSession, module: Module
+) -> None:
+    def topic(name: str, source: str, parent: Topic | None = None, position: int = 0) -> Topic:
+        row = Topic(
+            user_id=module.user_id,
+            module_id=module.module_id,
+            parent_id=parent.id if parent else None,
+            name=name,
+            source=source,
+            position=position,
+        )
+        session.add(row)
+        return row
+
+    security = topic("Ch2 Security", "ai", position=1)
+    await session.flush()
+    hashing = topic("Hashing", "ai", security, 0)
+    mine = topic("My exam notes", "user", security, 1)  # the student's, under an AI topic
+    edited = topic("Ch3 Networks (edited)", "user", position=2)  # was AI, then edited
+    await session.flush()
+    deep = topic("Salting", "user", hashing, 0)  # the student's, two AI levels down
+    await session.commit()
+    ids = {name: row.id for name, row in [("mine", mine), ("edited", edited), ("deep", deep)]}
+
+    response = await api.delete(f"/modules/{module.module_id}/ai-topics")
+
+    assert response.json() == {"deleted": 2}
+    tree = (await api.get(f"/modules/{module.module_id}/topics")).json()
+    assert [(n["name"], n["source"], n["position"]) for n in tree] == [
+        ("Microservices", "user", 0),
+        ("Ch3 Networks (edited)", "user", 1),
+        # Moved up in the old tree's reading order: Salting sat under Hashing, first.
+        ("Salting", "user", 2),
+        ("My exam notes", "user", 3),
+    ]
+    assert {n["id"] for n in tree} >= {str(i) for i in ids.values()}
+
+
+async def test_building_after_clearing_merges_without_reanalysing(
+    api: AsyncClient, session: AsyncSession, module: Module
+) -> None:
+    for material_id in (module.slides, module.notes):
+        session.add(
+            TopicProposal(
+                user_id=module.user_id,
+                module_id=module.module_id,
+                material_id=material_id,
+                provider="gemini",
+                model=LITE,
+                topics={"topics": []},
+            )
+        )
+    await session.commit()
+    await api.delete(f"/modules/{module.module_id}/ai-topics")
+
+    await api.post(f"/modules/{module.module_id}/topic-map/build")
+
+    assert await jobs(session, EXTRACT_TOPICS) == []
+    assert len(await jobs(session, MERGE_TOPICS)) == 1
