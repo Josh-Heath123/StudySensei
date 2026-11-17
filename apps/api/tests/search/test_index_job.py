@@ -47,7 +47,9 @@ async def test_each_page_becomes_chunks_and_the_material_is_ready(
         ],
     )
 
-    assert await run_jobs(session, tmp_path) == 1
+    # index_material, then (decision 0006) extract_topics, which fails with no AI key in
+    # tests, and the merge that relinks without it.
+    assert await run_jobs(session, tmp_path) == 3
 
     chunks = await chunks_of(session, material)
     assert {c.page_number for c in chunks} == {1, 3}  # the scanned page is skipped
@@ -201,7 +203,8 @@ async def test_an_upload_is_extracted_then_indexed_then_ready(
             max_bytes=10_000_000,
         )
 
-    assert await run_jobs(session, tmp_path) == 2  # extract_text, then index_material
+    # extract_text, index_material, then link_topics (AI is off, so no topic extraction)
+    assert await run_jobs(session, tmp_path) == 3
     await session.refresh(material)
     assert material.status == "ready"
     chunks = await chunks_of(session, material)

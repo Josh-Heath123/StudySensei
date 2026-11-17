@@ -268,7 +268,12 @@ async def test_the_worker_makes_an_upload_ready(
     assert (got["status"], got["page_count"], got["scanned_page_count"]) == ("processing", 3, 1)
 
     assert await run_once(sessions, storage, now=lambda: later)  # index_material
-    assert not await run_once(sessions, storage, now=lambda: later)
+    # Then its topic jobs (decision 0006): with no AI key in tests, extraction fails and
+    # the merge just relinks. None of it changes the material.
+    ran = 0
+    while await run_once(sessions, storage, now=lambda: later):
+        ran += 1
+    assert ran == 2  # extract_topics, merge_topics
 
     got = (await alice_api.get(f"/materials/{material['id']}")).json()
     assert (got["status"], got["page_count"], got["error"], got["retrying"]) == (

@@ -47,6 +47,7 @@ async def search(
 async def test_an_exact_phrase_ranks_its_page_first(
     session: AsyncSession, indexed: Rows, fake_embedder: FakeEmbedder
 ) -> None:
+    fake_embedder.query_calls.clear()  # indexing's topic links embedded topic names
     found = await search(session, indexed, "salted passwords bcrypt", fake_embedder)
 
     assert found.indexed_chunks == 3

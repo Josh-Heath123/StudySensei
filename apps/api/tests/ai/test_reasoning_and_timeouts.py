@@ -125,6 +125,7 @@ async def test_the_ping_always_asks_for_minimal(
         ai_smart=routes(f"gemini/{GEMINI_FLASH}", f"groq/{GPT_OSS}", f"groq/{QWEN}", effort="high"),
         ai_bulk=[],
         ai_vision=[],
+        ai_long=[],
     )
     for model in (GEMINI_FLASH, GPT_OSS, QWEN):
         fake_llm.reply(model, ok("pong"))
@@ -142,6 +143,7 @@ async def test_ping_sends_minimal_to_flash_lite_and_low_to_flash(
         ai_smart=routes(f"gemini/{GEMINI_FLASH}"),
         ai_bulk=routes(f"gemini/{GEMINI_LITE}"),
         ai_vision=[],
+        ai_long=[],
     )
     fake_llm.reply(GEMINI_FLASH, ok("pong"))
     fake_llm.reply(GEMINI_LITE, ok("pong"))
