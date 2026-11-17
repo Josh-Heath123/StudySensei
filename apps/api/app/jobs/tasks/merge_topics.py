@@ -25,6 +25,10 @@ from app.services.topic_maps.prompts import ExistingTopic, MaterialForPrompt, me
 
 INVALID = "The AI's merged topic map didn't come out in the expected shape."
 LIMIT = "Stopped after {limit} AI calls for the topic map without a usable answer."
+BUSY = (
+    "The AI providers were too busy to build the topic map ({count} requests turned away). "
+    "Try Build topic map again later."
+)
 
 
 async def job_module(ctx: JobContext) -> Module | None:
@@ -82,14 +86,17 @@ async def run(ctx: JobContext) -> None:
             .order_by(Topic.position, Topic.name)
         )
     ]
-    calls, invalid = await job_calls(ctx.session, ctx.job.id, user_id=user_id)
+    spent = await job_calls(ctx.session, ctx.job.id, user_id=user_id)
     await ctx.session.commit()  # don't hold a transaction open during the AI call
     # Bounded like an extraction (ADR 0007): fallbacks, the repair and retries all count.
+    settings = get_settings()
     budget = CallBudget(
-        limit=get_settings().topic_max_calls,
+        limit=settings.topic_max_calls,
         job_id=ctx.job.id,
-        used=calls,
-        repairs_used=min(invalid, 1),
+        used=spent.ran,
+        repairs_used=min(spent.invalid, 1),
+        turned_away=spent.turned_away,
+        turned_away_limit=settings.topic_max_turned_away,
     )
 
     if materials:
@@ -104,7 +111,12 @@ async def run(ctx: JobContext) -> None:
                 budget=budget,
             )
         except AICallLimitReached as exc:
-            raise JobError(LIMIT.format(limit=budget.limit), retry=False) from exc
+            message = (
+                BUSY.format(count=budget.turned_away)
+                if exc.busy
+                else LIMIT.format(limit=budget.limit)
+            )
+            raise JobError(message, retry=False) from exc
         except AIInvalidOutput as exc:
             raise JobError(INVALID, retry=budget.remaining > 0) from exc
         if await job_module(ctx) is None:

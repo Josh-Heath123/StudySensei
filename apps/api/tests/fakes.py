@@ -139,7 +139,20 @@ def rate_limited(retry_after: float | None = None) -> httpx.Response:
 
 
 def server_error() -> httpx.Response:
-    return httpx.Response(503, json={"error": {"message": "overloaded"}})
+    return httpx.Response(500, json={"error": {"message": "internal error"}})
+
+
+def overloaded() -> httpx.Response:
+    """Gemini's 503 when a model is busy: turned away before running (ADR 0008)."""
+    return httpx.Response(
+        503,
+        json={"error": {"message": "This model is currently experiencing high demand."}},
+    )
+
+
+def refused(finish_reason: str = "content_filter", text: str = "") -> httpx.Response:
+    """A completion the model declined: a content filter, or an empty reply."""
+    return ok(text, finish_reason=finish_reason)
 
 
 def unauthorized() -> httpx.Response:

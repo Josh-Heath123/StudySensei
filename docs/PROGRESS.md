@@ -2,6 +2,25 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-17: Phase 2, the three COS330 materials that still failed
+
+- **Found** (from `ai_usage.detail`): the Chapter 1, 5 and 7 notes made 12 calls in all, and none was a content
+  refusal.
+  - 9 were Gemini 503 "high demand". Each counted toward the 4-call cap and was retried on the same model, then the
+    job waited and repeated, so Chapter 7 used its 4 calls on 503s alone.
+  - 2 replies (Chapters 1 and 5) had no `name` on any topic or subtopic, so the model used another key. They never got
+    a working repair because the repair hit a 503.
+  - 1 was Groq's 413 (Chapter 5 was 13.4K tokens against an 8K tokens-a-minute limit), which moved on correctly.
+- **Done:**
+  - A 503 now moves on to the next model like a 429 (`overloaded`).
+  - 429s and 503s no longer use the per-material cap; they have their own cap of 20.
+  - A content refusal or empty reply moves on without spending the repair (`refused`), and `AIRefused` fires when
+    every model declines.
+  - A topic's name is also read from `title`, `topic`, `heading` or `label`.
+  - A nameless reply records its keys in `detail`.
+  - Migration 0013. ADR 0008.
+- **Next:** merge, run migration 0013 (start the dev servers), then Retry topics on the three materials.
+
 ## 2026-11-18: Phase 2, topic map fixes after the first COS330 run
 
 - **Found:** 21 materials took 142 extraction calls and 13 merge calls, where ~22 were needed.

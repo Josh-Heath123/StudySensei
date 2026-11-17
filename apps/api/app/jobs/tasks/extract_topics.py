@@ -45,6 +45,10 @@ LIMIT = (
     "Stopped after {limit} AI calls for this material without a usable answer. "
     "Use Retry on the Materials tab to try again."
 )
+BUSY = (
+    "The AI providers were too busy to analyse this material ({count} requests turned "
+    "away). Use Retry topics on the Materials tab later."
+)
 # Below this many pages a cut-off part isn't split again.
 MIN_SPLIT_PAGES = 4
 
@@ -111,7 +115,12 @@ class _Extraction:
             second = await self.part(pages[half:], number, of)
             return combine_parts([first, second])
         except AICallLimitReached as exc:
-            raise JobError(LIMIT.format(limit=self.budget.limit), retry=False) from exc
+            message = (
+                BUSY.format(count=self.budget.turned_away)
+                if exc.busy
+                else LIMIT.format(limit=self.budget.limit)
+            )
+            raise JobError(message, retry=False) from exc
         except AIInvalidOutput as exc:
             if self.budget.remaining == 0:
                 raise JobError(INVALID, retry=False) from exc
@@ -141,14 +150,16 @@ async def run(ctx: JobContext) -> None:
         await _finish(ctx)
         return
     settings = get_settings()
-    calls, invalid = await job_calls(ctx.session, ctx.job.id, user_id=user_id)
+    spent = await job_calls(ctx.session, ctx.job.id, user_id=user_id)
     await ctx.session.commit()  # don't hold a transaction open during the AI calls
 
     budget = CallBudget(
         limit=settings.topic_max_calls,
         job_id=ctx.job.id,
-        used=calls,
-        repairs_used=min(invalid, 1),
+        used=spent.ran,
+        repairs_used=min(spent.invalid, 1),
+        turned_away=spent.turned_away,
+        turned_away_limit=settings.topic_max_turned_away,
     )
     extraction = _Extraction(title, kind, len(pages), user_id, budget)
     parts = plan_parts(

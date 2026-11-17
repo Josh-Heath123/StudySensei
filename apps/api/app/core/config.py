@@ -132,6 +132,9 @@ class Settings(BaseSettings):
     # Provider calls one material may use per run, counting fallbacks, the one repair and
     # job retries (ADR 0007). Parts are sized so a material fits with one call to spare.
     topic_max_calls: int = 4
+    # Requests turned away before running (429, 503 "high demand") don't use that cap: they
+    # cost nothing. This wider cap ends a run during a long outage instead (ADR 0008).
+    topic_max_turned_away: int = 20
     # A chunk links to a topic by similarity when the cosine of the topic's "name:
     # description" and the chunk is at least this, keeping at most this many per topic.
     # Calibrated with bge-small on tests/topic_maps/linking_fixtures.py: passages that teach

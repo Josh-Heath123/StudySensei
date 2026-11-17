@@ -126,3 +126,50 @@ def test_the_merge_schema_is_lenient_the_same_way() -> None:
 
 def test_clip_leaves_short_text_alone() -> None:
     assert clip("  Access   control ", 80) == "Access control"
+
+
+# --- names under another key (ADR 0008) ---
+# The COS330 failures: every reply's detail read "topics.0.name: Field required;
+# topics.0.subtopics.0.name: Field required; ..." for every topic and subtopic, so the
+# topics had a name, only under another key. Synthetic content, same shape.
+
+
+@pytest.mark.parametrize("key", ["title", "topic", "topic_name", "heading", "label"])
+def test_a_name_under_another_key_is_read(key: str) -> None:
+    reply = {
+        "topics": [
+            {
+                key: "Firewalls",
+                "description": "Filtering traffic.",
+                "pages": [1, 2],
+                "subtopics": [{key: "Packet filters", "pages": [2]}],
+            }
+        ]
+    }
+
+    topics = MaterialTopics.model_validate(reply)
+
+    assert topics.topics[0].name == "Firewalls"
+    assert topics.topics[0].subtopics[0].name == "Packet filters"
+
+
+def test_name_wins_over_the_other_keys_and_blank_ones_are_skipped() -> None:
+    topics = MaterialTopics.model_validate(
+        {"topics": [{"name": "Real", "title": "Other"}, {"title": " ", "topic": "Second"}]}
+    )
+
+    assert [t.name for t in topics.topics] == ["Real", "Second"]
+
+
+def test_the_merge_reads_another_key_too() -> None:
+    tree = ModuleTopicMap.model_validate(
+        {"topics": [{"title": "Ch1 Overview", "subtopics": [{"title": "CIA triad"}]}]}
+    )
+
+    assert tree.topics[0].name == "Ch1 Overview"
+    assert tree.topics[0].subtopics[0].name == "CIA triad"
+
+
+def test_no_name_at_all_is_still_rejected() -> None:
+    with pytest.raises(ValidationError):
+        MaterialTopics.model_validate({"topics": [{"description": "Nameless.", "pages": [1]}]})

@@ -13,7 +13,16 @@ from app.models.academics import _in
 from app.models.base import TimestampedBase
 
 AI_ROLES = ("smart", "bulk", "vision", "long")
-AI_OUTCOMES = ("ok", "rate_limited", "error", "invalid_json", "timeout", "truncated")
+AI_OUTCOMES = (
+    "ok",
+    "rate_limited",
+    "error",
+    "invalid_json",
+    "timeout",
+    "truncated",
+    "overloaded",
+    "refused",
+)
 
 
 class AIUsage(TimestampedBase):

@@ -1,18 +1,19 @@
 """Call budgets, request pacing, cut-off replies and the usage detail (ADR 0007)."""
 
+import httpx
 import pytest
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.client import CallBudget, LLMClient
-from app.ai.errors import AICallLimitReached, AIInvalidOutput, AITruncated
+from app.ai.errors import AICallLimitReached, AIInvalidOutput, AITruncated, AIUnavailable
 from app.ai.messages import user
 from app.ai.usage import DbUsageStore, SessionFactory
 from app.core.config import Settings
 from app.models import AIUsage, User
 from tests.ai.conftest import NOW
-from tests.fakes import FakeLLM, ok, rate_limited
+from tests.fakes import FakeLLM, ok, overloaded, rate_limited
 
 MESSAGES = [user("Topics?")]
 
@@ -106,17 +107,42 @@ async def test_the_budget_counts_every_call_including_fallbacks(
     user_a: User,
 ) -> None:
     client = client_with(settings, fake_llm, usage_sessions, Clock(), ai_retries=0)
-    fake_llm.reply("flash", rate_limited(3600))
-    fake_llm.reply("oss-120b", rate_limited(3600))
+    too_large = httpx.Response(413, json={"error": {"message": "Request too large"}})
+    fake_llm.reply("flash", too_large)
+    fake_llm.reply("oss-120b", too_large)
     budget = CallBudget(limit=1)
 
-    with pytest.raises(AICallLimitReached):
+    with pytest.raises(AICallLimitReached) as raised:
         await client.complete_json(
             "smart", MESSAGES, Names, purpose="t", user_id=user_a.id, budget=budget
         )
 
     assert [sent.model for sent in fake_llm.requests] == ["flash"]  # Groq would be call 2
-    assert budget.used == 1
+    assert budget.used == 1 and not raised.value.busy
+
+
+async def test_turned_away_requests_have_their_own_wider_limit(
+    settings: Settings, fake_llm: FakeLLM, usage_sessions: SessionFactory, user_a: User
+) -> None:
+    """429s and 503s ran nothing, so they don't use the call cap; their own cap ends a run."""
+    client = client_with(settings, fake_llm, usage_sessions, Clock(), ai_retries=0)
+    fake_llm.reply("flash", rate_limited(3600))
+    fake_llm.reply("oss-120b", overloaded())
+    budget = CallBudget(limit=1, turned_away_limit=2)
+
+    with pytest.raises(AIUnavailable):
+        await client.complete_json(
+            "smart", MESSAGES, Names, purpose="t", user_id=user_a.id, budget=budget
+        )
+    assert (budget.used, budget.turned_away) == (0, 2)
+    client._cooldown.clear()  # as if the job ran again after the cooldowns
+
+    with pytest.raises(AICallLimitReached) as raised:
+        await client.complete_json(
+            "smart", MESSAGES, Names, purpose="t", user_id=user_a.id, budget=budget
+        )
+    assert raised.value.busy
+    assert len(fake_llm.requests) == 2
 
 
 async def test_no_repair_once_the_budget_has_used_its_repair(

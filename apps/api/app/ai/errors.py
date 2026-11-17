@@ -27,7 +27,19 @@ class AIRequestFailed(Exception):
 
 
 class AICallLimitReached(AIRequestFailed):
-    """The caller's ``CallBudget`` is spent: no more provider calls for this run."""
+    """The caller's ``CallBudget`` is spent: no more provider calls for this run.
+
+    ``busy`` when it was the requests turned away (429/503) that ran out, rather than
+    the calls that ran."""
+
+    def __init__(self, message: str, *, busy: bool = False) -> None:
+        super().__init__(message)
+        self.busy = busy
+
+
+class AIRefused(AIRequestFailed):
+    """Every model that could be tried declined to answer this content (a safety or
+    content filter, or an empty reply). Asking the same models again won't help."""
 
 
 class AITruncated(Exception):
