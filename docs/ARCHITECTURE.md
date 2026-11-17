@@ -137,7 +137,7 @@ Derived tables can always be rebuilt from source tables.
 - 0004 is data only: existing module colours mapped to the design-system swatches (nearest hue)
 - `chunks` (0007), with a GIN index on `tsv` and no vector index (decision 0005)
 - `ai_usage` (0008): user, provider, model, role, purpose, input/output tokens, latency, outcome (`ok`, `rate_limited`,
-  `error`, `invalid_json`). Never prompt or reply text.
+  `error`, `invalid_json`, and `timeout` from 0009). Never prompt or reply text.
 
 ### Session events
 
@@ -182,12 +182,22 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   - Gemini (primary): `https://generativelanguage.googleapis.com/v1beta/openai/`, `GEMINI_API_KEY`
   - Groq (fallback): `https://api.groq.com/openai/v1`, `GROQ_API_KEY`
   - Ollama (optional): `http://localhost:11434/v1`, no key, on only when `OLLAMA_MODEL` is set (then last in every role, no budget)
-- **Roles, in config** (`AI_SMART`, `AI_BULK`: ordered `"provider/model"` lists in `app/core/config.py`):
+- **Roles, in config** (`AI_SMART`, `AI_BULK` in `app/core/config.py`): ordered lists of routes, each a
+  `"provider/model"` plus a `reasoning_effort`:
 
-  | Role | Used for | Models, in order |
-  | --- | --- | --- |
-  | `smart` | tutor, topic maps, reading scanned pages | `gemini/gemini-3.8-flash`, `groq/openai/gpt-oss-120b`, `groq/qwen/qwen3.8-27b` |
-  | `bulk` | classification, tagging | `gemini/gemini-3.5-flash-lite`, `groq/openai/gpt-oss-20b` |
+  | Role | Used for | Models, in order | Thinking |
+  | --- | --- | --- | --- |
+  | `smart` | tutor, topic maps, reading scanned pages | `gemini/gemini-3.8-flash`, `groq/openai/gpt-oss-120b`, `groq/qwen/qwen3.8-27b` | `low` |
+  | `bulk` | classification, tagging | `gemini/gemini-3.5-flash-lite`, `groq/openai/gpt-oss-20b` | `minimal` |
+
+- **Thinking level:** Gemini 3 models always think, at the model's own default level unless `reasoning_effort` is
+  sent, and that default can make even a one-word reply slow. Each route's level (`minimal`, `low`, `medium`, `high`,
+  or empty to send nothing) goes only to providers that accept it (`routes.wire_effort`):
+  - Gemini: all four levels.
+  - Groq gpt-oss: `low`, `medium` and `high` only, so `minimal` is sent as `low`.
+  - Groq's Qwen (it takes other values) and Ollama: not sent.
+
+  A call can ask for more with `complete_text(…, reasoning_effort="high")`. The ping always uses `minimal`.
 
 - **Free-tier limits and budgets** (`AI_DAILY_BUDGET`, requests per day, about 10 % under the limit). Google no longer
   publishes free-tier numbers. These are the per-project quotas that AI Studio and 429 replies reported in Sept–Nov 2026.
@@ -203,8 +213,8 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
 
   Groq's Llama models left the free tier on 16 Aug 2026, so its fallbacks are gpt-oss and Qwen.
   At 20 requests a day Flash is scarce: topic maps for a few decks will spill over to Groq.
-- **Interface** (`client.py`): `complete_text(role, messages, *, purpose, user_id)` and
-  `complete_json(role, messages, Schema, *, purpose, user_id)`. Messages are `system()` / `user(text, *images)`. An
+- **Interface** (`client.py`): `complete_text(role, messages, *, purpose, user_id, reasoning_effort=None)` and
+  `complete_json(role, messages, Schema, *, purpose, user_id, reasoning_effort=None)`. Messages are `system()` / `user(text, *images)`. An
   image (a scanned page) is sent inline as a data URL, and only `AI_VISION_MODELS` get those requests.
 - **Structured output:** `complete_json` asks for a JSON object (the schema goes in the system prompt, with
   `response_format: json_object`) and validates it with Pydantic (a Markdown fence is tolerated). If it fails, one
@@ -212,12 +222,15 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   item for manual review.
 - **Routing per request:** the client walks the role's models in order. It skips a model whose provider has no key,
   that can't read the images, that is cooling down after a 429/5xx, or whose daily budget is spent.
+  - **Timeouts:** 10 s to connect (`AI_CONNECT_TIMEOUT_SECONDS`) and 90 s to wait for the reply
+    (`AI_READ_TIMEOUT_SECONDS`). A timeout is logged as `timeout`, is retryable, and counts against the budget
+    (the provider may have answered after we stopped waiting).
   - **429/5xx/timeouts:** the wait is the `Retry-After` (a header, an HTTP date, or Gemini's `retryDelay` in the body),
     or else 2 s × 2ⁿ backoff, plus jitter. The model is retried once (`AI_RETRIES`) if that wait is at most
     `AI_MAX_WAIT_SECONDS` (20 s). Otherwise it cools down (at least a minute) and the next model is tried. Other 4xx
     errors (a bad key, an unknown model) fall straight through.
   - **Budgets** (`budget.py`): the user's `ai_usage` rows for that model since the provider's last local midnight
-    (`AI_QUOTA_TIMEZONE`). They count `ok`, `error` and `invalid_json` (a 429 used no quota).
+    (`AI_QUOTA_TIMEZONE`). They count `ok`, `error`, `invalid_json` and `timeout` (a 429 used no quota).
   - **All out:** `AIUnavailable(retry_at=…)`, set to the earliest cooldown end or budget reset. The worker reschedules
     the job for then without using an attempt (`queue.reschedule`), and the API answers 503 with `Retry-After`. With no
     provider configured, `retry_at` is None: jobs fail with "AI isn't set up yet…", and nothing crashes.
@@ -231,8 +244,10 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   - The client never looks the user up: `user_id` is only for usage rows and budgets. No names, emails, student
     numbers or reflections go in prompts.
   - For COS330, the student turns `allow_ai` off on their own `u23541475_*` submissions.
-- **Checking keys:** `uv run python -m app.ai.ping` sends "Reply with the single word: pong" to every configured model.
-  It checks each ID is in the provider's `/models` list and prints the provider, model, latency and reply.
+- **Checking keys:** `uv run python -m app.ai.ping` sends "Reply with the single word: pong" to every configured model
+  at `minimal` effort. It prints `→ provider/model …` before each call, then `ok` with the latency and reply, or `FAIL`
+  with the reason, and says if a model ID is missing from the provider's `/models` list. Each model gets 30 s in total,
+  so a slow one can't hold up the rest.
 - **Tests never call a provider:** `tests/conftest.py` blanks the key variables (the environment beats `.env`) and
   installs a client whose transport fails any request. AI tests script replies with `FakeLLM` (`tests/fakes.py`).
 - **AI suggests, code decides:** AI never changes the plan, deletes data or sends notifications.

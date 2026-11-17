@@ -15,7 +15,8 @@ from app.models import AIUsage
 SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 
 # Outcomes that used up a request of the provider's quota (a 429 was refused, so it didn't).
-COUNTED_OUTCOMES = ("ok", "error", "invalid_json")
+# A timeout counts: the provider may well have answered after we stopped waiting.
+COUNTED_OUTCOMES = ("ok", "error", "invalid_json", "timeout")
 
 
 @dataclass(frozen=True)

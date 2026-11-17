@@ -1,10 +1,34 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
-from pydantic import SecretStr, field_validator
+from pydantic import BaseModel, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
+
+ReasoningEffort = Literal["minimal", "low", "medium", "high"]
+
+
+class RouteSetting(BaseModel):
+    """One model in a role: ``"provider/model"`` and how hard it should think.
+
+    ``reasoning_effort`` is sent only to providers that accept it (Gemini, Groq's gpt-oss);
+    empty means don't send it, so the model uses its own default. A plain string in the
+    env (``"gemini/gemini-3.8-flash"``) means no effort.
+    """
+
+    route: str
+    reasoning_effort: ReasoningEffort | None = None
+
+    @field_validator("reasoning_effort", mode="before")
+    @classmethod
+    def _blank_is_default(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
+
+
+def _routes(effort: ReasoningEffort | None, *keys: str) -> list[RouteSetting]:
+    return [RouteSetting(route=key, reasoning_effort=effort) for key in keys]
 
 
 class Settings(BaseSettings):
@@ -35,13 +59,14 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434/v1"
     # Ollama is off unless a model is named; it's then tried last in every role, with no budget.
     ollama_model: str | None = None
-    # Each role is an ordered list of "provider/model", tried first to last.
-    ai_smart: list[str] = [
-        "gemini/gemini-3.8-flash",
-        "groq/openai/gpt-oss-120b",
-        "groq/qwen/qwen3.8-27b",
-    ]
-    ai_bulk: list[str] = ["gemini/gemini-3.5-flash-lite", "groq/openai/gpt-oss-20b"]
+    # Each role is an ordered list of routes, tried first to last. Gemini 3 always thinks
+    # (at its default level unless told); bulk work needs little, smart work a bit more.
+    ai_smart: list[RouteSetting] = _routes(
+        "low", "gemini/gemini-3.8-flash", "groq/openai/gpt-oss-120b", "groq/qwen/qwen3.8-27b"
+    )
+    ai_bulk: list[RouteSetting] = _routes(
+        "minimal", "gemini/gemini-3.5-flash-lite", "groq/openai/gpt-oss-20b"
+    )
     # Requests per day per "provider/model": the free-tier limit less about 10 %.
     # A model missing here has no daily budget.
     ai_daily_budget: dict[str, int] = {
@@ -59,11 +84,21 @@ class Settings(BaseSettings):
     ]
     # When each provider's daily quota resets (midnight in this time zone).
     ai_quota_timezone: dict[str, str] = {"gemini": "America/Los_Angeles", "groq": "UTC"}
-    ai_timeout_seconds: float = 90.0
+    # Connecting gives up quickly; reading allows for a long answer (and thinking) to arrive.
+    ai_connect_timeout_seconds: float = 10.0
+    ai_read_timeout_seconds: float = 90.0
     # Retries of one model after a 429/5xx before falling through to the next.
     ai_retries: int = 1
     # A Retry-After longer than this isn't waited for: the next model is tried instead.
     ai_max_wait_seconds: float = 20.0
+
+    @field_validator("ai_smart", "ai_bulk", mode="before")
+    @classmethod
+    def _plain_route_strings(cls, value: object) -> object:
+        """Allow ``["gemini/gemini-3.8-flash", …]`` as well as route objects."""
+        if isinstance(value, list):
+            return [{"route": item} if isinstance(item, str) else item for item in value]
+        return value
 
     @field_validator("gemini_api_key", "groq_api_key", "ollama_model", mode="before")
     @classmethod

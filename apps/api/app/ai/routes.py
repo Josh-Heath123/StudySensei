@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import SecretStr
 
-from app.core.config import Settings
+from app.core.config import ReasoningEffort, RouteSetting, Settings
 
 AIRole = Literal["smart", "bulk"]
 ROLES: tuple[AIRole, ...] = ("smart", "bulk")
@@ -33,6 +33,8 @@ class Route:
     # Requests per day this client allows itself, or None for no limit (Ollama).
     daily_budget: int | None
     vision: bool
+    # From config; None means the model's own default. ``wire_effort`` says what is sent.
+    reasoning_effort: ReasoningEffort | None = None
 
     @property
     def key(self) -> str:
@@ -71,21 +73,43 @@ def parse_route_key(key: str) -> tuple[str, str]:
     return provider, model
 
 
+def accepts_reasoning_effort(provider: str, model: str) -> bool:
+    """Gemini (all of its OpenAI-compatible models) and Groq's gpt-oss models take it.
+
+    Groq's Qwen takes different values (none/default/…), and Ollama varies by model, so
+    neither is sent one.
+    """
+    return provider == "gemini" or (provider == "groq" and model.startswith("openai/gpt-oss"))
+
+
+def wire_effort(provider: str, model: str, effort: ReasoningEffort | None) -> str | None:
+    """The ``reasoning_effort`` to send, or None to leave it out.
+
+    Groq's gpt-oss accepts low/medium/high only, so "minimal" goes as its lowest, "low".
+    """
+    if effort is None or not accepts_reasoning_effort(provider, model):
+        return None
+    if provider == "groq" and effort == "minimal":
+        return "low"
+    return effort
+
+
 def routes_for(role: AIRole, settings: Settings) -> list[Route]:
     """Every route in the role, in order, configured or not. Ollama (when set) goes last."""
     by_name = providers(settings)
-    keys = list(settings.ai_smart if role == "smart" else settings.ai_bulk)
+    entries = list(settings.ai_smart if role == "smart" else settings.ai_bulk)
     if settings.ollama_model is not None:
-        keys.append(f"ollama/{settings.ollama_model}")
+        entries.append(RouteSetting(route=f"ollama/{settings.ollama_model}"))
     routes = []
-    for key in keys:
-        provider, model = parse_route_key(key)
+    for entry in entries:
+        provider, model = parse_route_key(entry.route)
         routes.append(
             Route(
                 by_name[provider],
                 model,
-                settings.ai_daily_budget.get(key),
-                key in settings.ai_vision_models,
+                settings.ai_daily_budget.get(entry.route),
+                entry.route in settings.ai_vision_models,
+                entry.reasoning_effort,
             )
         )
     return routes

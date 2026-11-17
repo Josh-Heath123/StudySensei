@@ -5,6 +5,7 @@ It knows nothing about roles, budgets or fallback; the client does.
 Error messages never include the key or the prompt.
 """
 
+import asyncio
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -30,10 +31,18 @@ class Completion:
 class ProviderError(Exception):
     """A failed request. ``retryable`` for 429, 5xx, timeouts and lost connections."""
 
-    def __init__(self, message: str, *, status: int | None, retry_after: float | None) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        status: int | None,
+        retry_after: float | None,
+        timed_out: bool = False,
+    ) -> None:
         super().__init__(message)
         self.status = status
         self.retry_after = retry_after
+        self.timed_out = timed_out
 
     @property
     def rate_limited(self) -> bool:
@@ -85,14 +94,21 @@ class OpenAICompatAdapter:
         self.provider = provider
         self._http = http
 
-    async def _send(self, method: str, path: str, body: dict[str, Any] | None) -> Any:
+    async def _send(
+        self, method: str, path: str, body: dict[str, Any] | None, deadline: float | None = None
+    ) -> Any:
+        """One request. ``deadline`` caps the whole call in seconds (connect + wait + read)."""
         name = self.provider.name
         try:
-            response = await self._http.request(
-                method, _url(self.provider, path), json=body, headers=_headers(self.provider)
-            )
-        except httpx.TimeoutException as exc:
-            raise ProviderError(f"{name}: timed out", status=None, retry_after=None) from exc
+            async with asyncio.timeout(deadline):
+                response = await self._http.request(
+                    method, _url(self.provider, path), json=body, headers=_headers(self.provider)
+                )
+        except (httpx.TimeoutException, TimeoutError) as exc:
+            phase = "connecting" if isinstance(exc, httpx.ConnectTimeout) else "waiting for a reply"
+            raise ProviderError(
+                f"{name}: timed out {phase}", status=None, retry_after=None, timed_out=True
+            ) from exc
         except httpx.TransportError as exc:
             raise ProviderError(
                 f"{name}: couldn't connect ({type(exc).__name__})", status=None, retry_after=None
@@ -109,12 +125,21 @@ class OpenAICompatAdapter:
             raise ProviderError(f"{name}: reply wasn't JSON", status=502, retry_after=None) from exc
 
     async def complete(
-        self, model: str, messages: list[Message], *, json_mode: bool = False
+        self,
+        model: str,
+        messages: list[Message],
+        *,
+        json_mode: bool = False,
+        reasoning_effort: str | None = None,
+        deadline: float | None = None,
     ) -> Completion:
+        """Send ``reasoning_effort`` as given (None leaves it out): see ``routes.wire_effort``."""
         body: dict[str, Any] = {"model": model, "messages": [to_wire(m) for m in messages]}
         if json_mode:
             body["response_format"] = {"type": "json_object"}
-        data = await self._send("POST", "chat/completions", body)
+        if reasoning_effort is not None:
+            body["reasoning_effort"] = reasoning_effort
+        data = await self._send("POST", "chat/completions", body, deadline)
         try:
             text = data["choices"][0]["message"]["content"] or ""
         except (KeyError, IndexError, TypeError) as exc:
@@ -128,6 +153,6 @@ class OpenAICompatAdapter:
             output_tokens=int(usage.get("completion_tokens") or 0),
         )
 
-    async def list_models(self) -> list[str]:
-        data = await self._send("GET", "models", None)
+    async def list_models(self, deadline: float | None = None) -> list[str]:
+        data = await self._send("GET", "models", None, deadline)
         return sorted(_model_id(str(item["id"])) for item in data.get("data", []))
