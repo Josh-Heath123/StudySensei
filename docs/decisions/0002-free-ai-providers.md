@@ -72,3 +72,29 @@ it left open.
   (one repair attempt). Streaming arrives with the tutor (Phase 3).
 - **Privacy is enforced in code:** course text reaches prompts only through `app/ai/sources.py`, which filters out
   materials with `allow_ai` off and never sends file names.
+
+## Update, 2026-11-17 (later): routes rebalanced, vision role
+
+Added at the product owner's request after the first real pings. Gemini 3.8 Flash replaces neither "Flash" role any
+more; the free tier's daily limits and latency decide the order.
+
+- **Findings:**
+  - `gemini-3.8-flash` timed out after 30 s twice (with no thinking level set, and at `low`), and its free tier allows
+    about 20 requests a day.
+  - `gemini-3.5-flash-lite` answered in 1–10 s and allows about 500 a day.
+  - Groq's gpt-oss allows about 1,000 a day.
+- **New routes** (config defaults, each with its `reasoning_effort`):
+
+  | Role | Order |
+  | --- | --- |
+  | `smart` (tutor, topic maps) | Groq `openai/gpt-oss-120b` (low) → `gemini-3.5-flash-lite` (low) → `gemini-3.8-flash` (low), last resort |
+  | `bulk` (classification, tagging) | `gemini-3.5-flash-lite` (minimal) → Groq `openai/gpt-oss-20b` (low) |
+  | `vision` (any message with an image: scanned pages, figure slides) | `gemini-3.5-flash-lite` → Groq `qwen/qwen3.8-27b` → `gemini-3.8-flash`, all low |
+
+- **Vision:** every model in it accepts images, per the provider docs (both Gemini model pages list image input;
+  Groq's Qwen takes 3 images per request). It replaces the earlier per-model vision flag, and Ollama isn't added to it.
+- **Budgets unchanged** (18, 450, 900, 900, 900 requests a day): Google still publishes no free-tier numbers, and Groq's
+  page shows the same 1K RPD. gpt-oss-120b's 200K tokens a day may now bind first, which shows up as 429s that fall
+  through to Flash-Lite.
+- **Consequence:** the tutor and topic maps will mostly run on gpt-oss-120b, so its evals matter most. The earlier
+  note that "Flash" does topic maps and scanned pages no longer holds.

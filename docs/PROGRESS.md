@@ -2,6 +2,21 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-17: Phase 2, AI routes rebalanced, vision role
+
+- **Why:** pings showed `gemini-3.8-flash` timing out at 30 s (default and `low`) on a ~20-a-day free tier, while
+  `gemini-3.5-flash-lite` answers in 1–10 s on ~500 a day.
+- **Done:**
+  - **smart:** Groq `gpt-oss-120b` → Flash-Lite → 3.8 Flash (last resort), all `low`
+  - **bulk:** Flash-Lite (`minimal`) → `gpt-oss-20b` (`low`)
+  - **New `vision` role:** Flash-Lite → Groq Qwen → 3.8 Flash. Any request with an image goes there and is logged as
+    `vision` (migration 0010). It replaces `AI_VISION_MODELS`, and every model in it was checked in the provider docs
+    for image input.
+  - ADR 0002 has a second dated update, ARCHITECTURE has the new routes and the reasons, and there are new tests for
+    vision routing and fallback.
+- **Decided:** budgets are unchanged (no new published numbers). Ollama stays out of `vision`.
+- **Next:** rerun the ping with both keys, then Phase 2 task 6 (topic extraction), which will mostly run on gpt-oss-120b.
+
 ## 2026-11-17: Phase 2, LLM client fix (supported thinking levels, provider error text)
 
 - **Why:** the ping got HTTP 400 from `gemini-3.8-flash` in 0.4 s. It doesn't support `minimal`, which the ping sent to every model.

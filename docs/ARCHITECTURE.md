@@ -28,7 +28,7 @@ background work. **Camera frames and audio never leave the browser.**
 | Background jobs | Worker polling a `jobs` table with `FOR UPDATE SKIP LOCKED` (decision 0004) | No Redis; jobs survive restarts |
 | Embeddings | Local `fastembed`, `BAAI/bge-small-en-v1.5` (384 dims, CPU) | Free, private, fast enough |
 | LLM access | Our own `LLMClient` with **one OpenAI-compatible adapter** | ~200 lines we control ([0002](decisions/0002-free-ai-providers.md)) |
-| Models | `smart`: `gemini-3.8-flash` → Groq `openai/gpt-oss-120b` → `qwen/qwen3.8-27b` (images); `bulk`: `gemini-3.5-flash-lite` → Groq `openai/gpt-oss-20b`; optional Ollama last | Zero cost; roles live in config (see AI integration) |
+| Models | `smart`: Groq `openai/gpt-oss-120b` → `gemini-3.5-flash-lite` → `gemini-3.8-flash`; `bulk`: `gemini-3.5-flash-lite` → Groq `openai/gpt-oss-20b`; `vision` (any image): `gemini-3.5-flash-lite` → Groq `qwen/qwen3.8-27b` → `gemini-3.8-flash`; optional Ollama last in the text roles | Zero cost, ordered by free-tier daily limits and latency; roles live in config (see AI integration) |
 | PDF / Office | `pypdfium2`, `python-pptx`, `python-docx` | Permissive licences (PyMuPDF is AGPL; Docling pulls in PyTorch) |
 | Scanned pages | Detect pages with no text layer; opt-in vision-LLM transcription | Tesseract handles maths and handwriting badly |
 | Spaced repetition | FSRS (`py-fsrs` / `ts-fsrs`) | Fewer reviews for the same retention |
@@ -182,13 +182,25 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   - Gemini (primary): `https://generativelanguage.googleapis.com/v1beta/openai/`, `GEMINI_API_KEY`
   - Groq (fallback): `https://api.groq.com/openai/v1`, `GROQ_API_KEY`
   - Ollama (optional): `http://localhost:11434/v1`, no key, on only when `OLLAMA_MODEL` is set (then last in every role, no budget)
-- **Roles, in config** (`AI_SMART`, `AI_BULK` in `app/core/config.py`): ordered lists of routes, each a
-  `"provider/model"` plus a `reasoning_effort`:
+- **Roles, in config** (`AI_SMART`, `AI_BULK`, `AI_VISION` in `app/core/config.py`): ordered lists of routes, each
+  a `"provider/model"` plus a `reasoning_effort`:
 
   | Role | Used for | Models, in order | Thinking |
   | --- | --- | --- | --- |
-  | `smart` | tutor, topic maps, reading scanned pages | `gemini/gemini-3.8-flash`, `groq/openai/gpt-oss-120b`, `groq/qwen/qwen3.8-27b` | `low` |
-  | `bulk` | classification, tagging | `gemini/gemini-3.5-flash-lite`, `groq/openai/gpt-oss-20b` | `minimal` |
+  | `smart` | tutor, topic maps | `groq/openai/gpt-oss-120b`, `gemini/gemini-3.5-flash-lite`, `gemini/gemini-3.8-flash` | `low` |
+  | `bulk` | classification, tagging | `gemini/gemini-3.5-flash-lite` (`minimal`), `groq/openai/gpt-oss-20b` (`low`) | as listed |
+  | `vision` | any request with an image: scanned pages, figure slides | `gemini/gemini-3.5-flash-lite`, `groq/qwen/qwen3.8-27b`, `gemini/gemini-3.8-flash` | `low` |
+
+  **Why this order** (re-ranked 2026-11-17 after real pings):
+  - `gemini-3.8-flash` allows only ~20 requests a day and timed out at 30 s twice, at its default level and at `low`.
+    It can't carry the tutor or topic maps, so it's the last resort in `smart` and `vision`.
+  - `gemini-3.5-flash-lite` answers in 1–10 s and allows ~500 a day.
+  - Groq's gpt-oss allows ~1,000 a day and is fast, so `gpt-oss-120b` leads `smart`.
+
+  **Images:** a request with an image always uses `vision`, whatever role it asked for, and its usage rows say
+  `vision`. Every model there accepts images, per the provider docs: both Gemini model pages list image input, and
+  Groq's Qwen takes up to 3 images per request (2,048 tokens each). Groq's gpt-oss is text-only. Ollama isn't added
+  to `vision`, since a local model may not read images.
 
 - **Thinking level:** Gemini 3 models always think, at the model's own default level unless `reasoning_effort` is
   sent, and that default can make even a one-word reply slow. Each route's level (`minimal`, `low`, `medium`, `high`,
@@ -217,11 +229,13 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   | Groq `openai/gpt-oss-20b` | 30 RPM, 1K RPD, 8K TPM, 200K TPD | 900 | midnight UTC (assumed) | no |
   | Groq `qwen/qwen3.8-27b` | 30 RPM, 1K RPD, 8K TPM (3 images per request) | 900 | midnight UTC (assumed) | yes |
 
-  Groq's Llama models left the free tier on 16 Aug 2026, so its fallbacks are gpt-oss and Qwen.
-  At 20 requests a day Flash is scarce: topic maps for a few decks will spill over to Groq.
+  Groq's Llama models left the free tier on 16 Aug 2026. Groq's limits page shows only its Developer-plan base table
+  (the same 1K RPD), and Google publishes no free-tier numbers, so the budgets are unchanged from the first measurements.
+  With gpt-oss leading `smart`, its 200K tokens per day may run out before its 1K requests do: topic maps send long
+  prompts. Budgets count requests only, so a token limit shows up as 429s that fall through to Flash-Lite.
 - **Interface** (`client.py`): `complete_text(role, messages, *, purpose, user_id, reasoning_effort=None)` and
   `complete_json(role, messages, Schema, *, purpose, user_id, reasoning_effort=None)`. Messages are `system()` / `user(text, *images)`. An
-  image (a scanned page) is sent inline as a data URL, and only `AI_VISION_MODELS` get those requests.
+  image (a scanned page) is sent inline as a data URL, and the request goes to the `vision` role.
 - **Structured output:** `complete_json` asks for a JSON object (the schema goes in the system prompt, with
   `response_format: json_object`) and validates it with Pydantic (a Markdown fence is tolerated). If it fails, one
   repair turn is sent with the validation errors. A second failure raises `AIInvalidOutput`, and the caller marks the
