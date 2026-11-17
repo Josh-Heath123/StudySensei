@@ -109,6 +109,7 @@ export function aTopicMap(overrides: Partial<TopicMapStatus> = {}): TopicMapStat
     waiting_until: null,
     last_error: null,
     merged_at: null,
+    review: { kept: 0, renamed: 0, merged: 0, dismissed: 0, unreviewed: 0 },
     ...overrides,
   };
 }

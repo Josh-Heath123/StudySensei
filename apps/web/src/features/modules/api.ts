@@ -191,3 +191,121 @@ export function useClearAiTopics(moduleId: string) {
       ]),
   });
 }
+
+// --- Topic review (decision 0009) ----------------------------------------------------
+
+export type ReviewStats = components["schemas"]["TopicReviewStats"];
+export type DismissedTopic = components["schemas"]["DismissedTopicOut"];
+export type LinkedMaterial = components["schemas"]["LinkedMaterialOut"];
+export type LinkedPage = components["schemas"]["LinkedPageOut"];
+
+const reviewKeys = {
+  dismissed: (moduleId: string) => ["dismissed-topics", moduleId] as const,
+  pages: (topicId: string) => ["topic-pages", topicId] as const,
+};
+
+/** A review action: refreshes the tree, the review stats and the dismissed list. */
+function useReviewMutation<TArgs, TResult>(
+  moduleId: string,
+  mutationFn: (args: TArgs) => Promise<TResult>,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: keys.topics(moduleId) }),
+        queryClient.invalidateQueries({ queryKey: ["topic-map", moduleId] }),
+        queryClient.invalidateQueries({ queryKey: reviewKeys.dismissed(moduleId) }),
+      ]),
+  });
+}
+
+export function useKeepTopic(moduleId: string) {
+  return useReviewMutation(moduleId, (topicId: string) =>
+    unwrap(api.POST("/topics/{topic_id}/keep", { params: { path: { topic_id: topicId } } })),
+  );
+}
+
+export function useMergeTopicInto(moduleId: string) {
+  return useReviewMutation(moduleId, (args: { topicId: string; targetId: string }) =>
+    unwrap(
+      api.POST("/topics/{topic_id}/merge-into", {
+        params: { path: { topic_id: args.topicId } },
+        body: { target_id: args.targetId },
+      }),
+    ),
+  );
+}
+
+export function useDismissTopic(moduleId: string) {
+  return useReviewMutation(moduleId, (topicId: string) =>
+    unwrap(api.POST("/topics/{topic_id}/dismiss", { params: { path: { topic_id: topicId } } })),
+  );
+}
+
+export function useKeepAllTopics(moduleId: string) {
+  return useReviewMutation(moduleId, () =>
+    unwrap(
+      api.POST("/modules/{module_id}/topics/keep-all", {
+        params: { path: { module_id: moduleId } },
+      }),
+    ),
+  );
+}
+
+/** Only fetched while the dismissed list is open (`enabled`). */
+export function useDismissedTopics(moduleId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: reviewKeys.dismissed(moduleId),
+    queryFn: () =>
+      unwrap(
+        api.GET("/modules/{module_id}/dismissed-topics", {
+          params: { path: { module_id: moduleId } },
+        }),
+      ),
+    enabled,
+  });
+}
+
+export function useRestoreTopic(moduleId: string) {
+  return useReviewMutation(moduleId, (dismissedId: string) =>
+    unwrap(
+      api.POST("/dismissed-topics/{dismissed_id}/restore", {
+        params: { path: { dismissed_id: dismissedId } },
+      }),
+    ),
+  );
+}
+
+export function useTopicPages(topicId: string) {
+  return useQuery({
+    queryKey: reviewKeys.pages(topicId),
+    queryFn: () =>
+      unwrap(api.GET("/topics/{topic_id}/pages", { params: { path: { topic_id: topicId } } })),
+  });
+}
+
+/** Unlink a page from a topic; remembered, so relinking won't link it again. */
+export function useUnlinkPage(moduleId: string, topicId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { materialId: string; pageNumber: number }) =>
+      unwrap(
+        api.DELETE("/topics/{topic_id}/pages/{material_id}/{page_number}", {
+          params: {
+            path: {
+              topic_id: topicId,
+              material_id: args.materialId,
+              page_number: args.pageNumber,
+            },
+          },
+        }),
+      ),
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: reviewKeys.pages(topicId) }),
+        queryClient.invalidateQueries({ queryKey: keys.topics(moduleId) }),
+      ]),
+  });
+}

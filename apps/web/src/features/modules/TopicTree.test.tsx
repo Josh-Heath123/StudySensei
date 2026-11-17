@@ -72,11 +72,11 @@ test("adds a top-level topic and a subtopic", async () => {
 test("renames on Enter and cancels on Escape", async () => {
   const { calls, user } = renderTree();
 
-  await user.click(await screen.findByRole("button", { name: "Queues" }));
+  await user.click(await screen.findByRole("button", { name: "Rename: Queues" }));
   await user.keyboard("{Escape}");
   expect(lastCall(calls, "PATCH")).toBeUndefined();
 
-  await user.click(screen.getByRole("button", { name: "Queues" }));
+  await user.click(screen.getByRole("button", { name: "Rename: Queues" }));
   const input = screen.getByLabelText("Rename Queues");
   await user.clear(input);
   await user.type(input, "Message queues{Enter}");
