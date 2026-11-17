@@ -80,7 +80,8 @@ the web app calls the API through the typed `openapi-fetch` client. CI fails if 
 | Area | Routes |
 | --- | --- |
 | Modules | `GET/POST /modules`, `GET/PATCH/DELETE /modules/{id}` |
-| Topics | `GET /modules/{id}/topics` (nested tree), `POST /modules/{id}/topics`, `PATCH/DELETE /topics/{id}`, `POST /topics/{id}/move` `{parent_id, position}` |
+| Topics | `GET /modules/{id}/topics` (nested tree; each node has `linked_pages`), `POST /modules/{id}/topics`, `PATCH/DELETE /topics/{id}`, `POST /topics/{id}/move` `{parent_id, position}` (any edit makes an AI topic `source = user`) |
+| Topic maps | `GET /modules/{id}/topic-map` (eligible / analysed / pending / failed materials, `merging`, `waiting_until`, `last_error`, `merged_at`), `POST /modules/{id}/topic-map/build` (decision 0006) |
 | Assessments | `GET/POST /modules/{id}/assessments`, `GET /assessments?status=` (all modules), `GET/PATCH/DELETE /assessments/{id}` (responses include `topic_ids`; sending `topic_ids` replaces the whole set) |
 | Tasks | `GET/POST /modules/{id}/tasks`, `GET /tasks?status=` (all modules), `GET/PATCH/DELETE /tasks/{id}` (`status: "done"` sets `completed_at`) |
 | Sessions | `POST /sessions`, `GET /sessions/active`, `GET/DELETE /sessions/{id}`, `POST /sessions/{id}/events`, `PUT /sessions/{id}/reflection`, `GET /modules/{id}/sessions?limit=&offset=` (a page `{items, total, limit, offset}`: the open session first, then newest first; limit 1–100, default 20), `GET /modules/{id}/sessions/summary?week_start=` (session count and active seconds, all time and since `week_start`) |
@@ -121,7 +122,8 @@ Derived tables can always be rebuilt from source tables.
 | --- | --- | --- |
 | People and settings | `users`, `ai_credentials`, `consents`, `push_subscriptions` | Keys Fernet-encrypted; consent per feature with timestamps |
 | Academic structure | `modules`, `topics` (tree via `parent_id`), `assessments`, `assessment_topics`, `tasks` | `topics.source` is `ai` or `user`; user edits never overwritten |
-| Materials | `materials`, `material_pages` (text per page, `is_scanned`), `chunks` (one page each: page number, position, text, token count, `embedding vector(384)`, generated `tsv tsvector`), `chunk_topics` | `materials.kind`: slides, notes, study_guide, tutorial, past_paper, test, assignment, outline, other; `status`, `error`, `page_count`, `allow_ai`; `UNIQUE (module_id, sha256)` |
+| Materials | `materials`, `material_pages` (text per page, `is_scanned`), `chunks` (one page each: page number, position, text, token count, `embedding vector(384)`, generated `tsv tsvector`), `chunk_topics` (chunk, topic, score, method `pages`/`similarity`) |
+| Topic maps | `topic_proposals` (one per material: validated AI JSON + provider and model), `topic_pages` (pages each topic was drawn from) | Decision 0006 | `materials.kind`: slides, notes, study_guide, tutorial, past_paper, test, assignment, outline, other; `status`, `error`, `page_count`, `allow_ai`; `UNIQUE (module_id, sha256)` |
 | Past papers | `past_questions`, `past_question_topics` | Profile computed by queries, never stored as AI output |
 | Planning | `availability_rules`, `availability_exceptions`, `plan_blocks` | `plan_version` on each block |
 | Sessions | `study_sessions`, `session_events`, `session_minutes` | No images or audio, ever |
@@ -137,7 +139,9 @@ Derived tables can always be rebuilt from source tables.
 - 0004 is data only: existing module colours mapped to the design-system swatches (nearest hue)
 - `chunks` (0007), with a GIN index on `tsv` and no vector index (decision 0005)
 - `ai_usage` (0008): user, provider, model, role, purpose, input/output tokens, latency, outcome (`ok`, `rate_limited`,
-  `error`, `invalid_json`, and `timeout` from 0009). Never prompt or reply text.
+  `error`, `invalid_json`, and `timeout` from 0009). Never prompt or reply text. Roles `vision` (0010) and `long` (0011).
+- `topic_proposals`, `topic_pages`, `chunk_topics` (0011), plus `UNIQUE (id, module_id)` on `chunks`; the migration
+  queues `extract_topics` for every eligible indexed material.
 
 ### Session events
 
@@ -190,6 +194,7 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   | `smart` | tutor, topic maps | `groq/openai/gpt-oss-120b`, `gemini/gemini-3.5-flash-lite`, `gemini/gemini-3.8-flash` | `low` |
   | `bulk` | classification, tagging | `gemini/gemini-3.5-flash-lite` (`minimal`), `groq/openai/gpt-oss-20b` (`low`) | as listed |
   | `vision` | any request with an image: scanned pages, figure slides | `gemini/gemini-3.5-flash-lite`, `groq/qwen/qwen3.8-27b`, `gemini/gemini-3.8-flash` | `low` |
+  | `long` | whole documents in one prompt: topic extraction and the module merge | `gemini/gemini-3.5-flash-lite`, `gemini/gemini-3.8-flash`, `groq/openai/gpt-oss-120b` | `low` |
 
   **Why this order** (re-ranked 2026-11-17 after real pings):
   - `gemini-3.8-flash` allows only ~20 requests a day and timed out at 30 s twice, at its default level and at `low`.
@@ -308,7 +313,18 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
 4. **Index:** fastembed `BAAI/bge-small-en-v1.5` on the CPU (`passage_embed` for chunks, `query_embed` for searches),
    loaded once per process and cached in `data/models` (the first run downloads it), plus a generated english
    `tsvector` with a GIN index. Embedding is local, so it runs whatever `allow_ai` says.
-5. **Understand (Flash):** topics per material, merged into the module tree; chunks linked by similarity, then user review.
+5. **Understand** (decision 0006, `long` role):
+   - **`extract_topics`**, per eligible material (`allow_ai` on; slides, notes, study guide, tutorial or outline), queued
+     when it's indexed. Pages are labelled `[page N]` (scanned ones `[page N: figure, no text]`) inside `<material>`
+     tags, and the system prompt says it's untrusted content. The reply is `MaterialTopics` (topics ≤ 80 characters,
+     one sentence each, cited pages, ≤ 10 subtopics), stored as the material's `topic_proposals` row.
+   - **`merge_topics`**, once the module's last extraction ends or from "Build topic map": one call turns the
+     proposals into the module tree (about 8–15 top topics, 3–10 subtopics each). Existing topics are fixed anchors.
+     Code adds only new topics (`source = ai`) and cited pages (`topic_pages`), and never renames, moves or deletes.
+   - **Linking** (no AI): `chunk_topics` from cited pages (`pages`), and from local embeddings of "name: description"
+     (`similarity`, cosine ≥ 0.63, top 12 per topic). Rebuilt after each merge and by `link_topics` when topics change.
+   - **UI:** an "AI" badge, linked page counts, and a "Build topic map" panel with progress and honest states. The
+     review UI comes next.
 6. **Past papers:** segment into questions with marks, map to topics, and classify type and difficulty. Code recomputes the profile.
 7. **Search:** vector and keyword (top 20 each) → reciprocal rank fusion → module filter → current-topic boost → top 8 cited as [S1]–[S8].
    - **Built (Phase 2):** `GET /modules/{id}/search?q=&limit=8`. Vector: exact cosine scan of the module's chunks;
