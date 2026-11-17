@@ -1,5 +1,6 @@
 """Deterministic stand-ins for the embedding model and the AI providers, so tests stay offline."""
 
+import asyncio
 import hashlib
 import json
 import math
@@ -55,28 +56,39 @@ class FakeLLM:
     """An httpx transport standing in for every AI provider: no network in tests.
 
     Script replies per model with ``fake.reply("model", ok("hi"), rate_limited(5))``; each
-    request takes the model's next reply. A request for an unscripted model fails the test.
+    request takes the model's next reply. A reply can also be an exception to raise, such
+    as ``httpx.ReadTimeout("slow")``, and ``slow("model", seconds)`` delays every answer.
+    A request for an unscripted model fails the test.
     ``requests`` records what was sent (host, model, JSON body and headers).
     """
 
     def __init__(self) -> None:
-        self.script: dict[str, list[httpx.Response]] = {}
+        self.script: dict[str, list[httpx.Response | Exception]] = {}
+        self.delays: dict[str, float] = {}
         self.requests: list[SentRequest] = []
 
-    def reply(self, model: str, *responses: httpx.Response) -> None:
+    def reply(self, model: str, *responses: httpx.Response | Exception) -> None:
         self.script.setdefault(model, []).extend(responses)
 
-    def _handle(self, request: httpx.Request) -> httpx.Response:
+    def slow(self, model: str, seconds: float) -> None:
+        self.delays[model] = seconds
+
+    async def _handle(self, request: httpx.Request) -> httpx.Response:
         if request.method == "GET" and request.url.path.endswith("/models"):
             listed = [{"id": model} for model in self.script]
             return httpx.Response(200, json={"object": "list", "data": listed})
         body = json.loads(request.content)
         model = str(body["model"])
         self.requests.append(SentRequest(request.url.host, model, body, dict(request.headers)))
+        if model in self.delays:
+            await asyncio.sleep(self.delays[model])
         queued = self.script.get(model)
         if not queued:
             raise AssertionError(f"FakeLLM: no reply scripted for {model!r}")
-        return queued.pop(0)
+        reply = queued.pop(0)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
 
     @property
     def transport(self) -> httpx.MockTransport:

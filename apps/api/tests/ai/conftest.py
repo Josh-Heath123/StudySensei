@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.client import LLMClient
 from app.ai.usage import DbUsageStore, SessionFactory
-from app.core.config import Settings, get_settings
+from app.core.config import ReasoningEffort, RouteSetting, Settings, get_settings
 from tests.fakes import FakeLLM
 
 # Fake keys: the fake transport is the only thing that ever sees them.
@@ -16,6 +16,11 @@ GEMINI_KEY = "gemini-test-key-0000"
 GROQ_KEY = "groq-test-key-0000"
 # The client's clock. Real time, because the usage rows it writes get the database's now().
 NOW = datetime.now(UTC)
+
+
+def routes(*keys: str, effort: ReasoningEffort | None = None) -> list[RouteSetting]:
+    """Route settings for ``model_copy`` (which, unlike the env, doesn't parse plain strings)."""
+    return [RouteSetting(route=key, reasoning_effort=effort) for key in keys]
 
 
 @pytest.fixture
@@ -26,8 +31,9 @@ def settings() -> Settings:
             "gemini_api_key": SecretStr(GEMINI_KEY),
             "groq_api_key": SecretStr(GROQ_KEY),
             "ollama_model": None,
-            "ai_smart": ["gemini/flash", "groq/oss-120b"],
-            "ai_bulk": ["gemini/flash-lite", "groq/oss-20b"],
+            # No effort here; test_reasoning.py covers it with real-shaped model IDs.
+            "ai_smart": routes("gemini/flash", "groq/oss-120b"),
+            "ai_bulk": routes("gemini/flash-lite", "groq/oss-20b"),
             "ai_daily_budget": {"gemini/flash": 3, "groq/oss-120b": 5, "gemini/flash-lite": 10},
             "ai_vision_models": ["gemini/flash"],
             "ai_retries": 1,
