@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -24,6 +25,51 @@ class Settings(BaseSettings):
     max_upload_bytes: int = 50 * 1024 * 1024
     # How long the job worker sleeps when the queue is empty.
     worker_poll_seconds: float = 1.0
+
+    # --- AI providers (decision 0002, ARCHITECTURE "AI integration") ---
+    # A provider without a key is skipped. Keys are secrets: never log or return them.
+    gemini_api_key: SecretStr | None = None
+    groq_api_key: SecretStr | None = None
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    ollama_base_url: str = "http://localhost:11434/v1"
+    # Ollama is off unless a model is named; it's then tried last in every role, with no budget.
+    ollama_model: str | None = None
+    # Each role is an ordered list of "provider/model", tried first to last.
+    ai_smart: list[str] = [
+        "gemini/gemini-3.8-flash",
+        "groq/openai/gpt-oss-120b",
+        "groq/qwen/qwen3.8-27b",
+    ]
+    ai_bulk: list[str] = ["gemini/gemini-3.5-flash-lite", "groq/openai/gpt-oss-20b"]
+    # Requests per day per "provider/model": the free-tier limit less about 10 %.
+    # A model missing here has no daily budget.
+    ai_daily_budget: dict[str, int] = {
+        "gemini/gemini-3.8-flash": 18,  # free tier 20/day
+        "gemini/gemini-3.5-flash-lite": 450,  # free tier 500/day
+        "groq/openai/gpt-oss-120b": 900,  # free tier 1,000/day
+        "groq/openai/gpt-oss-20b": 900,  # free tier 1,000/day
+        "groq/qwen/qwen3.8-27b": 900,  # free tier 1,000/day
+    }
+    # Models that accept images; a request with an image skips the others.
+    ai_vision_models: list[str] = [
+        "gemini/gemini-3.8-flash",
+        "gemini/gemini-3.5-flash-lite",
+        "groq/qwen/qwen3.8-27b",
+    ]
+    # When each provider's daily quota resets (midnight in this time zone).
+    ai_quota_timezone: dict[str, str] = {"gemini": "America/Los_Angeles", "groq": "UTC"}
+    ai_timeout_seconds: float = 90.0
+    # Retries of one model after a 429/5xx before falling through to the next.
+    ai_retries: int = 1
+    # A Retry-After longer than this isn't waited for: the next model is tried instead.
+    ai_max_wait_seconds: float = 20.0
+
+    @field_validator("gemini_api_key", "groq_api_key", "ollama_model", mode="before")
+    @classmethod
+    def _blank_is_unset(cls, value: object) -> object:
+        """``GEMINI_API_KEY=`` in .env means no key."""
+        return None if isinstance(value, str) and not value.strip() else value
 
 
 @lru_cache
