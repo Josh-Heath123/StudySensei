@@ -1859,10 +1859,153 @@
           }
         }
       }
+    },
+    "/ai/status": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Status",
+        "description": "Which AI providers have a key (yes/no only), each role's models, and today's usage.\n\nUsage counts the current user's requests since each provider's daily quota reset.",
+        "operationId": "status_ai_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIStatusOut"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AIModelStatus": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "vision": {
+            "type": "boolean",
+            "title": "Vision"
+          },
+          "daily_budget": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Budget"
+          },
+          "used_today": {
+            "type": "integer",
+            "title": "Used Today"
+          },
+          "resets_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resets At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "model",
+          "configured",
+          "vision",
+          "daily_budget",
+          "used_today",
+          "resets_at"
+        ],
+        "title": "AIModelStatus"
+      },
+      "AIProviderStatus": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "key_set": {
+            "type": "boolean",
+            "title": "Key Set"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "configured",
+          "key_set"
+        ],
+        "title": "AIProviderStatus"
+      },
+      "AIStatusOut": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/AIProviderStatus"
+            },
+            "type": "array",
+            "title": "Providers"
+          },
+          "roles": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Roles"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/AIModelStatus"
+            },
+            "type": "array",
+            "title": "Models"
+          }
+        },
+        "type": "object",
+        "required": [
+          "available",
+          "providers",
+          "roles",
+          "models"
+        ],
+        "title": "AIStatusOut"
+      },
       "AssessmentCreate": {
         "properties": {
           "title": {

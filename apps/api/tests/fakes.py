@@ -1,9 +1,14 @@
-"""A deterministic stand-in for the embedding model, so tests never download it."""
+"""Deterministic stand-ins for the embedding model and the AI providers, so tests stay offline."""
 
 import hashlib
+import json
 import math
 import re
 from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Any
+
+import httpx
 
 from app.services.search.embedding import DIMENSIONS
 
@@ -44,3 +49,74 @@ class FakeEmbedder:
     def embed_query(self, text: str) -> list[float]:
         self.query_calls.append(text)
         return self._vector(text)
+
+
+class FakeLLM:
+    """An httpx transport standing in for every AI provider: no network in tests.
+
+    Script replies per model with ``fake.reply("model", ok("hi"), rate_limited(5))``; each
+    request takes the model's next reply. A request for an unscripted model fails the test.
+    ``requests`` records what was sent (host, model, JSON body and headers).
+    """
+
+    def __init__(self) -> None:
+        self.script: dict[str, list[httpx.Response]] = {}
+        self.requests: list[SentRequest] = []
+
+    def reply(self, model: str, *responses: httpx.Response) -> None:
+        self.script.setdefault(model, []).extend(responses)
+
+    def _handle(self, request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path.endswith("/models"):
+            listed = [{"id": model} for model in self.script]
+            return httpx.Response(200, json={"object": "list", "data": listed})
+        body = json.loads(request.content)
+        model = str(body["model"])
+        self.requests.append(SentRequest(request.url.host, model, body, dict(request.headers)))
+        queued = self.script.get(model)
+        if not queued:
+            raise AssertionError(f"FakeLLM: no reply scripted for {model!r}")
+        return queued.pop(0)
+
+    @property
+    def transport(self) -> httpx.MockTransport:
+        return httpx.MockTransport(self._handle)
+
+    def sent_text(self) -> str:
+        """Every request body as one string, for "this never reached the provider" checks."""
+        return "\n".join(json.dumps(sent.body) for sent in self.requests)
+
+
+@dataclass(frozen=True)
+class SentRequest:
+    host: str
+    model: str
+    body: dict[str, Any]
+    headers: dict[str, str]
+
+
+def ok(text: str, *, input_tokens: int = 12, output_tokens: int = 5) -> httpx.Response:
+    return httpx.Response(
+        200,
+        json={
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": text}}],
+            "usage": {"prompt_tokens": input_tokens, "completion_tokens": output_tokens},
+        },
+    )
+
+
+def rate_limited(retry_after: float | None = None) -> httpx.Response:
+    headers = {} if retry_after is None else {"Retry-After": str(retry_after)}
+    return httpx.Response(429, headers=headers, json={"error": {"message": "quota"}})
+
+
+def server_error() -> httpx.Response:
+    return httpx.Response(503, json={"error": {"message": "overloaded"}})
+
+
+def unauthorized() -> httpx.Response:
+    return httpx.Response(401, json={"error": {"message": "bad key"}})
+
+
+def refuse_network(request: httpx.Request) -> httpx.Response:
+    raise AssertionError(f"A test tried to reach a real AI provider ({request.url.host})")

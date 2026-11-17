@@ -6,20 +6,28 @@ os.environ.setdefault(
     "DATABASE_URL",
     "postgresql+asyncpg://studysensei:studysensei@localhost:5433/studysensei_test",
 )
+# Real AI keys in apps/api/.env are ignored: environment variables beat the .env file, and
+# blank means unset. So the Stop hook and CI never call a real provider (see no_real_llm).
+os.environ["GEMINI_API_KEY"] = ""
+os.environ["GROQ_API_KEY"] = ""
+os.environ["OLLAMA_MODEL"] = ""
 
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
+import httpx
 import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
+from app.ai.client import LLMClient, set_llm_client
+from app.ai.usage import UsageRecord
 from app.core.config import get_settings
 from app.models import User
 from app.services.search.embedding import FastEmbedder, set_embedder
-from tests.fakes import FakeEmbedder
+from tests.fakes import FakeEmbedder, refuse_network
 
 API_DIR = Path(__file__).resolve().parents[1]
 
@@ -100,3 +108,25 @@ def fake_embedder(request: pytest.FixtureRequest) -> Iterator[FakeEmbedder | Non
         set_embedder(fake)
         yield fake
     set_embedder(None)
+
+
+class _NoUsage:
+    async def count_since(self, **_: object) -> int:
+        return 0
+
+    async def record(self, row: UsageRecord) -> None:
+        pass
+
+
+@pytest.fixture(autouse=True)
+def no_real_llm() -> Iterator[None]:
+    """The process's LLM client has no keys, and its transport fails any request.
+
+    Tests that exercise AI build their own client on a ``FakeLLM`` transport.
+    """
+    settings = get_settings()
+    assert settings.gemini_api_key is None and settings.groq_api_key is None
+    client = LLMClient(settings, _NoUsage(), transport=httpx.MockTransport(refuse_network))
+    set_llm_client(client)
+    yield
+    set_llm_client(None)

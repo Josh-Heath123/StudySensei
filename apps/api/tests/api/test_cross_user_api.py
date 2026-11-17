@@ -12,7 +12,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Material
+from app.models import AIUsage, Material, User
 from app.storage.local import LocalStorage
 from tests.academics.conftest import Rows
 from tests.materials import samples
@@ -274,3 +274,30 @@ async def test_bob_cannot_upload_into_alices_module(
     assert (hers.status_code, hers.json()) == (baseline.status_code, baseline.json())
     assert (await bob_api.get(f"/modules/{bob.module.id}/materials")).json() == []
     assert not storage.root.exists() or not any(p.is_file() for p in storage.root.rglob("*"))
+
+
+async def test_ai_status_counts_only_your_own_usage(
+    session: AsyncSession, alice_api: AsyncClient, bob_api: AsyncClient, user_a: User
+) -> None:
+    for outcome in ("ok", "ok", "invalid_json", "error", "rate_limited"):
+        session.add(
+            AIUsage(
+                user_id=user_a.id,
+                provider="gemini",
+                model="gemini-3.8-flash",
+                role="smart",
+                purpose="tutor",
+                latency_ms=900,
+                outcome=outcome,
+            )
+        )
+    await session.commit()
+
+    def flash(body: dict[str, Any]) -> dict[str, Any]:
+        return next(m for m in body["models"] if m["model"] == "gemini-3.8-flash")
+
+    hers = flash((await alice_api.get("/ai/status")).json())
+    his = flash((await bob_api.get("/ai/status")).json())
+
+    assert hers["used_today"] == 4  # a 429 was refused, so it used no quota
+    assert his["used_today"] == 0

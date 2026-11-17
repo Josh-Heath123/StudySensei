@@ -533,10 +533,71 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/ai/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Status
+     * @description Which AI providers have a key (yes/no only), each role's models, and today's usage.
+     *
+     *     Usage counts the current user's requests since each provider's daily quota reset.
+     */
+    get: operations["status_ai_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AIModelStatus */
+    AIModelStatus: {
+      /** Provider */
+      provider: string;
+      /** Model */
+      model: string;
+      /** Configured */
+      configured: boolean;
+      /** Vision */
+      vision: boolean;
+      /** Daily Budget */
+      daily_budget: number | null;
+      /** Used Today */
+      used_today: number;
+      /** Resets At */
+      resets_at: string | null;
+    };
+    /** AIProviderStatus */
+    AIProviderStatus: {
+      /** Name */
+      name: string;
+      /** Configured */
+      configured: boolean;
+      /** Key Set */
+      key_set: boolean;
+    };
+    /** AIStatusOut */
+    AIStatusOut: {
+      /** Available */
+      available: boolean;
+      /** Providers */
+      providers: components["schemas"]["AIProviderStatus"][];
+      /** Roles */
+      roles: {
+        [key: string]: string[];
+      };
+      /** Models */
+      models: components["schemas"]["AIModelStatus"][];
+    };
     /** AssessmentCreate */
     AssessmentCreate: {
       /** Title */
@@ -2575,6 +2636,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  status_ai_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AIStatusOut"];
         };
       };
     };
