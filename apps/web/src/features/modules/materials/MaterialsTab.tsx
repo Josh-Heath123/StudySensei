@@ -376,8 +376,13 @@ function MaterialRow({
         Allow AI
       </label>
       {material.status === "ready" && (
-        <Button variant="outline" size="sm" onClick={() => setViewing(true)}>
-          View text
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label={`View ${material.title}`}
+          onClick={() => setViewing(true)}
+        >
+          View
         </Button>
       )}
       {topics?.state === "failed" && (

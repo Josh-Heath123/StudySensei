@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { api } from "@/lib/api/client";
+import { api, API_URL } from "@/lib/api/client";
 import { unwrap } from "@/lib/api/errors";
 import type { components } from "@/lib/api/schema";
 
@@ -31,6 +31,21 @@ export function useMaterials(moduleId: string) {
     refetchInterval: (query) => (query.state.data?.some(inFlight) ? POLL_MS : false),
   });
 }
+
+/** One material; `enabled` false when the caller already has what it needs. */
+export function useMaterial(materialId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["materials", "one", materialId],
+    enabled,
+    queryFn: () =>
+      unwrap(
+        api.GET("/materials/{material_id}", { params: { path: { material_id: materialId } } }),
+      ),
+  });
+}
+
+/** The stored original, as the viewer loads it (same origin, so the session goes along). */
+export const materialFileUrl = (materialId: string) => `${API_URL}/materials/${materialId}/file`;
 
 export function useUploadMaterial(moduleId: string) {
   const queryClient = useQueryClient();

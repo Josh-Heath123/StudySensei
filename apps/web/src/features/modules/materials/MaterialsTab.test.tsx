@@ -214,8 +214,13 @@ test("the AI switch, retry and delete act on the material", async () => {
   );
 });
 
-test("View text opens the extracted text a page at a time", async () => {
-  const material = aMaterial({ status: "ready", page_count: 3, scanned_page_count: 1 });
+test("View opens the extracted text of a slide deck a page at a time", async () => {
+  const material = aMaterial({
+    status: "ready",
+    page_count: 3,
+    scanned_page_count: 1,
+    content_type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  });
   const pages = [
     { page_number: 1, title: "Layered architecture", char_count: 40, is_scanned: false },
     { page_number: 2, title: null, char_count: 0, is_scanned: true },
@@ -237,7 +242,7 @@ test("View text opens the extracted text a page at a time", async () => {
   const user = userEvent.setup();
 
   const row = await screen.findByRole("listitem", { name: "Week 3 slides" });
-  await user.click(within(row).getByRole("button", { name: "View text" }));
+  await user.click(within(row).getByRole("button", { name: "View Week 3 slides" }));
 
   const dialog = await screen.findByRole("dialog", { name: "Week 3 slides" });
   const first = await within(dialog).findByRole("region", { name: "Page 1 text" });

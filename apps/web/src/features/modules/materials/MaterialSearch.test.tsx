@@ -59,6 +59,11 @@ function serve(materials: Material[], search?: (q: string) => SearchResults) {
     "GET /modules/:id/materials": () => materials,
     "GET /modules/:id/search": ({ query }) =>
       search?.(query.get("q") ?? "") ?? { query: "", results: [], indexed_chunks: 0 },
+    // Not a PDF, so the viewer shows the text (MaterialViewer.test covers PDFs).
+    "GET /materials/:id": () =>
+      aMaterial({
+        content_type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      }),
     "GET /materials/:id/pages": () => [1, 2, 3].map((n) => aPage(n)),
     "GET /materials/:id/pages/:n": ({ params }) => ({
       ...aPage(Number(params.n)),
