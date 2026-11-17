@@ -2,6 +2,21 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-17: Phase 2, the materials viewer
+
+- **Done:**
+  - `GET /materials/{id}/file` streams the original: inline with its filename, nosniff, the sha256 as an immutable
+    ETag, and 304 for a matching `If-None-Match`.
+  - `MaterialViewer` draws PDFs with pdf.js. Each document is opened once, fitted to the width, sharp at the device
+    pixel ratio, and a drawing in flight is cancelled when the page changes. Other kinds show their text.
+  - Navigation: previous and next, a page box, ←/→ and "Page N of M". A PDF that fails falls back to its text.
+  - It sits in `PagesDialog`, which every entry point opens at the right page. The row button is now "View".
+- **Bundle:** pdf.js is lazy, a 444 kB chunk (134 kB gzipped) plus a 1.27 MB worker, loaded on first view. The
+  main bundle grew 7 kB, from the viewer code.
+- **Tests:** API (bytes, headers, 304, missing blob, cross-user), Vitest (navigation, cancel, fallbacks) and
+  Playwright (a search result opens the PDF at its page; the canvas draws; jumping works).
+- **Next:** the AI provider settings page.
+
 ## 2026-11-17: Phase 2, merge size fix and a stale topic-map error (decision 0010)
 
 - **Found:**

@@ -2399,6 +2399,65 @@
         }
       }
     },
+    "/materials/{material_id}/file": {
+      "get": {
+        "tags": [
+          "materials"
+        ],
+        "summary": "Get Material File",
+        "description": "The original file, for the viewer. Cached for good (the ETag is its sha256), so an\nIf-None-Match with that ETag gets a 304. 404 for another user's material or a lost file.",
+        "operationId": "get_material_file_materials__material_id__file_get",
+        "parameters": [
+          {
+            "name": "material_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Material Id"
+            }
+          },
+          {
+            "name": "if-none-match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The original file, as uploaded",
+            "content": {
+              "*/*": {}
+            }
+          },
+          "304": {
+            "description": "Not modified (If-None-Match matched the ETag)"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/modules/{module_id}/search": {
       "get": {
         "tags": [

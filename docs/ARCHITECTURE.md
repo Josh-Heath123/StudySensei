@@ -55,6 +55,8 @@ apps/api/            FastAPI service (+ worker from Phase 2), one Python package
 apps/web/            React app
   src/app/           routes, layout, top navigation, providers
   src/features/      today/, modules/, session/, plan/, practice/, insights/, settings/
+                     modules/materials/: MaterialsTab (upload + processing status), MaterialSearch,
+                     PagesDialog (page list + MaterialViewer), MaterialViewer, pdf.ts (lazy pdf.js)
   src/vision/        camera.ts, vision.worker.ts, signals.ts, calibration.ts, rollup.ts   (Phase 7)
   src/voice/         stt.ts, tts.ts                                                       (Phase 3)
   src/session-engine/ timer.ts, interventions.ts                                         (Phase 1/7)
@@ -86,7 +88,7 @@ the web app calls the API through the typed `openapi-fetch` client. CI fails if 
 | Tasks | `GET/POST /modules/{id}/tasks`, `GET /tasks?status=` (all modules), `GET/PATCH/DELETE /tasks/{id}` (`status: "done"` sets `completed_at`) |
 | Sessions | `POST /sessions`, `GET /sessions/active`, `GET/DELETE /sessions/{id}`, `POST /sessions/{id}/events`, `PUT /sessions/{id}/reflection`, `GET /modules/{id}/sessions?limit=&offset=` (a page `{items, total, limit, offset}`: the open session first, then newest first; limit 1–100, default 20), `GET /modules/{id}/sessions/summary?week_start=` (session count and active seconds, all time and since `week_start`) |
 | AI | `GET /ai/status`: per provider whether it's configured (`key_set` is yes/no only), each role's models in order, and per model `used_today` / `daily_budget` / `resets_at` for the current user |
-| Materials | `POST /modules/{id}/materials` (multipart: `file`, `kind`, `title?`, `allow_ai`; 413 over 50 MB, 415 wrong type, 409 same file in the module), `GET /modules/{id}/materials`, `GET/PATCH/DELETE /materials/{id}` (PATCH: title, kind, allow_ai), `POST /materials/{id}/retry` (failed only), `GET /materials/{id}/pages` (page number, title, char count, is_scanned), `GET /materials/{id}/pages/{n}` (adds the text) |
+| Materials | `POST /modules/{id}/materials` (multipart: `file`, `kind`, `title?`, `allow_ai`; 413 over 50 MB, 415 wrong type, 409 same file in the module), `GET /modules/{id}/materials`, `GET/PATCH/DELETE /materials/{id}` (PATCH: title, kind, allow_ai), `POST /materials/{id}/retry` (failed only), `GET /materials/{id}/pages` (page number, title, char count, is_scanned), `GET /materials/{id}/pages/{n}` (adds the text), `GET /materials/{id}/file` (the stored original, streamed through `Storage`: its own `Content-Type`, `Content-Disposition: inline` with the RFC 5987 filename, `X-Content-Type-Options: nosniff`, `ETag` = the sha256 with `Cache-Control: private, max-age=31536000, immutable`, and 304 for a matching `If-None-Match`; 404 for another user's material or a missing blob) |
 
 Notes on these endpoints:
 - A module's own lists live under `/modules/{id}/…` and return 404 if the module isn't yours. The top-level
@@ -421,6 +423,17 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
     tick after sleep) asks "keep that time, or stop the clock when you left?". Stopping posts a pause or end at the last-active
     time; during a break it first posts `break_end` at that time.
   - "Break due" is only shown. The engine never starts or ends a break by itself.
+  - **Reading materials** (`src/features/modules/materials/`): `PagesDialog` is the one way to read a page. Materials
+    tab rows, search results and a topic's linked pages all open it at the right page.
+    - **The dialog:** the page list down the side, then `MaterialViewer`.
+    - **PDFs:** drawn with pdf.js (`pdfjs-dist`, Apache-2.0) from `GET /materials/{id}/file`. The document is opened once
+      per material. Each page is fitted to the width, redrawn on resize and sharp at the device pixel ratio, and a
+      drawing in flight is cancelled when the page changes.
+    - **Other kinds** show their extracted text.
+    - **Navigation:** previous and next, a page box, ←/→ and "Page N of M", for both.
+    - **Fallback:** a PDF that won't load or draw falls back to its text with a one-line notice.
+    - **Loading:** `pdf.ts` is the only module that touches pdf.js. It's loaded on first use (with its worker via
+      `?url`), so it stays out of the main bundle, and tests mock it there.
   - **Session screen** (`src/features/session/`, route `/session`, outside the top-nav layout): one `SessionProvider` per app
     holds a `controller.ts` around the engine. The controller restores the open session once per page load
     (`GET /sessions/active`, or the local queue when offline), keeps an ended session in localStorage until its reflection

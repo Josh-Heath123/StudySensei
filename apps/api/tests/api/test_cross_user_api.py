@@ -94,6 +94,7 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/modules/{module}/topic-map/build", None),
     ("GET", "/modules/{module}/topic-map/materials", None),
     ("POST", "/materials/{material}/topics/retry", None),
+    ("GET", "/materials/{material}/file", None),
     ("DELETE", "/modules/{module}/ai-topics", None),
     # Topic review (decision 0009)
     ("POST", "/topics/{topic}/keep", None),

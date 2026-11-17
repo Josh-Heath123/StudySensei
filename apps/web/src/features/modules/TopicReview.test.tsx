@@ -173,6 +173,11 @@ test("clicking a topic lists its linked pages; a wrong one can be unlinked", asy
 test("a linked page opens in the page-text view", async () => {
   const { user } = renderReview(TREE, {
     "GET /topics/:id/pages": () => PAGES,
+    "GET /materials/:id": () => ({
+      id: "mat1",
+      title: "Week 1 Security",
+      content_type: "text/markdown",
+    }),
     "GET /materials/:id/pages": () => [
       { page_number: 1, title: "Passwords", char_count: 20, is_scanned: false },
       { page_number: 3, title: "Sessions", char_count: 20, is_scanned: false },

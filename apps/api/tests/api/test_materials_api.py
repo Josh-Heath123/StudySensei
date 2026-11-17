@@ -358,3 +358,58 @@ async def test_a_password_protected_pdf_fails_with_a_readable_reason(
     assert (got["status"], got["retrying"]) == ("failed", False)
     assert got["error"] == "The PDF is password-protected. Remove the password and upload it again."
     assert (await alice_api.get(f"/materials/{material['id']}/pages")).json() == []
+
+
+# --- the original file, for the viewer ---
+
+
+async def test_the_original_file_is_served_inline_with_its_headers(
+    alice_api: AsyncClient, alice: Rows
+) -> None:
+    data = samples.pdf(3)
+    # Non-ASCII on purpose: an en dash and curly quotes (built here, as ruff flags them).
+    name = f"Week 3 {chr(0x2013)} {chr(0x201C)}Layers{chr(0x201D)}.pdf"
+    body = (await upload(alice_api, alice.module.id, name, data)).json()
+
+    response = await alice_api.get(f"/materials/{body['id']}/file")
+
+    assert response.status_code == 200
+    assert response.content == data
+    headers = response.headers
+    assert headers["content-type"] == "application/pdf"
+    assert headers["content-length"] == str(len(data))
+    assert headers["content-disposition"] == (
+        'inline; filename="Week 3 _ _Layers_.pdf"; '
+        "filename*=UTF-8''Week%203%20%E2%80%93%20%E2%80%9CLayers%E2%80%9D.pdf"
+    )
+    assert headers["x-content-type-options"] == "nosniff"
+    assert headers["etag"] == f'"{body["sha256"]}"'
+    assert headers["cache-control"] == "private, max-age=31536000, immutable"
+
+
+async def test_a_matching_if_none_match_is_a_304(alice_api: AsyncClient, alice: Rows) -> None:
+    body = (await upload(alice_api, alice.module.id)).json()
+    etag = f'"{body["sha256"]}"'
+
+    cached = await alice_api.get(f"/materials/{body['id']}/file", headers={"If-None-Match": etag})
+    weak = await alice_api.get(
+        f"/materials/{body['id']}/file", headers={"If-None-Match": f'"other", W/{etag}'}
+    )
+    stale = await alice_api.get(f"/materials/{body['id']}/file", headers={"If-None-Match": '"x"'})
+
+    assert (cached.status_code, cached.content) == (304, b"")
+    assert cached.headers["etag"] == etag
+    assert weak.status_code == 304
+    assert stale.status_code == 200
+
+
+async def test_a_missing_file_is_404(
+    alice_api: AsyncClient, alice: Rows, storage: LocalStorage
+) -> None:
+    body = (await upload(alice_api, alice.module.id)).json()
+    storage.delete(blob_key(alice.user.id, body["sha256"]))
+
+    response = await alice_api.get(f"/materials/{body['id']}/file")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "File not found"}

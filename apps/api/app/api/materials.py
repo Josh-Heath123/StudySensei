@@ -1,7 +1,22 @@
+import re
 import uuid
-from typing import Annotated
+from collections.abc import Iterator
+from typing import Annotated, BinaryIO
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, Form, Path, Request, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    Header,
+    Path,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
+from fastapi.responses import StreamingResponse
 
 from app.api.deps import CurrentUser
 from app.core.config import get_settings
@@ -118,3 +133,62 @@ async def get_page(
 ) -> MaterialPage:
     """One page's extracted text."""
     return await materials.get_page(session, material_id, page_number, user_id=user.id)
+
+
+_CHUNK = 64 * 1024
+# A year: the blob is content-addressed (its sha256), so a URL's bytes never change.
+_IMMUTABLE = "private, max-age=31536000, immutable"
+
+
+def _chunks(stream: BinaryIO) -> Iterator[bytes]:
+    try:
+        while chunk := stream.read(_CHUNK):
+            yield chunk
+    finally:
+        stream.close()
+
+
+def content_disposition(filename: str) -> str:
+    """``inline`` with the filename: an ASCII fallback and the RFC 5987 UTF-8 form."""
+    fallback = re.sub(r'[^\x20-\x7e]|["\\]', "_", filename) or "file"
+    return f"inline; filename=\"{fallback}\"; filename*=UTF-8''{quote(filename, safe='')}"
+
+
+def _matches(if_none_match: str | None, etag: str) -> bool:
+    if if_none_match is None:
+        return False
+    tags = [tag.strip().removeprefix("W/") for tag in if_none_match.split(",")]
+    return "*" in tags or etag in tags
+
+
+@router.get(
+    "/materials/{material_id}/file",
+    response_class=StreamingResponse,
+    responses={
+        200: {"description": "The original file, as uploaded", "content": {"*/*": {}}},
+        304: {"description": "Not modified (If-None-Match matched the ETag)"},
+    },
+)
+async def get_material_file(
+    material_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    storage: StorageDep,
+    if_none_match: Annotated[str | None, Header()] = None,
+) -> Response:
+    """The original file, for the viewer. Cached for good (the ETag is its sha256), so an
+    If-None-Match with that ETag gets a 304. 404 for another user's material or a lost file."""
+    opened = await materials.open_file(session, storage, material_id, user_id=user.id)
+    material = opened.material
+    etag = f'"{material.sha256}"'
+    headers = {"ETag": etag, "Cache-Control": _IMMUTABLE, "X-Content-Type-Options": "nosniff"}
+    if _matches(if_none_match, etag):
+        opened.stream.close()
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
+    headers |= {
+        "Content-Disposition": content_disposition(material.original_filename),
+        "Content-Length": str(opened.size),
+    }
+    return StreamingResponse(
+        _chunks(opened.stream), media_type=material.content_type, headers=headers
+    )
