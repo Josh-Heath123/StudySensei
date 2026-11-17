@@ -13,8 +13,9 @@ ReasoningEffort = Literal["minimal", "low", "medium", "high"]
 class RouteSetting(BaseModel):
     """One model in a role: ``"provider/model"`` and how hard it should think.
 
-    ``reasoning_effort`` is sent only to providers that accept it (Gemini, Groq's gpt-oss);
-    empty means don't send it, so the model uses its own default. A plain string in the
+    ``reasoning_effort`` is sent only to models listed in ``ai_reasoning_efforts``, raised
+    to the model's lowest supported level if needed; empty means don't send it, so the
+    model uses its own default. A plain string in the
     env (``"gemini/gemini-3.8-flash"``) means no effort.
     """
 
@@ -82,6 +83,16 @@ class Settings(BaseSettings):
         "gemini/gemini-3.5-flash-lite",
         "groq/qwen/qwen3.8-27b",
     ]
+    # The reasoning_effort levels each "provider/model" accepts, from its docs (2026-11-17):
+    # Gemini's thinking page, Groq's reasoning page. A level a model lacks is raised to its
+    # lowest supported one (minimal → low on 3.8 Flash); a model not listed is sent none.
+    ai_reasoning_efforts: dict[str, list[ReasoningEffort]] = {
+        "gemini/gemini-3.8-flash": ["low", "medium", "high"],  # no minimal; medium is default
+        "gemini/gemini-3.5-flash-lite": ["minimal", "low", "medium", "high"],
+        "groq/openai/gpt-oss-120b": ["low", "medium", "high"],
+        "groq/openai/gpt-oss-20b": ["low", "medium", "high"],
+        "groq/qwen/qwen3.8-27b": ["low", "medium", "high"],  # also its own none/default
+    }
     # When each provider's daily quota resets (midnight in this time zone).
     ai_quota_timezone: dict[str, str] = {"gemini": "America/Los_Angeles", "groq": "UTC"}
     # Connecting gives up quickly; reading allows for a long answer (and thinking) to arrive.
