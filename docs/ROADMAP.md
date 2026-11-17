@@ -67,7 +67,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 - [x] Chunker, `fastembed` (bge-small-en-v1.5, 384 dims), `tsvector`, hybrid search endpoint (RRF)
 - [x] `LLMClient` with **one OpenAI-compatible adapter** (Gemini primary, Groq fallback, optional Ollama; see decision 0002), `ai_usage` logging, budget and rate-limit backoff
 - [x] Topic-extraction prompts and Pydantic schemas (per material, then merged per module), with chunk–topic linking
-- [ ] Upload UI with processing status, materials viewer (pdf.js, jump to page) and module search
+- [x] Upload UI with processing status, materials viewer (pdf.js, jump to page) and module search
 - [x] Topic review UI (confirm, rename, merge, delete; user edits win)
 - [ ] AI provider settings page
 - [ ] `evals/topic_extraction` and `evals/search` from COS330
