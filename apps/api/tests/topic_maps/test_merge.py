@@ -100,7 +100,7 @@ async def test_the_prompt_lists_anchors_and_proposals_but_no_private_material(
     assert "E1 Microservices" in prompt
     assert 'Material M2: "Week 1 Security" (lecture slides)' in prompt
     assert 'Material M1: "Databases" (notes)' in prompt
-    assert "M2.1 Password storage: About password storage." in prompt
+    assert "M2.1 Password storage (1 p): About password storage." in prompt
     assert "  M2.1.1 Salting" in prompt
     assert "M1.1 Normal forms" in prompt
     assert PRIVATE[:30] not in fake_llm.sent_text()

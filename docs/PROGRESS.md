@@ -2,6 +2,25 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-17: Phase 2, topic review (decision 0009)
+
+- **Merge fallback:**
+  - The merge input is now compact: ids, names and page counts, plus descriptions only while the request stays
+    under 7,000 estimated tokens. COS330 goes from 68.7K to 24.8K characters, so Groq can take it.
+  - A 413 moves on like a 429 (`too_large`) without using the call cap or cooling the model down.
+- **Review:**
+  - Each AI topic has Keep, Rename, Merge into (subtopics, cited pages and page links move to the target) and
+    Dismiss (deleted and remembered; the merge never adds the name again). A dismissed topic can be restored.
+  - A Review filter with "N of M reviewed" and "Keep all remaining".
+  - Outcomes recorded in `topic_reviews` and shown on the tab and in the topic-map status.
+- **Linked pages:** clicking a topic lists its pages by material (cited, or similar with the score), each opening
+  the page text. Unlink is remembered across relinking (`topic_unlinks`).
+- **Decided:**
+  - The AI's old name of a renamed or merged topic adds to the topic that carries it now, rather than a duplicate.
+  - Dismissing a topic takes its unreviewed AI subtopics with it; the student's own subtopics move up.
+- **Next:** start the dev servers (migration 0014), rebuild COS330's map, review it, and read the 80 % check off the
+  review line. Then the AI provider settings page.
+
 ## 2026-11-17: Phase 2, the three COS330 materials that still failed
 
 - **Found** (from `ai_usage.detail`): the Chapter 1, 5 and 7 notes made 12 calls in all, and none was a content

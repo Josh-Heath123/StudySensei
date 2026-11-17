@@ -231,6 +231,167 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/topics/{topic_id}/keep": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Keep Topic
+     * @description Confirm an AI topic as it is: it becomes the student's, counted as kept.
+     */
+    post: operations["keep_topic_topics__topic_id__keep_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/topics/{topic_id}/merge-into": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Merge Topic Into
+     * @description Fold this topic into ``target_id``: its subtopics, cited pages and page links move
+     *     there, then it's deleted. Returns the target. 422 for a topic in another module, the
+     *     topic itself, or one of its subtopics.
+     */
+    post: operations["merge_topic_into_topics__topic_id__merge_into_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/topics/{topic_id}/dismiss": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Dismiss Topic
+     * @description Delete an AI topic (and its subtopics still marked AI) and remember the names, so a
+     *     merge never adds them again. The student's subtopics move up. 422 if it isn't AI.
+     */
+    post: operations["dismiss_topic_topics__topic_id__dismiss_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/modules/{module_id}/topics/keep-all": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Keep All Topics
+     * @description Confirm every topic still marked AI.
+     */
+    post: operations["keep_all_topics_modules__module_id__topics_keep_all_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/modules/{module_id}/dismissed-topics": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Dismissed Topics */
+    get: operations["dismissed_topics_modules__module_id__dismissed_topics_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dismissed-topics/{dismissed_id}/restore": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Restore Topic
+     * @description Bring a dismissed topic back (as kept), with its description and cited pages.
+     */
+    post: operations["restore_topic_dismissed_topics__dismissed_id__restore_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/topics/{topic_id}/pages": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Topic Pages
+     * @description The pages linked to a topic, grouped by material: cited by the AI, or similar
+     *     (with the score).
+     */
+    get: operations["topic_pages_topics__topic_id__pages_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/topics/{topic_id}/pages/{material_id}/{page_number}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Unlink Topic Page
+     * @description Unlink a page from a topic. Remembered: relinking never links it again.
+     */
+    delete: operations["unlink_topic_page_topics__topic_id__pages__material_id___page_number__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/assessments": {
     parameters: {
       query?: never;
@@ -824,6 +985,26 @@ export interface components {
       /** Deleted */
       deleted: number;
     };
+    /** DismissedCount */
+    DismissedCount: {
+      /** Dismissed */
+      dismissed: number;
+    };
+    /** DismissedTopicOut */
+    DismissedTopicOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Name */
+      name: string;
+      /**
+       * Dismissed At
+       * Format: date-time
+       */
+      dismissed_at: string;
+    };
     /**
      * EventBatch
      * @description Events to add, in any order. Ids already stored are skipped if unchanged.
@@ -892,6 +1073,37 @@ export interface components {
       database: "ok" | "error";
       /** Database Error */
       database_error?: string | null;
+    };
+    /** KeptCount */
+    KeptCount: {
+      /** Kept */
+      kept: number;
+    };
+    /** LinkedMaterialOut */
+    LinkedMaterialOut: {
+      /**
+       * Material Id
+       * Format: uuid
+       */
+      material_id: string;
+      /** Title */
+      title: string;
+      /** Pages */
+      pages: components["schemas"]["LinkedPageOut"][];
+    };
+    /** LinkedPageOut */
+    LinkedPageOut: {
+      /** Page Number */
+      page_number: number;
+      /** Label */
+      label: string;
+      /**
+       * Method
+       * @enum {string}
+       */
+      method: "pages" | "similarity";
+      /** Score */
+      score: number | null;
     };
     /** MaterialOut */
     MaterialOut: {
@@ -1000,6 +1212,14 @@ export interface components {
         | null;
       /** Allow Ai */
       allow_ai?: boolean | null;
+    };
+    /** MergeInto */
+    MergeInto: {
+      /**
+       * Target Id
+       * Format: uuid
+       */
+      target_id: string;
     };
     /** ModuleCreate */
     ModuleCreate: {
@@ -1412,6 +1632,7 @@ export interface components {
       last_error: string | null;
       /** Merged At */
       merged_at: string | null;
+      review: components["schemas"]["TopicReviewStats"];
     };
     /**
      * TopicMove
@@ -1504,6 +1725,23 @@ export interface components {
       topic_id: string;
       /** Confidence */
       confidence: number;
+    };
+    /**
+     * TopicReviewStats
+     * @description What the student did with the AI's topics (decision 0009). Each AI topic counts once,
+     *     by the last thing done to it; ``unreviewed`` are those still marked AI.
+     */
+    TopicReviewStats: {
+      /** Kept */
+      kept: number;
+      /** Renamed */
+      renamed: number;
+      /** Merged */
+      merged: number;
+      /** Dismissed */
+      dismissed: number;
+      /** Unreviewed */
+      unreviewed: number;
     };
     /** TopicUpdate */
     TopicUpdate: {
@@ -2019,6 +2257,258 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["ClearedTopics"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  keep_topic_topics__topic_id__keep_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        topic_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TopicOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  merge_topic_into_topics__topic_id__merge_into_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        topic_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MergeInto"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TopicOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  dismiss_topic_topics__topic_id__dismiss_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        topic_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DismissedCount"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  keep_all_topics_modules__module_id__topics_keep_all_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["KeptCount"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  dismissed_topics_modules__module_id__dismissed_topics_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DismissedTopicOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  restore_topic_dismissed_topics__dismissed_id__restore_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        dismissed_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TopicOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  topic_pages_topics__topic_id__pages_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        topic_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LinkedMaterialOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  unlink_topic_page_topics__topic_id__pages__material_id___page_number__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        topic_id: string;
+        material_id: string;
+        page_number: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Validation Error */
       422: {

@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 NAME_CHARS = 80
 DESCRIPTION_CHARS = 300
@@ -226,6 +226,17 @@ class ModuleTopicMap(BaseModel):
 # --- API ---------------------------------------------------------------------------
 
 
+class TopicReviewStats(BaseModel):
+    """What the student did with the AI's topics (decision 0009). Each AI topic counts once,
+    by the last thing done to it; ``unreviewed`` are those still marked AI."""
+
+    kept: int
+    renamed: int
+    merged: int
+    dismissed: int
+    unreviewed: int
+
+
 class TopicMapStatus(BaseModel):
     # Materials whose topics can be extracted (allow_ai on, and a kind that teaches).
     eligible: int
@@ -243,6 +254,8 @@ class TopicMapStatus(BaseModel):
     last_error: str | None
     # When the module's topics were last merged from proposals.
     merged_at: datetime | None
+    # The student's review of the AI's topics.
+    review: TopicReviewStats
 
 
 TopicState = Literal["analysed", "failed", "waiting"]
@@ -265,3 +278,47 @@ class MaterialTopicStatus(BaseModel):
     model: str | None
     # Top-level topics found.
     topics: int
+
+
+# --- Review (decision 0009) ----------------------------------------------------------
+
+
+class MergeInto(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # The topic that takes over this one's subtopics and pages.
+    target_id: uuid.UUID
+
+
+class DismissedCount(BaseModel):
+    # The topic and any of its subtopics still marked AI.
+    dismissed: int
+
+
+class KeptCount(BaseModel):
+    kept: int
+
+
+class DismissedTopicOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    dismissed_at: datetime
+
+
+LinkMethod = Literal["pages", "similarity"]
+
+
+class LinkedPageOut(BaseModel):
+    page_number: int
+    # The page's title, or its first line of text (≤ 120 characters).
+    label: str
+    # pages: the AI cited it for the topic; similarity: its text is close to the topic's.
+    method: LinkMethod
+    # Cosine similarity for a similarity link; null for a cited page.
+    score: float | None
+
+
+class LinkedMaterialOut(BaseModel):
+    material_id: uuid.UUID
+    title: str
+    pages: list[LinkedPageOut]

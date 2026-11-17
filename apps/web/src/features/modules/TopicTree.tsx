@@ -1,4 +1,15 @@
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  Check,
+  GitMerge,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { Badge } from "@/ui/badge";
@@ -9,13 +20,19 @@ import { Input } from "@/ui/input";
 import {
   useCreateTopic,
   useDeleteTopic,
+  useDismissTopic,
+  useKeepTopic,
   useMoveTopic,
   useRenameTopic,
   useTopicTree,
   type TopicMove,
   type TopicNode,
 } from "./api";
+import { MergeTopicDialog } from "./MergeTopicDialog";
+import { ReviewBar } from "./ReviewBar";
 import { TopicMapPanel } from "./TopicMapPanel";
+import { TopicPagesDialog } from "./TopicPagesDialog";
+import { aiDescendants, unreviewedOnly } from "./topicReview";
 import { moveTarget } from "./treeMoves";
 
 function countAi(nodes: TopicNode[]): number {
@@ -31,10 +48,17 @@ function countDescendants(node: TopicNode): number {
 
 type Actions = {
   busy: boolean;
+  /** The Review filter is on: the tree is cut down, so moves are off. */
+  filtering: boolean;
   add: (name: string, parentId: string | null) => Promise<void>;
   rename: (topic: TopicNode, name: string) => Promise<void>;
   move: (topic: TopicNode, target: TopicMove) => Promise<void>;
   askDelete: (topic: TopicNode) => void;
+  showPages: (topic: TopicNode) => void;
+  // Reviewing an AI topic (decision 0009).
+  keep: (topic: TopicNode) => void;
+  askMerge: (topic: TopicNode) => void;
+  dismiss: (topic: TopicNode) => void;
 };
 
 export function TopicTree({ moduleId }: { moduleId: string }) {
@@ -43,8 +67,14 @@ export function TopicTree({ moduleId }: { moduleId: string }) {
   const renameTopic = useRenameTopic(moduleId);
   const moveTopic = useMoveTopic(moduleId);
   const deleteTopic = useDeleteTopic(moduleId);
+  const keepTopic = useKeepTopic(moduleId);
+  const dismissTopic = useDismissTopic(moduleId);
   const [error, setError] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<TopicNode | null>(null);
+  const [toDismiss, setToDismiss] = useState<TopicNode | null>(null);
+  const [merging, setMerging] = useState<TopicNode | null>(null);
+  const [pagesOf, setPagesOf] = useState<TopicNode | null>(null);
+  const [filtering, setFiltering] = useState(false);
 
   async function run(action: () => Promise<unknown>) {
     setError(null);
@@ -57,14 +87,25 @@ export function TopicTree({ moduleId }: { moduleId: string }) {
   }
 
   const actions: Actions = {
-    busy: moveTopic.isPending,
+    busy: moveTopic.isPending || keepTopic.isPending || dismissTopic.isPending,
+    filtering,
     add: (name, parentId) => run(() => createTopic.mutateAsync({ name, parentId })),
     rename: (topic, name) => run(() => renameTopic.mutateAsync({ topicId: topic.id, name })),
     move: (topic, target) => run(() => moveTopic.mutateAsync({ topicId: topic.id, ...target })),
     askDelete: setToDelete,
+    showPages: setPagesOf,
+    keep: (topic) => run(() => keepTopic.mutateAsync(topic.id)).catch(() => {}),
+    askMerge: setMerging,
+    dismiss: (topic) => {
+      // With AI subtopics it takes them along, so ask first.
+      if (aiDescendants(topic) > 0) setToDismiss(topic);
+      else run(() => dismissTopic.mutateAsync(topic.id)).catch(() => {});
+    },
   };
 
   const subtopics = toDelete ? countDescendants(toDelete) : 0;
+  const aiSubtopics = toDismiss ? aiDescendants(toDismiss) : 0;
+  const shown = filtering ? unreviewedOnly(tree.data ?? []) : (tree.data ?? []);
 
   return (
     <section aria-labelledby="topics-heading" className="max-w-3xl">
@@ -73,10 +114,12 @@ export function TopicTree({ moduleId }: { moduleId: string }) {
       </h2>
       <p className="text-muted mb-4 text-sm">
         Build the module's topic tree. Use the arrows to reorder, indent and outdent. Topics marked
-        AI were suggested from your materials; editing one makes it yours.
+        AI were suggested from your materials: keep, rename, merge or dismiss each one, and it
+        becomes yours. Click a topic to see its pages.
       </p>
 
       <TopicMapPanel moduleId={moduleId} aiTopics={countAi(tree.data ?? [])} />
+      <ReviewBar moduleId={moduleId} filtering={filtering} onFilter={setFiltering} />
 
       {error && (
         <p role="alert" className="text-danger mb-3 text-sm">
@@ -93,8 +136,11 @@ export function TopicTree({ moduleId }: { moduleId: string }) {
       {tree.data?.length === 0 && (
         <p className="text-muted mb-3 text-sm">No topics yet. Add the first one below.</p>
       )}
-      {tree.data && tree.data.length > 0 && (
-        <TopicList nodes={tree.data} parent={null} actions={actions} label="Topics" />
+      {filtering && tree.data && shown.length === 0 && (
+        <p className="text-muted mb-3 text-sm">Every AI topic has been reviewed.</p>
+      )}
+      {shown.length > 0 && (
+        <TopicList nodes={shown} parent={null} actions={actions} label="Topics" />
       )}
 
       <AddTopicForm
@@ -116,6 +162,25 @@ export function TopicTree({ moduleId }: { moduleId: string }) {
         confirmLabel="Delete topic"
         onConfirm={() => deleteTopic.mutateAsync(toDelete!.id)}
       />
+      <ConfirmDialog
+        open={toDismiss !== null}
+        onOpenChange={(open) => !open && setToDismiss(null)}
+        title={`Dismiss “${toDismiss?.name ?? ""}”?`}
+        description={`This also dismisses its ${aiSubtopics} AI subtopic${aiSubtopics === 1 ? "" : "s"}; your own subtopics move up. Building the topic map again won't add them back, and you can restore them from Dismissed topics.`}
+        confirmLabel="Dismiss"
+        onConfirm={() => dismissTopic.mutateAsync(toDismiss!.id)}
+      />
+      {merging && tree.data && (
+        <MergeTopicDialog
+          moduleId={moduleId}
+          topic={merging}
+          tree={tree.data}
+          onClose={() => setMerging(null)}
+        />
+      )}
+      {pagesOf && (
+        <TopicPagesDialog moduleId={moduleId} topic={pagesOf} onClose={() => setPagesOf(null)} />
+      )}
     </section>
   );
 }
@@ -188,9 +253,9 @@ function TopicItem({
         ) : (
           <button
             type="button"
-            onClick={() => setRenaming(true)}
+            onClick={() => actions.showPages(node)}
             className="min-w-0 flex-1 truncate py-1 text-left text-sm"
-            title="Click to rename"
+            title="Show its linked pages"
           >
             {node.name}
           </button>
@@ -219,7 +284,7 @@ function TopicItem({
                 variant="ghost"
                 size="icon-sm"
                 aria-label={`${label}: ${node.name}`}
-                disabled={!target || actions.busy}
+                disabled={!target || actions.busy || actions.filtering}
                 onClick={() => target && actions.move(node, target).catch(() => {})}
               >
                 <Icon aria-hidden />
@@ -242,14 +307,48 @@ function TopicItem({
           >
             <Plus aria-hidden />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Delete: ${node.name}`}
-            onClick={() => actions.askDelete(node)}
-          >
-            <Trash2 aria-hidden />
-          </Button>
+          {node.source === "ai" ? (
+            <>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Keep: ${node.name}`}
+                title="Keep it as it is"
+                disabled={actions.busy}
+                onClick={() => actions.keep(node)}
+              >
+                <Check aria-hidden />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Merge into: ${node.name}`}
+                title="Merge into another topic"
+                onClick={() => actions.askMerge(node)}
+              >
+                <GitMerge aria-hidden />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Dismiss: ${node.name}`}
+                title="Dismiss: remove it and never add it again"
+                disabled={actions.busy}
+                onClick={() => actions.dismiss(node)}
+              >
+                <X aria-hidden />
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Delete: ${node.name}`}
+              onClick={() => actions.askDelete(node)}
+            >
+              <Trash2 aria-hidden />
+            </Button>
+          )}
         </div>
       </div>
 

@@ -4,6 +4,10 @@ Existing topics are fixed anchors: this never renames, moves or deletes one. A n
 that is an existing topic (by its "E" id, or by the same name anywhere in the module)
 only gains cited pages; any other node becomes a new topic with ``source = "ai"``,
 appended after its siblings. So re-running only adds topics that aren't there yet.
+
+The student's review wins (decision 0009): a name the student dismissed is never added
+again (nor anything the AI put under it), and the AI's original name of a topic the
+student renamed or merged away adds to the topic that carries it now.
 """
 
 import re
@@ -14,7 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Topic, TopicPage
+from app.models import Topic, TopicPage, TopicReview
 from app.schemas.topic_maps import MergedSubtopic, ModuleTopicMap
 from app.services.topic_maps.prompts import MergeRefs
 
@@ -51,6 +55,18 @@ async def apply_merge(
     by_name: dict[str, Topic] = {}
     for topic in existing:
         by_name.setdefault(name_key(topic.name), topic)
+    dismissed: set[str] = set()
+    reviews = await session.execute(
+        select(TopicReview.name_key, TopicReview.outcome, TopicReview.target_id).where(
+            TopicReview.module_id == module_id, TopicReview.user_id == user_id
+        )
+    )
+    for key, outcome, target_id in reviews:
+        if outcome == "dismissed":
+            dismissed.add(key)
+        elif target_id in by_id:
+            # The AI's old name for a topic the student renamed or merged into another.
+            by_name.setdefault(key, by_id[target_id])
     next_position: dict[uuid.UUID | None, int] = {}
     pages: dict[uuid.UUID, set[tuple[uuid.UUID, int]]] = {}
     created = 0
@@ -76,6 +92,8 @@ async def apply_merge(
             return None  # an anchor deleted since the prompt was built: leave it gone
         topic = by_id.get(anchor_id) if anchor_id else None
         topic = topic or by_name.get(name_key(node.name))
+        if topic is None and name_key(node.name) in dismissed:
+            return None  # the student dismissed it: never again
         if topic is None:
             parent_id = parent.id if parent else None
             topic = Topic(

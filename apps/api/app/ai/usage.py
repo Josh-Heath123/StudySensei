@@ -17,8 +17,9 @@ SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 # Outcomes that used up a request of the provider's quota. A timeout counts: the provider
 # may well have answered after we stopped waiting. A refusal ran (and was filtered).
 COUNTED_OUTCOMES = ("ok", "error", "invalid_json", "timeout", "truncated", "refused")
-# Requests the provider turned away before running them: 429, and 503 "high demand".
-TURNED_AWAY_OUTCOMES = ("rate_limited", "overloaded")
+# Requests the provider turned away before running them: 429, 503 "high demand", and 413
+# "request too large" (ADR 0009).
+TURNED_AWAY_OUTCOMES = ("rate_limited", "overloaded", "too_large")
 
 
 @dataclass(frozen=True)
