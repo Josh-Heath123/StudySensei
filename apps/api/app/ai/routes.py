@@ -13,8 +13,8 @@ from pydantic import SecretStr
 
 from app.core.config import ReasoningEffort, RouteSetting, Settings
 
-AIRole = Literal["smart", "bulk", "vision"]
-ROLES: tuple[AIRole, ...] = ("smart", "bulk", "vision")
+AIRole = Literal["smart", "bulk", "vision", "long"]
+ROLES: tuple[AIRole, ...] = ("smart", "bulk", "vision", "long")
 PROVIDERS = ("gemini", "groq", "ollama")
 
 
@@ -99,9 +99,12 @@ def wire_effort(
 
 
 def role_settings(role: AIRole, settings: Settings) -> list[RouteSetting]:
-    return {"smart": settings.ai_smart, "bulk": settings.ai_bulk, "vision": settings.ai_vision}[
-        role
-    ]
+    return {
+        "smart": settings.ai_smart,
+        "bulk": settings.ai_bulk,
+        "vision": settings.ai_vision,
+        "long": settings.ai_long,
+    }[role]
 
 
 def routes_for(role: AIRole, settings: Settings) -> list[Route]:

@@ -139,6 +139,8 @@ class Chunk(TimestampedBase):
             ondelete="CASCADE",
         ),
         UniqueConstraint("material_id", "page_number", "position", name="uq_chunks_position"),
+        # chunk_topics references (id, module_id).
+        UniqueConstraint("id", "module_id", name="uq_chunks_id_module"),
         CheckConstraint("position >= 0", name="ck_chunks_position"),
         CheckConstraint("token_count > 0", name="ck_chunks_token_count"),
         # Search filters by user and module, then scans.
