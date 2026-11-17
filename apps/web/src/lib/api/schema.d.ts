@@ -780,6 +780,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/materials/{material_id}/file": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Material File
+     * @description The original file, for the viewer. Cached for good (the ETag is its sha256), so an
+     *     If-None-Match with that ETag gets a 304. 404 for another user's material or a lost file.
+     */
+    get: operations["get_material_file_materials__material_id__file_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/modules/{module_id}/search": {
     parameters: {
       query?: never;
@@ -3398,6 +3419,46 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["PageOut"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_material_file_materials__material_id__file_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        "if-none-match"?: string | null;
+      };
+      path: {
+        material_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The original file, as uploaded */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": unknown;
+        };
+      };
+      /** @description Not modified (If-None-Match matched the ETag) */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Validation Error */
       422: {

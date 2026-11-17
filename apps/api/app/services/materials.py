@@ -276,3 +276,26 @@ async def get_page(
     if page is None:
         raise NotFound("Page")
     return page
+
+
+@dataclass
+class MaterialFile:
+    """An open handle on a material's stored original, and what to serve it as."""
+
+    material: Material
+    size: int
+    stream: BinaryIO
+
+
+async def open_file(
+    session: AsyncSession, storage: Storage, material_id: uuid.UUID, *, user_id: uuid.UUID
+) -> MaterialFile:
+    """The stored original. Another user's material, or a blob that's gone, is NotFound."""
+    material = await get_material(session, material_id, user_id=user_id)
+    try:
+        stream = storage.open(blob_key(user_id, material.sha256))
+    except FileNotFoundError:
+        raise NotFound("File") from None
+    size = stream.seek(0, 2)
+    stream.seek(0)
+    return MaterialFile(material, size, stream)
