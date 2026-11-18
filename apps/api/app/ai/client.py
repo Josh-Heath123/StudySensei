@@ -442,7 +442,7 @@ class LLMClient:
             )
         )
 
-    async def _budget_reset(self, route: Route, user_id: uuid.UUID) -> datetime | None:
+    async def budget_reset(self, route: Route, user_id: uuid.UUID) -> datetime | None:
         """When the route's budget resets if it's used up today, else None."""
         if route.daily_budget is None:
             return None
@@ -494,7 +494,7 @@ class LLMClient:
             if blocked is not None and blocked > self._now():
                 waits.append(blocked)
                 continue
-            reset = await self._budget_reset(route, user_id)
+            reset = await self.budget_reset(route, user_id)
             if reset is not None:
                 log.info("%s: daily budget used up until %s", route.key, reset.isoformat())
                 waits.append(reset)
