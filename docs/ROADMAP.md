@@ -70,7 +70,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 - [x] Upload UI with processing status, materials viewer (pdf.js, jump to page) and module search
 - [x] Topic review UI (confirm, rename, merge, delete; user edits win)
 - [x] AI provider settings page
-- [ ] `evals/topic_extraction` and `evals/search` from COS330
+- [x] `evals/topic_extraction` and `evals/search` from COS330
 
 **Verify:**
 - extractor fixture tests

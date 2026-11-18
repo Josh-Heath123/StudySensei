@@ -2,6 +2,33 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-18: Phase 2, evals for search, linking and topic extraction
+
+- **Done:** `apps/api/evals/` with three runners against the dev database (read-only in Postgres, no AI calls,
+  never in CI), the COS330 config (chapter patterns, 15 search queries, the 58-topic reviewed reference as names
+  and parent names), pure metrics in `evals/metrics.py` with unit tests in `tests/evals/`, and a README.
+  Nothing committed is course text.
+- **Search** (`python -m evals.search cos330`): slide in the top 3 for 11/15 (the ROADMAP's 12 isn't met: in all
+  four misses, queries 1, 5, 6 and 9, the student's own notes page on that concept ranks first); any acceptable
+  page in the top 3 for 15/15, **PASS**; MRR 0.900.
+- **Linking** (`python -m evals.linking cos330`), subtopics, which the 18 Nov baseline counts: 551 cited, 310
+  similarity (0.67–0.88), 0 on near-empty pages, 201 same-chapter, 91 cross-chapter, 18 study guide. Chapter
+  topics: 543 cited, 50 similarity. The local re-score reproduces all 310.
+  - Global threshold: 0.67 keeps all; 0.72 keeps 197/75; 0.74 keeps 184/56; **0.75 keeps 176/44** (88 % /
+    48 %); 0.76 keeps 158/27 (79 % / 30 %); 0.78 keeps 112/5 (56 % / 5 %).
+  - Relative (within δ of the best cited page): δ 0.07 keeps 171/69 (85 % / 76 %), δ 0.05 keeps 142/52. Worse
+    than a global threshold at every level. Cap 8 keeps 137/45, cap 6 keeps 109/20.
+- **Decided:** no rule clearly wins: none drops most cross-chapter links while keeping 85 % of same-chapter ones, so
+  the defaults stay 0.63 and cap 12, and there's no relink migration. If a cut is wanted later, 0.75 is the best
+  option within the 85 % bound (it halves cross-chapter links); 0.76 if losing a fifth of same-chapter links is
+  acceptable.
+- **Topic extraction** (`python -m evals.topic_extraction cos330`): 58/58 matched, 0 missing, 0 extra, 0 moved.
+  Citation precision by chapter: slides 716/716, notes 318/319, Ch8 notes 106/106; the study guide's 59 have no
+  chapter. The notes' known errors are spill into neighbouring sections of the same chapter, which a chapter check
+  can't see.
+- **Next:** spike S1 (camera in the browser), then Phase 3. Re-run the evals before and after any prompt, model or
+  linking change.
+
 ## 2026-11-18: Phase 2, COS330 review and link check
 
 - **Review:** Malcolm used Keep all: 53 kept, 0 renamed, 0 merged, 0 dismissed. The Project chat then checked all 53
