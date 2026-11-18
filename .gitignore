@@ -28,6 +28,8 @@ coverage/
 
 # Claude Code local settings
 .claude/settings.local.json
+# Local specifics for Claude Code (course-material path, private file patterns): never committed
+CLAUDE.local.md
 
 # IDE / OS
 .vscode/

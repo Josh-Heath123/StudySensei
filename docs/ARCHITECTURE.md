@@ -1,6 +1,6 @@
 # Architecture
 
-The "how". Change it in the same PR as any change that alters it. Source: PLAN.md §3, updated by decision 0002.
+The "how". Change it in the same PR as any change that alters it. Source: [the original plan](archive/PLAN.md) §3, updated by decision 0002.
 
 ## Overview
 
@@ -295,7 +295,7 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
     never the original file name (which can hold a student number).
   - The client never looks the user up: `user_id` is only for usage rows and budgets. No names, emails, student
     numbers or reflections go in prompts.
-  - For COS330, the student turns `allow_ai` off on their own `u23541475_*` submissions.
+  - For COS330, the student turns `allow_ai` off on their own submissions.
 - **Checking keys:** `app/ai/ping.py` `ping_routes` sends "Reply with the single word: pong" to every configured model
   at once, at `minimal` effort, and returns one structured `PingOutcome` per model. A model whose daily budget is used
   up isn't called (`skipped`, with its reset time). Each model gets 30 s in total, so a slow one can't hold up the

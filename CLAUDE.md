@@ -20,8 +20,9 @@ Web rebuild of a retired PyQt prototype (tag `v0-pyqt-prototype`). Product: `doc
 - No secrets in git: use `.env` and keep `.env.example` current.
 - Finish every task by running `npm run check`, ticking `ROADMAP.md` and adding a `PROGRESS.md` entry.
 - AI providers are free tiers (decision 0002): never put personal data in prompts (names, student numbers, emails, reflections).
-- Course material (e.g. COS330 under `C:\Users\flosh\OneDrive\...\COS330`) is read-only. Never copy it into the repo or commit it.
-  Exclude the student's own `u23541475_*` submissions from AI processing.
+- Course material (the COS330 test module) is read-only. Never copy it into the repo or commit it. The owner's own
+  submissions in it are never uploaded or sent to AI. Its local path and the submissions' file pattern are in
+  `CLAUDE.local.md` (gitignored, on the owner's machine only); never copy them into a tracked file.
 
 ## Commands (run from the repo root)
 
@@ -32,6 +33,9 @@ Web rebuild of a retired PyQt prototype (tag `v0-pyqt-prototype`). Product: `doc
 | `npm run check` | Everything CI runs except e2e, in two parallel phases with step timings (about 1 minute): ruff, ruff format, prettier, eslint, mypy, tsc, then pytest (4 xdist workers) and vitest. A failed step's log tail is printed under its name; full logs in `.locks/check/` |
 | `npm run e2e` | Playwright against the real stack on its own ports (API :8001, web :5174, db `studysensei_e2e`, rebuilt each run). First time: `npx playwright install chromium` |
 | `npm run format` | Auto-fix formatting (ruff + prettier) |
+| `npm run screenshots` | The README screenshots: its own stack (API :8002, web :5176, db `studysensei_demo`), synthetic demo data (`apps/api/scripts/demo_seed.py`), Playwright, then teardown |
+| `npm run assets` | The README banners and social preview from `docs/assets/src/banner.html` |
+| `npm run links` | Check every relative link and image in README.md and `docs/` resolves |
 | `npm run spike:s1` | The S1 camera spike page on :5175 (`apps/web/spikes/s1-camera/`; not part of the app) |
 | `npm run licenses` | Regenerate `THIRD_PARTY_NOTICES.md` from `uv.lock` and `package-lock.json`. Run after any dependency change |
 | `npm run gen:api` | Re-export OpenAPI and regenerate the TS client types. Run after any API schema change |
@@ -56,7 +60,7 @@ apps/api/app/   api/ (routers) · core/ (config, db) · models/ · schemas/ · s
 apps/api/       alembic/ · tests/ · evals/ · scripts/export_openapi.py
 apps/web/e2e/   Playwright specs (`npm run e2e`)
 apps/web/src/   app/ (routes, layout, top nav) · features/<area>/ · lib/api/ (generated client) · ui/ (shadcn)
-docs/           PRODUCT · ARCHITECTURE · DESIGN · ROADMAP · PROGRESS · decisions/ · legacy-notes · PLAN (frozen original)
+docs/           PRODUCT · ARCHITECTURE · DESIGN · ROADMAP · PROGRESS · decisions/ · legacy-notes · archive/ (the frozen PLAN and the 17 Nov handover)
 ```
 
 ## Conventions
@@ -113,12 +117,12 @@ docs/           PRODUCT · ARCHITECTURE · DESIGN · ROADMAP · PROGRESS · deci
 ## Pull requests (do this without asking)
 - When a task's work is committed on its `phase-N/<task>` branch: push it (`git push -u origin <branch>`), open the PR with `gh pr create` (or update the existing one), then watch CI with `gh pr checks --watch`.
 - If CI fails, fix it, commit, push and watch again until it's green. Finish by reporting the PR link and the CI result.
-- Never push to main, never force-push, never merge a PR. Malcolm merges after review.
+- Never push to main, never force-push, never merge a PR. Joshua merges after review.
 - The one required check is **CI passed** (`.github/rulesets/main.json`, CONTRIBUTING.md). A PR that touches only
   Markdown and `docs/` skips api, web and e2e; the hygiene job (gitleaks, licences) always runs.
 
 ## Dev servers
-- Don't start `npm run dev` yourself. Malcolm runs it in his own terminal. If you need the running app and nothing answers on :5173, say so instead of starting it.
+- Don't start `npm run dev` yourself. Joshua runs it in his own terminal. If you need the running app and nothing answers on :5173, say so instead of starting it.
 
 ## Hooks and permissions (`.claude/settings.json`)
 
