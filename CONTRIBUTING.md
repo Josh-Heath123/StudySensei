@@ -52,5 +52,8 @@ never reports.
   the npm production dependencies. A package whose licence is fine but unreadable goes in
   `scripts/license-allowlist.json` with the reason it was reviewed. A real copyleft dependency is replaced, not
   allow-listed (PyMuPDF was rejected for AGPL).
+- `THIRD_PARTY_NOTICES.md` is generated from the same data by `npm run licenses`; CI fails if it's stale. The embedding
+  model and the fonts are listed there with licences checked by hand in `scripts/third-party-notices.mjs`.
+- StudySensei itself is proprietary (`LICENSE`); how it's made is recorded in `docs/AUTHORSHIP.md`.
 - gitleaks scans the commits of every PR and push. Never commit `.env`; fake keys in tests should look fake
   (`fake-groq-key-for-ping-tests`).

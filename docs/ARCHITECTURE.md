@@ -492,8 +492,9 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   (rulesets in `.github/rulesets/`, applied as described in CONTRIBUTING.md):
   - **changes:** `dorny/paths-filter`. A change to Markdown and `docs/` only skips api, web and e2e; anything else runs all.
   - **hygiene** (always): gitleaks over the PR's (or push's) commits, and `scripts/check-licenses.mjs`, which fails on
-    AGPL, GPL, SSPL or an unknown licence in the Python environment or the npm production dependencies, unless
-    reviewed in `scripts/license-allowlist.json`.
+    AGPL, GPL, SSPL or an unknown licence in the Python environment or the npm production dependencies
+    (package-lock.json), unless reviewed in `scripts/license-allowlist.json`; and a staleness check on
+    `THIRD_PARTY_NOTICES.md`, regenerated from the same data (`scripts/license-data.mjs`, `npm run licenses`).
   - **api:** ruff, ruff format, mypy (strict), alembic upgrade, pytest on 4 xdist workers (each with its own
     `studysensei_gwN_test` database; conftest still refuses any name not ending in `_test`) and an OpenAPI-staleness check
   - **web:** eslint, prettier, tsc, vitest (`vmThreads` pool) and vite build
