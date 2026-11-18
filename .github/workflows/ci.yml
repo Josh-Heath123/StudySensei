@@ -1,16 +1,87 @@
 name: CI
 
+# Branch protection requires only the "CI passed" job (see .github/rulesets/ and
+# CONTRIBUTING.md), so jobs can be added, split or skipped without touching the rule.
+
 on:
   pull_request:
   push:
-    branches: [main, rebuild]
+    branches: [main]
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Does the change touch anything but Markdown and docs/? Coarse on purpose: any other
+  # file runs everything.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v4.0.3
+        id: filter
+        with:
+          predicate-quantifier: every
+          filters: |
+            code:
+              - '**'
+              - '!**/*.md'
+              - '!docs/**'
+
+  # Always runs, docs-only or not: secrets and licences.
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Secret scan (gitleaks, the commits in this PR or push)
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          base_url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          curl -sSfL -o "$RUNNER_TEMP/$archive" "$base_url/$archive"
+          curl -sSfL -o "$RUNNER_TEMP/checksums.txt" "$base_url/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          (cd "$RUNNER_TEMP" && grep " $archive\$" checksums.txt | sha256sum -c -)
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
+          # A new branch pushed without a base (all zeros) scans just its last commit.
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            range="-1 $HEAD"
+          else
+            range="$BASE..$HEAD"
+          fi
+          echo "Scanning $range"
+          "$RUNNER_TEMP/gitleaks" git --no-banner --redact --verbose --log-opts="$range" .
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+        working-directory: apps/api
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Restore node_modules
+        id: node-modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            apps/web/node_modules
+          key: node-modules-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+      - if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
+      - name: Licences (no AGPL, GPL, SSPL or unknown; reviewed exceptions in scripts/license-allowlist.json)
+        run: node scripts/check-licenses.mjs
+
   api:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -48,22 +119,33 @@ jobs:
         run: uv run mypy
       - name: Migrations apply cleanly
         run: uv run alembic upgrade head
+      # 4 workers, each on its own studysensei_gwN_test database (tests/xdist_db.py).
       - name: Pytest
-        run: uv run pytest
+        run: uv run pytest -n 4
       - name: OpenAPI schema is up to date
         run: |
           uv run python -m scripts.export_openapi
           git diff --exit-code -- ../web/src/lib/api/openapi.json
 
   web:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
+      - name: Restore node_modules
+        id: node-modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            apps/web/node_modules
+          key: node-modules-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+      - if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
       - name: Generated API types are up to date
         run: |
           npm run gen:api -w apps/web
@@ -80,6 +162,8 @@ jobs:
         run: npm run build -w apps/web
 
   e2e:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     services:
       db:
@@ -108,10 +192,31 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
+      - name: Restore node_modules
+        id: node-modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            apps/web/node_modules
+          key: node-modules-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+      - if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - name: Restore the Playwright browsers
+        id: browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
       - name: Install Chromium
+        if: steps.browsers.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+      - name: Install Chromium's system libraries (browser restored from cache)
+        if: steps.browsers.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - name: Playwright (real API + web on their own ports)
         run: npm run e2e
       - name: Upload the Playwright report
@@ -123,3 +228,22 @@ jobs:
             apps/web/playwright-report/
             apps/web/test-results/
           retention-days: 7
+
+  # The one required check. Passes when every job passed or was skipped (a docs-only
+  # change skips api, web and e2e); fails if any failed or was cancelled.
+  ci-passed:
+    name: CI passed
+    if: always()
+    needs: [changes, hygiene, api, web, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job passed or was skipped
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          failed=$(echo "$RESULTS" | jq -r '[to_entries[] | select(.value.result != "success" and .value.result != "skipped") | .key] | join(", ")')
+          if [ -n "$failed" ]; then
+            echo "Failed or cancelled: $failed"
+            exit 1
+          fi
