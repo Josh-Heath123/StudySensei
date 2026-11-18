@@ -1,71 +1,88 @@
 # 15 hand-written COS330 queries and the pages that answer them (material title, page).
 # slide: true for a lecture-deck page (the ROADMAP criterion counts those).
+# topic: the session topic the retrieval mode boosts (a subtopic, named without its "ChN"; its
+# chapter says which top-level topic it sits under).
 # Only queries, titles and page numbers: never course text.
 module: COS330
 queries:
   - query: what makes up the attack surface of a system
+    topic: {chapter: Ch1, name: "Attack Surfaces and Security Design Principles"}
     pages:
       - {material: CH01, page: 35, slide: true}
       - {material: CH01, page: 36, slide: true}
       - {material: COS330 Chapter1 Study Notes, page: 14, slide: false}
       - {material: COS330 Chapter1 Study Notes, page: 15, slide: false}
   - query: why use triple DES instead of DES
+    topic: {chapter: Ch2, name: "Symmetric Encryption and Block Ciphers"}
     pages:
       - {material: CH02, page: 10, slide: true}
       - {material: CH02, page: 12, slide: true}
   - query: what does a salt do in password storage
+    topic: {chapter: Ch3, name: "Password-Based Authentication"}
     pages:
       - {material: CH03, page: 13, slide: true}
       - {material: CH03, page: 14, slide: true}
   - query: compare discretionary, mandatory, role-based and attribute-based access control
+    topic: {chapter: Ch4, name: "Access Control Policies and Models"}
     pages:
       - {material: CH04, page: 11, slide: true}
       - {material: CH04, page: 22, slide: true}
   - query: how can someone infer sensitive data from queries they are allowed to run
+    topic: {chapter: Ch5, name: "Inference and Inference Detection"}
     pages:
       - {material: CH05, page: 29, slide: true}
       - {material: COS330 Chapter5 Study Notes, page: 14, slide: false}
       - {material: COS330 Final Study Guide, page: 18, slide: false}
       - {material: COS330 Final Study Guide, page: 19, slide: false}
   - query: out-of-band SQL injection
+    topic: {chapter: Ch5, name: "SQL Injection Attacks and Countermeasures"}
     pages:
       - {material: CH05, page: 22, slide: true}
       - {material: COS330 Chapter5 Study Notes, page: 9, slide: false}
   - query: how does a rootkit hide itself
+    topic: {chapter: Ch6, name: "Payloads, Backdoors, and Rootkits"}
     pages:
       - {material: CH06, page: 48, slide: true}
       - {material: CH06, page: 50, slide: true}
   - query: what makes an APT advanced and persistent
+    topic: {chapter: Ch6, name: "Malware Terminology and Classification"}
     pages:
       - {material: CH06, page: 12, slide: true}
       - {material: CH06, page: 13, slide: true}
       - {material: CH06, page: 14, slide: true}
       - {material: CH06, page: 15, slide: true}
   - query: SYN spoofing attack on TCP
+    topic: {chapter: Ch7, name: "DoS Techniques and Flooding Attacks"}
     pages:
       - {material: CH07, page: 8, slide: true}
       - {material: COS330 Chapter7 Study Notes, page: 9, slide: false}
   - query: DNS amplification attack
+    topic: {chapter: Ch7, name: "Distributed Denial-of-Service and Application-Layer Attacks"}
     pages:
       - {material: CH07, page: 17, slide: true}
       - {material: CH07, page: 18, slide: true}
   - query: low versus high interaction honeypots
+    topic: {chapter: Ch8, name: "Honeypots and Data Exchange Formats"}
     pages:
       - {material: CH08, page: 37, slide: true}
       - {material: CH08, page: 38, slide: true}
       - {material: COS330 Chapter8 Study Notes, page: 27, slide: false}
   - query: stateful inspection firewall compared to a packet filter
+    topic: {chapter: Ch9, name: "Types of Firewalls"}
     pages:
       - {material: CH09, page: 13, slide: true}
       - {material: CH09, page: 14, slide: true}
   - query: random canary value to protect the return address
+    topic: {chapter: Ch10, name: "Compile-Time and Run-Time Defenses"}
     pages:
       - {material: CH10, page: 30, slide: true}
   - query: cross-site scripting attack
+    topic: {chapter: Ch11, name: "Defensive Programming and Input Handling"}
     pages:
       - {material: CH11, page: 17, slide: true}
       - {material: CH11, page: 18, slide: true}
   - query: differences between IaaS, PaaS and SaaS
+    topic: {chapter: Ch13, name: "Cloud Computing Models and Security"}
     pages:
       - {material: CH13, page: 13, slide: true}
       - {material: CH13, page: 14, slide: true}

@@ -10,6 +10,7 @@ Run them from the repo root with the Docker database up (`npm run db:up`; `npm r
 | Eval | Command | What it measures |
 | --- | --- | --- |
 | Search | `uv run --directory apps/api python -m evals.search cos330` | Each query's rank of the first acceptable page and slide; slide in the top 3, any acceptable page in the top 3, MRR. **Pass:** any acceptable page in the top 3 for ≥ 12 of 15 (exit code 1 otherwise) |
+| Retrieval | `uv run --directory apps/api python -m evals.search cos330 --retrieval` | The same queries through the tutor's `retrieve` (at most 8 sources, one per page, `allow_ai` only, the context budget): with no topic, with the query's topic at ×1.25, ×1.5, ×2 and ×3, with only the links a relink at the current threshold keeps, and with a topic from another chapter. Per run: an acceptable page in the 8, its rank (S1 = 1), acceptable pages in the 8, and the context's estimated tokens. No pass mark |
 | Linking | `uv run --directory apps/api python -m evals.linking cos330` | The current similarity links (count, near-empty pages, same vs cross-chapter), then a sweep of link rules re-scored the way `linking.py` does |
 | Topic extraction | `uv run --directory apps/api python -m evals.topic_extraction cos330` | The current tree against the reviewed reference (matched, missing, extra, moved), and citation precision per material kind |
 
@@ -23,7 +24,8 @@ Committed: queries, material titles, page numbers, topic names, chapter patterns
 - `cos330.yaml`: the module code and its chapter mapping (a material's chapter from its title, a
   topic's from its top-level "ChN" ancestor). Shared by the linking and topic evals; app code knows
   nothing about chapters.
-- `search/cos330.yaml`: 15 queries, each with its acceptable pages (material title, page, slide flag).
+- `search/cos330.yaml`: 15 queries, each with its acceptable pages (material title, page, slide flag) and its
+  session topic for the retrieval mode (a subtopic's name and its chapter).
 - `topic_extraction/cos330_reference.yaml`: Joshua's reviewed tree, 58 topics as names and parent names.
 - `metrics.py`: the pure metric functions, unit-tested in `tests/evals/` (those tests do run in CI).
 
@@ -46,6 +48,23 @@ from the student's own submissions. The course files stay outside the repo.
   notes' citation errors are (the 18 Nov hand check found about 26 of 190 notes and study-guide citations
   wrong); scoring that needs page-to-section labels.
 
+## Retrieval, 18 Nov 2026 (COS330, links as built at 0.63)
+
+| Run | In the 8 | Top 3 | At S1 | MRR | Acceptable pages in the 8 | Boosted sources per query | Tokens mean / max |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| No topic | 15/15 | 15/15 | 12/15 | 0.900 | 30 | 0 | 2,063 / 3,530 |
+| ×1.25, ×1.5, ×2 | 15/15 | 15/15 | 12/15 | 0.900 | 32 | 5.9 | 2,091 / 3,530 |
+| ×3 | 15/15 | 15/15 | 12/15 | 0.900 | 33 | 6.2 | 2,040 / 3,065 |
+| Same, links ≥ 0.75 only | as above | | | | 32 (×1.25–×2), 33 (×3) | 5.7 / 6.1 | |
+| Another chapter's topic, ×1.25 | 15/15 | 15/15 | 11/15 | 0.867 | 29 | 0.3 | 2,041 / 3,530 |
+| Another chapter's topic, ×1.5 / ×2 / ×3 | 15/15 | 15/15 | 9/15 | 0.800 / 0.800 / 0.789 | 29 | 0.3 | 2,041 / 3,530 |
+
+- The three S1 misses (queries 3, 7 and 15) are the same in every run: the student's own notes page on the concept
+  (Ch3 notes p8, Ch6 notes p13) and the CH13 slide before the acceptable ones (p12). All are on-topic, so no boost
+  can separate them.
+- **Chosen:** `TUTOR_TOPIC_BOOST` = 1.25. It gives all of ×2's on-topic gain at the smallest off-topic cost.
+- The default context budget (4,500) dropped nothing: the largest context was 3,530 tokens.
+
 ## Baseline, 18 Nov 2026 (COS330, after PR #26's relink)
 
 - **Search:** slide in the top 3 for 11/15; any acceptable page in the top 3 for 15/15 (PASS); MRR 0.900.
@@ -55,7 +74,8 @@ from the student's own submissions. The course files stay outside the repo.
   - The 0.63 threshold never cuts: 0.67 keeps all 310.
   - 0.75 keeps 88 % of same-chapter and 48 % of cross-chapter links; 0.76 keeps 79 % and 30 %; 0.78
     keeps 56 % and 5 %. Relative and cap rules are worse than a global threshold at every level.
-  - No rule drops most cross-chapter links while keeping 85 % of same-chapter ones, so the defaults
-    (0.63, cap 12) are unchanged.
+  - No rule drops most cross-chapter links while keeping 85 % of same-chapter ones. The default stayed at 0.63
+    then; Phase 3 task 1 adopted 0.75 (it halves the cross-chapter links and keeps 88 % of the same-chapter ones),
+    with migration 0016 queuing the relink.
 - **Topic extraction:** 58 of 58 reference topics matched, none missing or extra. Citation precision by
   chapter: slides 716/716, notes 318/319 (Ch8 notes 106/106), study guide 59 not scored.
