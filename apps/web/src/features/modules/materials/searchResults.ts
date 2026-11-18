@@ -56,6 +56,14 @@ export function plainSnippet(parts: SnippetPart[]): SnippetPart[] {
   return out;
 }
 
+/** A page title (or any one-line text) with its Markdown syntax removed, for display. */
+export function plainText(text: string): string {
+  return plainSnippet([{ text, highlight: false }])
+    .map((part) => part.text)
+    .join("")
+    .trim();
+}
+
 export type PageHits = { best: SearchResult; matches: number };
 
 /**

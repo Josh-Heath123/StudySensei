@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 
 import { useMaterial, usePages } from "./api";
 import { MaterialViewer, type ViewedMaterial } from "./MaterialViewer";
+import { plainText } from "./searchResults";
 
 /**
  * The one way to read a material's pages: the page list down the side and the viewer
@@ -88,7 +89,7 @@ export function PagesDialog({
                         <span className="tabular font-semibold">Page {p.page_number}</span>
                         {p.title && (
                           <span className="text-muted block truncate text-xs font-normal">
-                            {p.title}
+                            {plainText(p.title)}
                           </span>
                         )}
                         {p.is_scanned && (

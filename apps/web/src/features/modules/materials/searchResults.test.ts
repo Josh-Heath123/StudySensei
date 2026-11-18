@@ -1,5 +1,5 @@
 import type { SearchResult } from "./api";
-import { groupByPage, plainSnippet } from "./searchResults";
+import { groupByPage, plainSnippet, plainText } from "./searchResults";
 
 const parts = (...runs: [string, boolean][]) =>
   runs.map(([text, highlight]) => ({ text, highlight }));
@@ -69,6 +69,16 @@ describe("plainSnippet", () => {
 
 const hit = (chunk_id: string, material_id: string, page_number: number) =>
   ({ chunk_id, material_id, page_number }) as SearchResult;
+
+describe("plainText", () => {
+  test("strips Markdown from a page title for display", () => {
+    expect(plainText("Q3: inference essay *(Ch5, 5 marks)*")).toBe(
+      "Q3: inference essay (Ch5, 5 marks)",
+    );
+    expect(plainText("## **Salted** hashes")).toBe("Salted hashes");
+    expect(plainText("snake_case stays, 2 * 3 too")).toBe("snake_case stays, 2 * 3 too");
+  });
+});
 
 describe("groupByPage", () => {
   test("one entry per material page, led by its first (best) hit, in API order", () => {

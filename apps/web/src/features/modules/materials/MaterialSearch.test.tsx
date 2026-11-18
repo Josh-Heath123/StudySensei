@@ -99,7 +99,7 @@ test("with no materials there's no search box", async () => {
   expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
 });
 
-test("hits on one page show once, with the best snippet, its Markdown hidden", async () => {
+test("hits on one page show once, with the best snippet; Markdown is hidden in snippets and titles", async () => {
   serve([aMaterial()], (q) => ({
     query: q,
     indexed_chunks: 12,
@@ -115,7 +115,7 @@ test("hits on one page show once, with the best snippet, its Markdown hidden", a
           { text: "** is `slow`", highlight: false },
         ],
       }),
-      aResult({ chunk_id: "other", page_number: 3 }),
+      aResult({ chunk_id: "other", page_number: 3, page_title: "Q3 essay *(Ch5, 5 marks)*" }),
       aResult({ chunk_id: "worse", material_title: "TCP notes", page_number: 2 }),
     ],
   }));
@@ -134,7 +134,8 @@ test("hits on one page show once, with the best snippet, its Markdown hidden", a
   expect(first).not.toHaveTextContent(/[*`]/);
   expect(within(first).getByText("Inference").tagName).toBe("MARK");
   expect(first).toHaveTextContent("2 matches on this page");
-  expect(second).toHaveTextContent("CH03 slides · page 3");
+  expect(second).toHaveTextContent("CH03 slides · page 3 · Q3 essay (Ch5, 5 marks)");
+  expect(second).not.toHaveTextContent(/[*`]/);
   expect(second).not.toHaveTextContent(/matches on this page/);
 });
 
