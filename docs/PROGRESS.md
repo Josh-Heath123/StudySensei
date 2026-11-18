@@ -25,8 +25,13 @@ Newest first. 3–5 lines per session: what was done, what was decided, what's n
     `with-lock.mjs` also takes over a lock held for more than 20 minutes (an orphan).
   - Rulesets as code (`.github/rulesets/main.json`, `main-signed.json`) and CONTRIBUTING.md on applying them; not applied.
   - CLAUDE.md: run the check in the foreground with a 10-minute timeout, never end a turn with a check, push or CI pending.
-- **After, local:** `npm run check` 66.0 s wall (pytest 50.2 s and vitest 22.6 s in parallel); `check:serial` 89.2 s
+- **After, local:** `npm run check` 64.4–66.0 s wall (pytest 50 s and vitest 23 s in parallel); `check:serial` 89.2 s
   (pytest 37.4 s, vitest 19.7 s, eslint 14.1 s, tsc 9.3 s).
+- **After, CI** (PR #29's first full run, node_modules cached, Playwright browsers not yet): wall 2.0 min. e2e 110 s
+  (Playwright 47 s, Chromium install 22 s, the cache now saved), api 85 s (pytest 42 s), web 68 s (vitest 20 s, no
+  `npm ci`), hygiene 22 s, changes 6 s. The wall was already under the 5-minute target; it's set by e2e. pytest-xdist
+  didn't help on CI's 4 vCPUs (42 s against 23–45 s before: each worker migrates its own database), only locally.
+- **Next:** apply `.github/rulesets/main.json` (CONTRIBUTING.md), then spike S1.
 
 ## 2026-11-18: Phase 2, evals for search, linking and topic extraction
 
