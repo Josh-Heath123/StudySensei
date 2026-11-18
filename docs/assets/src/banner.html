@@ -2,8 +2,9 @@
 <!--
   The README banner and the GitHub social preview, rendered to PNG by `npm run assets`
   (scripts/assets.mjs). One template: ?theme=light|dark&width=…&height=… set the variant.
-  docs/DESIGN.md "Planner": ink on paper, Space Grotesk 700 for display, Inter for text,
-  module colours only as square fills. Fonts are the self-hosted @fontsource files.
+  docs/DESIGN.md "Glass": a cloudy canvas, a large light Inter wordmark, Galactic Violet and
+  Bubblegum Pink in the signature gradient. Text never sits on the gradient itself. The font
+  is the self-hosted @fontsource-variable/inter file.
 -->
 <html lang="en">
   <head>
@@ -11,28 +12,25 @@
     <title>StudySensei banner</title>
     <style>
       @font-face {
-        font-family: "Space Grotesk";
-        font-weight: 700;
-        src: url("../../../node_modules/@fontsource/space-grotesk/files/space-grotesk-latin-700-normal.woff2")
-          format("woff2");
-      }
-      @font-face {
         font-family: "Inter";
         font-weight: 100 900;
         src: url("../../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2")
           format("woff2");
       }
       :root {
-        --ink: #111111;
-        --paper: #ffffff;
-        --muted: #5b5b5b;
-        --line: #e8e8e8;
+        --canvas: #f0f0f0;
+        --fg: #0b0b12;
+        --muted: #5e5e6b;
+        --mist-a: rgba(254, 107, 212, 0.55);
+        --mist-b: rgba(88, 64, 255, 0.5);
+        --gradient: linear-gradient(135deg, #fe6bd4 0%, #a77bf6 50%, #5840ff 100%);
       }
       :root[data-theme="dark"] {
-        --ink: #ffffff;
-        --paper: #111111;
-        --muted: #b3b3b3;
-        --line: #3a3a3a;
+        --canvas: #0b0b12;
+        --fg: #f0f0f0;
+        --muted: #a3a3b5;
+        --mist-a: rgba(254, 107, 212, 0.42);
+        --mist-b: rgba(88, 64, 255, 0.62);
       }
       * {
         box-sizing: border-box;
@@ -42,72 +40,100 @@
         margin: 0;
         width: var(--width);
         height: var(--height);
-        background: var(--paper);
-        color: var(--ink);
+        background: var(--canvas);
+        color: var(--fg);
         overflow: hidden;
+        font-family: "Inter", sans-serif;
+      }
+      /* The ambient mist, as on the session screen: kept to the right, away from the text. */
+      .mist {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .mist span {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(calc(var(--height) * 0.16));
+      }
+      .mist .a {
+        width: calc(var(--height) * 1.1);
+        height: calc(var(--height) * 1.1);
+        right: calc(var(--width) * 0.02);
+        top: calc(var(--height) * -0.35);
+        background: var(--mist-a);
+      }
+      .mist .b {
+        width: calc(var(--height) * 1.25);
+        height: calc(var(--height) * 1.25);
+        right: calc(var(--width) * -0.08);
+        top: calc(var(--height) * 0.2);
+        background: var(--mist-b);
+      }
+      /* The 2:1 social preview: the text runs wider, so the mist keeps to the corners. */
+      :root[data-layout="social"] .mist .a {
+        width: calc(var(--height) * 0.75);
+        height: calc(var(--height) * 0.75);
+        right: calc(var(--width) * -0.12);
+        top: calc(var(--height) * -0.42);
+      }
+      :root[data-layout="social"] .mist .b {
+        width: calc(var(--height) * 0.85);
+        height: calc(var(--height) * 0.85);
+        right: calc(var(--width) * -0.16);
+        top: calc(var(--height) * 0.62);
+      }
+      :root[data-layout="social"] p {
+        font-size: calc(var(--height) * 0.062);
       }
       main {
+        position: relative;
         display: flex;
         flex-direction: column;
         justify-content: center;
-        gap: calc(var(--height) * 0.06);
+        gap: calc(var(--height) * 0.07);
         width: 100%;
         height: 100%;
-        padding: 0 calc(var(--width) * 0.06);
+        padding: 0 calc(var(--width) * 0.065);
       }
       h1 {
+        display: flex;
+        align-items: center;
+        gap: calc(var(--height) * 0.06);
         margin: 0;
-        font: 700 calc(var(--height) * 0.24) / 1 "Space Grotesk", sans-serif;
-        letter-spacing: -0.03em;
+        font-size: calc(var(--height) * 0.25);
+        line-height: 1;
+        font-weight: 300;
+        letter-spacing: -0.045em;
+      }
+      h1 .dot {
+        flex: none;
+        width: calc(var(--height) * 0.11);
+        height: calc(var(--height) * 0.11);
+        border-radius: 50%;
+        background: var(--gradient);
       }
       p {
         margin: 0;
-        font: 500 calc(var(--height) * 0.075) / 1.3 "Inter", sans-serif;
+        font-size: calc(var(--height) * 0.075);
+        line-height: 1.3;
+        font-weight: 400;
+        letter-spacing: -0.01em;
         color: var(--muted);
-      }
-      /* Today's day timeline, in miniature: a ruled line with square module-colour blocks. */
-      .day {
-        position: relative;
-        display: flex;
-        align-items: center;
-        gap: calc(var(--height) * 0.03);
-        margin-top: calc(var(--height) * 0.02);
-        padding-top: calc(var(--height) * 0.035);
-        border-top: 2px solid var(--line);
-        width: 62%;
-      }
-      .day span {
-        width: calc(var(--height) * 0.075);
-        height: calc(var(--height) * 0.075);
-        border-radius: 3px;
-      }
-      .day .now {
-        width: calc(var(--height) * 0.16);
-        height: 2px;
-        border-radius: 0;
-        background: var(--ink);
       }
     </style>
   </head>
   <body>
+    <div class="mist" aria-hidden="true"><span class="a"></span><span class="b"></span></div>
     <main>
-      <h1>StudySensei</h1>
+      <h1><span class="dot" aria-hidden="true"></span>StudySensei</h1>
       <p>Your own course material, organised to the page.</p>
-      <div class="day" aria-hidden="true">
-        <span style="background: #ff7a3d"></span>
-        <span style="background: #ff7a3d"></span>
-        <span style="background: #ffd23f"></span>
-        <span class="now"></span>
-        <span style="background: #5ee0b0"></span>
-        <span style="background: #8fb8ff"></span>
-        <span style="background: #ff7a3d"></span>
-        <span style="background: #c9a7ff"></span>
-      </div>
     </main>
     <script>
       const params = new URLSearchParams(location.search);
       const root = document.documentElement;
       root.dataset.theme = params.get("theme") ?? "light";
+      root.dataset.layout = params.get("layout") ?? "banner";
       root.style.setProperty("--width", `${params.get("width") ?? 1600}px`);
       root.style.setProperty("--height", `${params.get("height") ?? 400}px`);
     </script>

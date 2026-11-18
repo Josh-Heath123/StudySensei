@@ -1,10 +1,15 @@
-// `npm run screenshots`: the README's screenshots of the real app, with synthetic demo data.
+// `npm run screenshots`: the README's screenshots of the real app, with synthetic demo data,
+// in light and dark (docs/assets/screenshots/<name>-<light|dark>.png).
 //
 // Like scripts/e2e.mjs it uses its own database (studysensei_demo, rebuilt each run), ports
 // (API :8002, web :5176) and storage folder (data/demo-materials), so it never touches the dev
 // stack. It seeds the demo (apps/api/scripts/demo_seed.py: original text, the real extraction
 // and indexing pipeline, no AI keys), takes the shots with Playwright at 1440×900 and device
-// scale 2 with the date fixed, frames each in a 2 px ink border, and stops everything it started.
+// scale 2 with the date fixed, frames each with a soft hairline, and stops everything it started.
+//
+// `npm run screenshots -- --qa <folder>` also captures every screen (and the main dialogs) in
+// both themes at 1440, 768 and 375 px wide into <folder>, for reviewing a visual change. Keep
+// that folder outside the repository.
 import { execSync, spawn, spawnSync } from "node:child_process";
 import { mkdirSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
@@ -80,35 +85,57 @@ async function waitFor(url, label) {
   throw new Error(`${label} didn't answer at ${url}`);
 }
 
-/** Re-render a screenshot inside a 2 px ink frame, at the same pixel density. */
-async function frame(browser, png, file) {
+const FRAME = {
+  light: { border: "#d9d9e0", canvas: "#f0f0f0" },
+  dark: { border: "#2c2c3a", canvas: "#0b0b12" },
+};
+
+/** Re-render a screenshot inside a soft hairline frame with rounded corners, at the same density. */
+async function frame(browser, png, file, theme) {
   // A PNG's width and height are big-endian at bytes 16 and 20; CSS pixels are half (scale 2).
   const width = png.readUInt32BE(16) / 2;
   const height = png.readUInt32BE(20) / 2;
   const page = await browser.newPage({
-    viewport: { width: width + 4, height: height + 4 },
+    viewport: { width: width + 2, height: height + 2 },
     deviceScaleFactor: 2,
   });
   const src = `data:image/png;base64,${png.toString("base64")}`;
+  const { border, canvas } = FRAME[theme];
   await page.setContent(
-    `<body style="margin:0"><div id="f" style="border:2px solid #111;width:${width}px;` +
-      `height:${height}px"><img src="${src}" style="display:block;width:100%;height:100%"></div></body>`,
+    `<body style="margin:0;background:transparent"><div id="f" style="border:1px solid ${border};` +
+      `border-radius:16px;overflow:hidden;background:${canvas};width:${width}px;height:${height}px">` +
+      `<img src="${src}" style="display:block;width:100%;height:100%"></div></body>`,
   );
-  await page.locator("#f").screenshot({ path: path.join(outDir, file) });
+  await page.locator("#f").screenshot({ path: path.join(outDir, file), omitBackground: true });
   await page.close();
   const kb = Math.round(statSync(path.join(outDir, file)).size / 1024);
   console.log(`  ${file}: ${kb} KB`);
 }
 
-async function context(browser) {
-  return browser.newContext({
+/** A browser context in one theme: the app reads the same Appearance key the Settings page sets. */
+async function context(browser, theme, viewport = VIEWPORT, scale = 2) {
+  const ctx = await browser.newContext({
     baseURL: `http://localhost:${WEB_PORT}`,
-    viewport: VIEWPORT,
-    deviceScaleFactor: 2,
+    viewport,
+    deviceScaleFactor: scale,
     locale: "en-GB",
     timezoneId: TIMEZONE,
-    colorScheme: "light",
+    colorScheme: theme,
   });
+  await ctx.addInitScript((value) => {
+    try {
+      localStorage.setItem("studysensei.appearance", value);
+    } catch {
+      // Storage blocked: the colour scheme above still picks the theme.
+    }
+  }, theme);
+  return ctx;
+}
+
+/** Wait for fonts and any transitions to settle before a shot. */
+async function settle(page, ms = 600) {
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(ms);
 }
 
 async function main() {
@@ -145,61 +172,132 @@ async function main() {
   const browser = await chromium.launch();
   const fixed = new Date(NOW).getTime();
   try {
-    // Today, Topics and the viewer: the date is fixed, timers run (pdf.js needs them).
-    const ctx = await context(browser);
-    const page = await ctx.newPage();
-    await page.clock.setFixedTime(fixed);
+    for (const theme of ["light", "dark"]) {
+      console.log(`${theme}:`);
+      // Today, Topics and the viewer: the date is fixed, timers run (pdf.js needs them).
+      const ctx = await context(browser, theme);
+      const page = await ctx.newPage();
+      await page.clock.setFixedTime(fixed);
 
-    await page.goto("/");
-    await page.getByText("Semester test 2").first().waitFor();
-    await page.getByLabel("Database: Connected").waitFor();
-    await page.waitForTimeout(800);
-    // The whole page, so the deadlines under the day timeline are in it too.
-    await frame(browser, await page.screenshot({ fullPage: true }), "today.png");
+      await page.goto("/");
+      await page.getByText("Semester test 2").first().waitFor();
+      await page.getByLabel("Database: Connected").waitFor();
+      await settle(page);
+      // The whole page, so the deadlines under the day timeline are in it too.
+      await frame(browser, await page.screenshot({ fullPage: true }), `today-${theme}.png`, theme);
 
-    await page.goto(`/modules/${module.id}?tab=topics`);
-    await page.getByRole("button", { name: /Slow start and ssthresh/ }).first().click();
-    const pages = page.getByRole("dialog");
-    await pages.waitFor();
-    await pages.getByText(/Week 6 slides/).first().waitFor();
-    await page.waitForTimeout(800);
-    await frame(browser, await page.screenshot(), "topics.png");
-    await page.keyboard.press("Escape");
+      await page.goto(`/modules/${module.id}?tab=topics`);
+      await page.getByRole("button", { name: /Slow start and ssthresh/ }).first().click();
+      const pages = page.getByRole("dialog");
+      await pages.waitFor();
+      await pages.getByText(/Week 6 slides/).first().waitFor();
+      await settle(page);
+      await frame(browser, await page.screenshot(), `topics-${theme}.png`, theme);
+      await page.keyboard.press("Escape");
 
-    await page.goto(`/modules/${module.id}?tab=materials`);
-    await page.getByRole("searchbox", { name: "Search materials" }).fill("slow start threshold");
-    await page.getByRole("button", { name: "Search", exact: true }).click();
-    const results = page.getByRole("list", { name: "Results for “slow start threshold”" });
-    const hit = results.getByRole("button").first();
-    await hit.waitFor();
-    console.log(`  first search result: ${(await hit.innerText()).split("\n")[0]}`);
-    await hit.click();
-    const viewer = page.getByRole("dialog", { name: "Week 6 slides" });
-    await viewer.getByText(/Page \d+ of 6/).waitFor();
-    await viewer.locator("canvas").first().waitFor();
-    await page.waitForTimeout(2000); // pdf.js draws the page
-    await frame(browser, await page.screenshot(), "viewer.png");
-    await ctx.close();
+      await page.goto(`/modules/${module.id}?tab=materials`);
+      await page.getByRole("searchbox", { name: "Search materials" }).fill("slow start threshold");
+      await page.getByRole("button", { name: "Search", exact: true }).click();
+      const results = page.getByRole("list", { name: "Results for “slow start threshold”" });
+      const hit = results.getByRole("button").first();
+      await hit.waitFor();
+      console.log(`  first search result: ${(await hit.innerText()).split("\n")[0]}`);
+      await hit.click();
+      const viewer = page.getByRole("dialog", { name: "Week 6 slides" });
+      await viewer.getByText(/Page \d+ of 6/).waitFor();
+      await viewer.locator("canvas").first().waitFor();
+      await settle(page, 2000); // pdf.js draws the page
+      await frame(browser, await page.screenshot(), `viewer-${theme}.png`, theme);
+      await ctx.close();
 
-    // A running session: a paused clock, so the timer shows exactly 18 minutes in.
-    const sessionCtx = await context(browser);
-    const sessionPage = await sessionCtx.newPage();
-    await sessionPage.clock.install({ time: fixed });
-    await sessionPage.clock.pauseAt(fixed + 1000);
-    await sessionPage.goto("/");
-    await sessionPage.getByRole("button", { name: "Start session" }).click();
-    const dialog = sessionPage.getByRole("dialog", { name: "Start a study session" });
-    await dialog.getByLabel("Module").selectOption(module.id);
-    await dialog.getByLabel("Topic (optional)").selectOption({ label: "Slow start and ssthresh" });
-    await dialog.getByRole("button", { name: "Start" }).click();
-    await sessionPage.getByRole("timer").waitFor();
-    await sessionPage.clock.runFor(18 * 60 * 1000);
-    await sessionPage.getByRole("timer").filter({ hasText: "32:00" }).waitFor();
-    await frame(browser, await sessionPage.screenshot(), "session.png");
-    await sessionCtx.close();
+      // A running session: a paused clock, so the timer shows exactly 18 minutes in. Only one
+      // session can be open, so the second theme resumes the one the first started.
+      const sessionCtx = await context(browser, theme);
+      const sessionPage = await sessionCtx.newPage();
+      await sessionPage.clock.install({ time: fixed });
+      await sessionPage.clock.pauseAt(fixed + 1000);
+      if (theme === "light") {
+        await sessionPage.goto("/");
+        await sessionPage.getByRole("button", { name: "Start session" }).first().click();
+        const dialog = sessionPage.getByRole("dialog", { name: "Start a study session" });
+        await dialog.getByLabel("Module").selectOption(module.id);
+        await dialog
+          .getByLabel("Topic (optional)")
+          .selectOption({ label: "Slow start and ssthresh" });
+        await dialog.getByRole("button", { name: "Start" }).click();
+      } else {
+        await sessionPage.goto("/session");
+      }
+      await sessionPage.getByRole("timer").waitFor();
+      await sessionPage.clock.runFor(18 * 60 * 1000);
+      await sessionPage.getByRole("timer").filter({ hasText: "32:00" }).waitFor();
+      await settle(sessionPage, 400);
+      await frame(browser, await sessionPage.screenshot(), `session-${theme}.png`, theme);
+      await sessionCtx.close();
+    }
+
+    const qa = process.argv.indexOf("--qa");
+    if (qa !== -1) await review(browser, process.argv[qa + 1], module.id, fixed);
   } finally {
     await browser.close();
   }
+}
+
+/** Every screen and the main dialogs, in both themes, at three widths (full page, scale 1). */
+async function review(browser, dir, moduleId, fixed) {
+  if (!dir) throw new Error("--qa needs a folder");
+  mkdirSync(dir, { recursive: true });
+  const later = fixed + 20 * 60 * 1000;
+  const tabs = ["assessments", "tasks", "sessions", "topics", "materials"];
+  const screens = [
+    ["today", "/"],
+    ["modules", "/modules"],
+    ...tabs.map((tab) => [`module-${tab}`, `/modules/${moduleId}?tab=${tab}`]),
+    ["plan", "/plan"],
+    ["practice", "/practice"],
+    ["insights", "/insights"],
+    ["settings", "/settings"],
+    ["session", "/session"],
+  ];
+  const shots = [];
+  for (const theme of ["light", "dark"]) {
+    for (const width of [1440, 768, 375]) {
+      const ctx = await context(browser, theme, { width, height: 900 }, 1);
+      const page = await ctx.newPage();
+      await page.clock.setFixedTime(later);
+      const shoot = async (name) => {
+        const file = path.join(dir, `${name}-${theme}-${width}.png`);
+        await page.screenshot({ path: file, fullPage: true });
+        shots.push(file);
+      };
+      for (const [name, url] of screens) {
+        await page.goto(url);
+        await page.waitForLoadState("networkidle");
+        await settle(page, 700);
+        await shoot(name);
+      }
+      // The main dialogs.
+      await page.goto(`/modules/${moduleId}?tab=topics`);
+      await page.getByRole("button", { name: /Slow start and ssthresh/ }).first().click();
+      await page.getByRole("dialog").getByText(/Week 6 slides/).first().waitFor();
+      await settle(page);
+      await shoot("dialog-linked-pages");
+      await page.keyboard.press("Escape");
+      await page.goto(`/modules/${moduleId}?tab=materials`);
+      await page.getByRole("button", { name: "View Week 6 slides" }).click();
+      await page.getByRole("dialog", { name: "Week 6 slides" }).locator("canvas").first().waitFor();
+      await settle(page, 1500);
+      await shoot("dialog-viewer");
+      await page.keyboard.press("Escape");
+      await page.goto("/modules");
+      await page.getByRole("button", { name: "New module" }).first().click();
+      await page.getByRole("dialog").waitFor();
+      await settle(page);
+      await shoot("dialog-new-module");
+      await ctx.close();
+    }
+  }
+  console.log(`QA: ${shots.length} screenshots in ${dir}`);
 }
 
 let failed = false;

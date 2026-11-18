@@ -2,6 +2,48 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-18: Visual direction C "Glass" (decision 0012)
+
+- **Done:**
+  - Every screen restyled from Planner to Glass, presentation only (behaviour, routes, API calls and test intent
+    unchanged).
+  - `docs/DESIGN.md` rewritten as the spec; the old one archived at `docs/archive/DESIGN-planner.md`; ADR 0012.
+  - **Tokens:** one source in `index.css` (CSS variables per `data-theme`, mapped into Tailwind v4). Light and dark,
+    an Appearance setting (System, Light, Dark) in Settings, and an inline script in `index.html` so the theme is set
+    before the first paint.
+  - **Glass:** selective; only the nav, dialogs, the ReviewBar, the session control bar and the Today hero's text
+    layer.
+  - **Fonts:** Inter only; Space Grotesk removed.
+  - **Screens:** a gradient hero on Today with its text on glass; a gradient progress ring and ambient mist on the
+    session screen; skeleton loaders; designed empty states for Plan, Practice and Insights. The session screen's stale
+    "Materials arrive in Phase 2" copy now describes what exists.
+  - **Assets:** banners and social previews (light and dark) and all README screenshots regenerated in both themes;
+    the README uses `<picture>` for each. The Mermaid classes are now pink for AI, pale violet for code, white for
+    storage.
+- **Measured:**
+  - `tokens.test.ts` computes WCAG contrast from the stylesheet for every text and control pair in both themes,
+    including glass over its worst-case backdrop.
+  - The test caught three things, which the tokens now fix:
+    - The input-border token was under 3:1 (2.98).
+    - The violet button's boundary on dark surfaces was 2.88:1, hence a `primary-edge`.
+    - The spec's glass tint (0.62 / 0.55) fails 4.5:1 for muted text over dark content, hence `glass-strong` at 0.86
+      for glass that can float over anything.
+  - Text never sits on the gradient: dark text drops to 3.35:1 at the violet end, white to 2.54:1 at the pink end.
+  - Bundle: main JS 575.7 → 594.1 kB (gzipped 175.8 → 181.2), CSS 34.7 → 47.8 kB (7.5 → 10.1); Space Grotesk's 12 font
+    files (about 137 kB) gone.
+  - Module colours unchanged (they pass on both canvases), so no migration.
+- **Tests changed** (only where markup or copy changed):
+  - The nearest countdown tile is now asserted by `data-nearest`, not its old `border-ink` class.
+  - The session Materials copy assertion follows the corrected text.
+  - The too-dark custom colour now measures 3.4:1, not 3.3:1, because the dark text on fills moved from `#111111` to
+    `#0B0B12`; it's still rejected.
+- **New tests:** appearance (storage, resolve, apply, blocked storage); the Settings appearance group; token contrast.
+- **QA:** every screen in light and dark at 1440, 768 and 375 px (`npm run screenshots -- --qa`, 90 shots) was reviewed.
+  One fix came out of it: the mobile nav row now fades at its right edge, so it reads as scrollable.
+- **Observed:** one of four local e2e runs failed the pdf.js canvas check after jumping to page 1; the next three full
+  runs passed. Watch for it in CI.
+- **Next:** upload `docs/assets/social-preview.png` as the GitHub social preview; then Phase 3.
+
 ## 2026-11-18: Repository presentation (README, assets, screenshots, docs, redaction)
 
 - **Done:**

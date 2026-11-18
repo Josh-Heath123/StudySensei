@@ -1,6 +1,7 @@
 // `npm run assets`: render the README banners and the GitHub social preview from
-// docs/assets/src/banner.html with Playwright and the self-hosted fonts (no network, no new
-// dependencies). Writes docs/assets/banner-light.png, banner-dark.png and social-preview.png.
+// docs/assets/src/banner.html with Playwright and the self-hosted Inter (no network, no new
+// dependencies). Writes docs/assets/banner-light.png, banner-dark.png, social-preview.png
+// and social-preview-dark.png.
 import { statSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -8,14 +9,43 @@ import { pathToFileURL } from "node:url";
 import { chromium } from "@playwright/test";
 
 const root = path.resolve(import.meta.dirname, "..");
-const template = pathToFileURL(path.join(root, "docs", "assets", "src", "banner.html")).href;
+const template = pathToFileURL(
+  path.join(root, "docs", "assets", "src", "banner.html"),
+).href;
 const out = (file) => path.join(root, "docs", "assets", file);
 
 const VARIANTS = [
-  { file: "banner-light.png", theme: "light", width: 1600, height: 400, scale: 2 },
-  { file: "banner-dark.png", theme: "dark", width: 1600, height: 400, scale: 2 },
-  // GitHub's social preview: 1280×640, shown as is.
-  { file: "social-preview.png", theme: "light", width: 1280, height: 640, scale: 1 },
+  {
+    file: "banner-light.png",
+    theme: "light",
+    width: 1600,
+    height: 400,
+    scale: 2,
+  },
+  {
+    file: "banner-dark.png",
+    theme: "dark",
+    width: 1600,
+    height: 400,
+    scale: 2,
+  },
+  // GitHub's social preview: 1280×640, shown as is (upload one in the repository settings).
+  {
+    file: "social-preview.png",
+    theme: "light",
+    width: 1280,
+    height: 640,
+    scale: 1,
+    layout: "social",
+  },
+  {
+    file: "social-preview-dark.png",
+    theme: "dark",
+    width: 1280,
+    height: 640,
+    scale: 1,
+    layout: "social",
+  },
 ];
 
 const browser = await chromium.launch();
@@ -29,14 +59,19 @@ try {
       theme: variant.theme,
       width: String(variant.width),
       height: String(variant.height),
+      layout: variant.layout ?? "banner",
     });
     await page.goto(`${template}?${query}`);
     await page.evaluate(() => document.fonts.ready);
     const fonts = await page.evaluate(() =>
-      [...document.fonts].filter((font) => font.status === "loaded").map((font) => font.family),
+      [...document.fonts]
+        .filter((font) => font.status === "loaded")
+        .map((font) => font.family),
     );
-    if (!fonts.includes("Space Grotesk") || !fonts.includes("Inter")) {
-      throw new Error(`Fonts didn't load (got ${fonts.join(", ") || "none"}); run npm install`);
+    if (!fonts.includes("Inter")) {
+      throw new Error(
+        `Fonts didn't load (got ${fonts.join(", ") || "none"}); run npm install`,
+      );
     }
     await page.screenshot({ path: out(variant.file) });
     await page.close();
