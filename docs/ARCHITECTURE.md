@@ -371,6 +371,9 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
        old name of a renamed or merged-away topic adds to the topic that carries it now.
    - **Linking** (no AI): `chunk_topics` from cited pages (`pages`), and from local embeddings of "name: description"
      (`similarity`, cosine ≥ 0.63, top 12 per topic). Rebuilt after each merge and by `link_topics` when topics change.
+     A page with under `TOPIC_LINK_MIN_PAGE_CHARS` (150) characters of text is never a similarity candidate: title
+     slides, "Chapter N" dividers and caption-only slides scored 0.69–0.83 against topics in every chapter. A cited
+     page links whatever its length (the viewer shows the figure). Migration 0015 queued one relink per module.
      Pages the student unlinked (`topic_unlinks`) are never linked to that topic again.
    - **UI:**
      - **Topics tab:** an "AI" badge, linked page counts, a "Build topic map" panel with progress and honest states,

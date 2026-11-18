@@ -145,6 +145,10 @@ class Settings(BaseSettings):
     # the topic scored 0.63-0.90, others 0.41-0.62 (test_real_model_threshold.py pins it).
     topic_link_threshold: float = 0.63
     topic_link_max_chunks: int = 12
+    # Pages with less extracted text than this (title slides, "Chapter N" dividers,
+    # caption-only figure slides) are never similarity candidates; cited pages still link.
+    # COS330, 18 Nov 2026: 127 of 318 similarity links were such pages, 77 across chapters.
+    topic_link_min_page_chars: int = 150
     # Connecting gives up quickly; reading allows for a long answer (and thinking) to arrive.
     ai_connect_timeout_seconds: float = 10.0
     ai_read_timeout_seconds: float = 90.0

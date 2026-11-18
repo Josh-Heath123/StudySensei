@@ -198,6 +198,7 @@ async def test_the_tree_shows_linked_pages_and_the_ai_source(
         embedder=FakeEmbedder(),
         threshold=0.99,
         max_chunks=5,
+        min_page_chars=0,
     )
     await session.commit()
 

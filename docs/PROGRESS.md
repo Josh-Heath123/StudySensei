@@ -2,6 +2,22 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-18: Phase 2 fix, near-empty pages no longer link by similarity
+
+- **Found** (COS330's links on 18 Nov): 318 similarity links, scored 0.69–0.83. 127 of them (40 %) were pages
+  under 150 characters: the deck title slide (98 characters, linked to topics in 8+ chapters), "Chapter N"
+  dividers and caption-only slides. 115 similarity links crossed chapters, 77 of them these pages. The 0.63
+  threshold never cut anything; the top-12 cap did.
+- **Done:**
+  - `TOPIC_LINK_MIN_PAGE_CHARS` (default 150): a chunk whose page has less extracted text isn't a similarity
+    candidate. Cited pages are unaffected.
+  - Migration 0015 (data only) queues `link_topics` for every module with chunk links or a successful merge,
+    unless one is already queued. No AI call; unlinks and cited links stay as they are.
+  - Threshold and cap unchanged (the evals task decides those).
+- **Tests:** a near-empty page with a high score isn't linked; a cited one stays; the relink job keeps unlinks and
+  cited links, and gives the student's own topic similarity links; the migration queues one job per module.
+- **Next:** after merge and a restart of `npm run dev`, measure COS330's links again; then the evals task.
+
 ## 2026-11-18: Phase 2, AI provider settings page
 
 - **Done:**

@@ -48,6 +48,7 @@ async def link(session: AsyncSession, module: Module, threshold: float = 0.5) ->
         embedder=FakeEmbedder(),
         threshold=threshold,
         max_chunks=5,
+        min_page_chars=0,
     )
     await session.commit()
     return count

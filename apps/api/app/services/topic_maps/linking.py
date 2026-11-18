@@ -2,7 +2,11 @@
 
 - ``pages``: chunks on the pages the merge cited for a topic (``topic_pages``).
 - ``similarity``: the topic's "name: description" embedded with the local model as a
-  query, and the module's most similar chunks at or above the threshold.
+  query, and the module's most similar chunks at or above the threshold. Chunks on a
+  page with less than ``min_page_chars`` of extracted text are never candidates: title
+  slides, "Chapter N" dividers and caption-only slides score high against everything
+  without teaching anything. A cited page is linked whatever its length (the viewer
+  shows the figure).
 
 The module's links are rebuilt from scratch each time, so they always match the current
 topics and chunks. A chunk linked both ways keeps ``pages``. Pages the student unlinked
@@ -18,7 +22,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
-from app.models import Chunk, ChunkTopic, Topic, TopicPage, TopicUnlink
+from app.models import Chunk, ChunkTopic, MaterialPage, Topic, TopicPage, TopicUnlink
 from app.services.search.embedding import Embedder
 
 
@@ -30,6 +34,16 @@ def _unlinked(
         TopicUnlink.topic_id == topic_id,
         TopicUnlink.material_id == Chunk.material_id,
         TopicUnlink.page_number == Chunk.page_number,
+    )
+
+
+def _near_empty(min_page_chars: int) -> ColumnElement[bool]:
+    """The chunk's page has less than ``min_page_chars`` of extracted text."""
+    return exists().where(
+        MaterialPage.user_id == Chunk.user_id,
+        MaterialPage.material_id == Chunk.material_id,
+        MaterialPage.page_number == Chunk.page_number,
+        MaterialPage.char_count < min_page_chars,
     )
 
 
@@ -45,6 +59,7 @@ async def link_module(
     embedder: Embedder,
     threshold: float,
     max_chunks: int,
+    min_page_chars: int,
 ) -> int:
     """Rebuild the module's chunk links. Returns how many there are. Doesn't commit."""
     topics = (
@@ -103,7 +118,12 @@ async def link_module(
         nearest = (
             await session.execute(
                 select(Chunk.id, (1 - distance).label("score"))
-                .where(Chunk.user_id == user_id, Chunk.module_id == module_id, ~_unlinked(topic_id))
+                .where(
+                    Chunk.user_id == user_id,
+                    Chunk.module_id == module_id,
+                    ~_unlinked(topic_id),
+                    ~_near_empty(min_page_chars),
+                )
                 .order_by(distance)
                 .limit(max_chunks)
             )
