@@ -1,0 +1,10 @@
+# COS330's chapter mapping, shared by evals/linking and evals/topic_extraction.
+# Patterns only: no course text.
+module: COS330
+# A material's chapter, from its title: "CH05", "COS330 Chapter5 Study Notes".
+# The study guide and the past papers match none, so they have no chapter.
+material_chapter:
+  - '^CH(\d+)$'
+  - '^COS330 Chapter(\d+) Study Notes$'
+# A topic's chapter, from its top-level ancestor: "Ch5 Database and Data Center Security".
+topic_chapter: '^Ch(\d+)\b'

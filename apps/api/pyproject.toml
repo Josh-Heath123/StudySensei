@@ -26,7 +26,9 @@ dev = [
     "pikepdf>=10.18.1",
     "pytest>=9.2.0",
     "pytest-asyncio>=1.5.0",
+    "pyyaml>=6.0.3",
     "ruff>=0.17.4",
+    "types-pyyaml>=6.0.12.20261113",
 ]
 
 [tool.uv]
@@ -41,13 +43,13 @@ target-version = "py312"
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "ASYNC", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["app"]
+known-first-party = ["app", "evals"]
 known-third-party = ["alembic"]
 
 [tool.mypy]
 strict = true
 python_version = "3.12"
-files = ["app", "tests", "scripts", "alembic"]
+files = ["app", "tests", "scripts", "alembic", "evals"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]

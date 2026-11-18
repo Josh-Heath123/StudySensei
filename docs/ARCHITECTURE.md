@@ -50,7 +50,7 @@ apps/api/            FastAPI service (+ worker from Phase 2), one Python package
   app/storage/       Storage interface + LocalStorage (data/materials), keys {user_id}/{sha256}
   alembic/           migrations
   tests/             pytest against real Postgres (studysensei_test)
-  evals/             fixed AI test sets + results/
+  evals/             local evals against the dev DB (search, linking, topic_extraction); never in CI
   scripts/           export_openapi.py
 apps/web/            React app
   src/app/           routes, layout, top navigation, providers
