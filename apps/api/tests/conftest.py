@@ -1,10 +1,16 @@
+import asyncio
 import os
+
+from tests.xdist_db import worker_database_url
 
 # Point every test at the test database before app settings are first read.
 # CI sets DATABASE_URL itself; locally this defaults to the docker-compose db.
-os.environ.setdefault(
-    "DATABASE_URL",
-    "postgresql+asyncpg://studysensei:studysensei@localhost:5433/studysensei_test",
+os.environ["DATABASE_URL"] = worker_database_url(
+    os.environ.get(
+        "DATABASE_URL",
+        "postgresql+asyncpg://studysensei:studysensei@localhost:5433/studysensei_test",
+    ),
+    os.environ.get("PYTEST_XDIST_WORKER"),
 )
 # Real AI keys in apps/api/.env are ignored: environment variables beat the .env file, and
 # blank means unset. So the Stop hook and CI never call a real provider (see no_real_llm).
@@ -15,6 +21,7 @@ os.environ["OLLAMA_MODEL"] = ""
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
+import asyncpg
 import httpx
 import pytest
 from alembic import command
@@ -36,6 +43,26 @@ def _alembic_config() -> Config:
     return Config(str(API_DIR / "alembic.ini"))
 
 
+async def _create_database(url: str) -> None:
+    """Create the database if it's missing (a new xdist worker's), via the server's postgres db."""
+    parsed = make_url(url)
+    connection = await asyncpg.connect(
+        user=parsed.username,
+        password=parsed.password,
+        host=parsed.host,
+        port=parsed.port,
+        database="postgres",
+    )
+    try:
+        exists = await connection.fetchval(
+            "SELECT 1 FROM pg_database WHERE datname = $1", parsed.database
+        )
+        if not exists:
+            await connection.execute(f'CREATE DATABASE "{parsed.database}"')
+    finally:
+        await connection.close()
+
+
 @pytest.fixture(scope="session")
 def migrated_db() -> None:
     """Rebuild the test schema from scratch once per run (also exercises downgrades)."""
@@ -43,6 +70,7 @@ def migrated_db() -> None:
     # The downgrade drops every table, so never let it near a real database.
     if not database.endswith("_test"):
         raise RuntimeError(f"Refusing to run tests against '{database}': name must end in _test")
+    asyncio.run(_create_database(get_settings().database_url))
     config = _alembic_config()
     command.downgrade(config, "base")
     command.upgrade(config, "head")
