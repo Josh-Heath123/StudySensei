@@ -3,7 +3,10 @@ import path from "node:path";
 
 import { expect, test } from "@playwright/test";
 
-import { E2E_DATABASE_URL, E2E_STORAGE_DIR } from "./env";
+import { E2E_DATABASE_URL, E2E_STORAGE_DIR, uniqueCode } from "./env";
+
+// The first search of a run loads the embedding model in the API process.
+const SEARCH_TIMEOUT = 60_000;
 
 let worker: ChildProcess | undefined;
 
@@ -38,9 +41,11 @@ function startWorker() {
 test("upload a file from the Materials tab; the worker extracts, indexes and searches it", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const module = await (
-    await request.post("/api/modules", { data: { code: "MAT101", name: "Materials e2e" } })
+    await request.post("/api/modules", {
+      data: { code: uniqueCode("MAT101", testInfo), name: "Materials e2e" },
+    })
   ).json();
 
   await page.goto(`/modules/${module.id}?tab=materials`);
@@ -87,7 +92,10 @@ test("upload a file from the Materials tab; the worker extracts, indexes and sea
   await page.getByRole("button", { name: "Search", exact: true }).click();
   const results = page.getByRole("list", { name: "Results for “pipes and filters”" });
   const hit = results.getByRole("button").first();
-  await expect(hit).toContainText("Week 3 notes.md · Page 1");
+  // The API loads the embedding model on its first search of the run (seconds on a cold
+  // machine), so wait for the answer itself rather than the default 5 s.
+  await expect(hit).toBeVisible({ timeout: SEARCH_TIMEOUT });
+  await expect(hit).toContainText("Week 3 notes · page 1");
   await expect(hit.locator("mark").first()).toHaveText(/pipes/i);
   await hit.click();
   await expect(
@@ -128,9 +136,14 @@ async function canvasHasInk(canvas: import("@playwright/test").Locator) {
   });
 }
 
-test("a PDF opens from a search result at its page, drawn by pdf.js", async ({ page, request }) => {
+test("a PDF opens from a search result at its page, drawn by pdf.js", async ({
+  page,
+  request,
+}, testInfo) => {
   const module = await (
-    await request.post("/api/modules", { data: { code: "MAT102", name: "Viewer e2e" } })
+    await request.post("/api/modules", {
+      data: { code: uniqueCode("MAT102", testInfo), name: "Viewer e2e" },
+    })
   ).json();
   await page.goto(`/modules/${module.id}?tab=materials`);
 
@@ -150,7 +163,8 @@ test("a PDF opens from a search result at its page, drawn by pdf.js", async ({ p
     .getByRole("list", { name: "Results for “pipes and filters”" })
     .getByRole("button")
     .first();
-  await expect(hit).toContainText("lecture.pdf · Page 3");
+  await expect(hit).toBeVisible({ timeout: SEARCH_TIMEOUT });
+  await expect(hit).toContainText("lecture · page 3");
   await hit.click();
 
   const viewer = page.getByRole("dialog", { name: "lecture" });
