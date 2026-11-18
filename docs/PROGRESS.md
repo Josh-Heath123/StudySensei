@@ -2,6 +2,32 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-18: CI as the merge gate; faster CI and local check (infrastructure)
+
+- **Measured before:**
+  - CI, last 10 PR runs: median wall 2.07 min (1.6–2.6). Slowest steps: pytest 23–45 s, vitest 32–63 s,
+    `npm ci` 8–54 s (uncached node_modules), Playwright 24–49 s, Chromium install 13–33 s, service containers 11–18 s.
+  - Local `check:steps` (serial, warm caches): ruff 2.6 s, ruff format 0.1 s, prettier 3.1 s, eslint 9.7 s, mypy 2.1 s,
+    tsc 7.9 s, pytest 81.4 s, vitest 31.8 s; 138.8 s in total. Vitest once hung locally for 48 minutes and held the
+    check lock, failing every check after it.
+- **Done:**
+  - **CI passed**, the one job a ruleset will require: it needs every job, runs always, and fails if any failed or was
+    cancelled. A `changes` job (`dorny/paths-filter`) skips api, web and e2e for Markdown/`docs/`-only changes. The
+    push trigger no longer lists `rebuild`.
+  - **hygiene** job, always: gitleaks 8.30.1 (checksum-verified) over the PR's commits; `scripts/check-licenses.mjs` over
+    the Python environment (73 packages) and npm production dependencies (97). One reviewed exception:
+    `py-rust-stemmers` ships an MIT licence file but no metadata. A full-history gitleaks scan found one hit, a fake test
+    key that looked real (`PING_GROQ_KEY`); the fake keys now look fake. The dev DB password didn't trip.
+  - Faster: pytest on 4 xdist workers, each with its own `studysensei_gwN_test` database (the `_test` guard stays);
+    vitest on the `vmThreads` pool; `node_modules` and Playwright browsers cached.
+  - `scripts/check.mjs`: two parallel phases (static steps with Postgres starting, then pytest and vitest), per-step
+    time limits that kill a hung step, logs in `.locks/check/`, a failed step's log tail under its name, and timings.
+    `with-lock.mjs` also takes over a lock held for more than 20 minutes (an orphan).
+  - Rulesets as code (`.github/rulesets/main.json`, `main-signed.json`) and CONTRIBUTING.md on applying them; not applied.
+  - CLAUDE.md: run the check in the foreground with a 10-minute timeout, never end a turn with a check, push or CI pending.
+- **After, local:** `npm run check` 66.0 s wall (pytest 50.2 s and vitest 22.6 s in parallel); `check:serial` 89.2 s
+  (pytest 37.4 s, vitest 19.7 s, eslint 14.1 s, tsc 9.3 s).
+
 ## 2026-11-18: Phase 2, evals for search, linking and topic extraction
 
 - **Done:** `apps/api/evals/` with three runners against the dev database (read-only in Postgres, no AI calls,

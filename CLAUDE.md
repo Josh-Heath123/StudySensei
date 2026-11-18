@@ -29,7 +29,7 @@ Web rebuild of a retired PyQt prototype (tag `v0-pyqt-prototype`). Product: `doc
 | --- | --- |
 | `npm install` | Install web and root JS deps (first time) |
 | `npm run dev` | Postgres (docker) → migrate → seed → API on :8000 + job worker + web on :5173 |
-| `npm run check` | Everything CI runs: ruff, ruff format, prettier, eslint, mypy, tsc, pytest, vitest (not e2e) |
+| `npm run check` | Everything CI runs except e2e, in two parallel phases with step timings (about 1 minute): ruff, ruff format, prettier, eslint, mypy, tsc, then pytest (4 xdist workers) and vitest. A failed step's log tail is printed under its name; full logs in `.locks/check/` |
 | `npm run e2e` | Playwright against the real stack on its own ports (API :8001, web :5174, db `studysensei_e2e`, rebuilt each run). First time: `npx playwright install chromium` |
 | `npm run format` | Auto-fix formatting (ruff + prettier) |
 | `npm run gen:api` | Re-export OpenAPI and regenerate the TS client types. Run after any API schema change |
@@ -96,10 +96,19 @@ docs/           PRODUCT · ARCHITECTURE · DESIGN · ROADMAP · PROGRESS · deci
 - Decisions go in `docs/decisions/NNNN-title.md` (context, decision, alternatives, consequences). They're never edited afterwards; supersede them with a new one.
 - Update `PRODUCT.md` / `ARCHITECTURE.md` in the same PR as a change that alters them.
 
+## Running the check (do this, every time)
+- Run `npm run check` in the **foreground** with a 10-minute Bash timeout. Never run it in the background, and never pipe
+  it through `grep`/`tail` (the output stays hidden until it exits).
+- Never end a turn while a check, a push or a PR's CI is still pending. Wait for it, then report.
+- If the check goes past the timeout, stop and report the step timings (`.locks/check/*.log`) instead of ending silently.
+  (On 18 Nov a check was moved to the background, the turn ended, and the PR was never opened.)
+
 ## Pull requests (do this without asking)
 - When a task's work is committed on its `phase-N/<task>` branch: push it (`git push -u origin <branch>`), open the PR with `gh pr create` (or update the existing one), then watch CI with `gh pr checks --watch`.
 - If CI fails, fix it, commit, push and watch again until it's green. Finish by reporting the PR link and the CI result.
 - Never push to main, never force-push, never merge a PR. Malcolm merges after review.
+- The one required check is **CI passed** (`.github/rulesets/main.json`, CONTRIBUTING.md). A PR that touches only
+  Markdown and `docs/` skips api, web and e2e; the hygiene job (gitleaks, licences) always runs.
 
 ## Dev servers
 - Don't start `npm run dev` yourself. Malcolm runs it in his own terminal. If you need the running app and nothing answers on :5173, say so instead of starting it.
@@ -110,8 +119,9 @@ docs/           PRODUCT · ARCHITECTURE · DESIGN · ROADMAP · PROGRESS · deci
   blocks the session from finishing once; if it still fails after that retry, the session stops with a warning.
 - **Check lock:** `npm run check` runs through `scripts/with-lock.mjs`, which holds `.locks/check.lock` (gitignored, the PID).
   A second check waits for the first (up to 10 minutes; the hook's timeout is 1500 s to allow for that), because two
-  runs at once would both rebuild `studysensei_test`. A lock whose PID is gone is removed. Run the steps without the lock
-  with `npm run check:steps`.
+  runs at once would both rebuild `studysensei_test`. A lock whose PID is gone is removed, and so is one held over 20
+  minutes (no check runs that long: `scripts/check.mjs` kills a step past its limit). Run the steps without the lock
+  with `npm run check:steps`, or one at a time with `npm run check:serial`.
 - **Allowlisted without prompts:** `uv run`, `npm run`, `git status/diff/log/add/commit`. Everything else (push, tag,
   reset, checkout…) still asks.
 
