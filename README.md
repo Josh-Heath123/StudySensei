@@ -16,9 +16,9 @@ Next: a tutor that answers with citations into your pages, and a planner that te
 </p>
 
 <p align="center">
-  <a href="https://github.com/Josh-Heath123/StudySensei/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Josh-Heath123/StudySensei/ci.yml?branch=main&label=CI&labelColor=111111"></a>
-  <a href="LICENSE"><img alt="licence: all rights reserved" src="https://img.shields.io/badge/licence-all%20rights%20reserved-FF7A3D?labelColor=111111"></a>
-  <a href="docs/ROADMAP.md"><img alt="status: Phase 2 of 9 complete" src="https://img.shields.io/badge/status-Phase%202%20of%209%20complete-FF7A3D?labelColor=111111"></a>
+  <a href="https://github.com/Josh-Heath123/StudySensei/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Josh-Heath123/StudySensei/ci.yml?branch=main&label=CI&labelColor=0B0B12"></a>
+  <a href="LICENSE"><img alt="licence: all rights reserved" src="https://img.shields.io/badge/licence-all%20rights%20reserved-5840FF?labelColor=0B0B12"></a>
+  <a href="docs/ROADMAP.md"><img alt="status: Phase 2 of 9 complete" src="https://img.shields.io/badge/status-Phase%202%20of%209%20complete-5840FF?labelColor=0B0B12"></a>
 </p>
 
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/today-dark.png" /><img src="docs/assets/screenshots/today-light.png" alt="The Today page: countdowns to the next assessments, the day timeline and upcoming deadlines" /></picture></p>

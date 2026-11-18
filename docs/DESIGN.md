@@ -115,7 +115,8 @@ hairline, a top highlight and a soft shadow.
 | --- | --- | --- | --- |
 | `glass` | `rgba(255,255,255,0.62)` | `rgba(24,24,36,0.55)` | Glass over a known, soft backdrop: the session bar over its mist |
 | `glass-hero` | `rgba(255,255,255,0.80)` | `rgba(24,24,36,0.78)` | Text over the signature gradient (Today's hero) |
-| `glass-strong` | `rgba(255,255,255,0.86)` | `rgba(24,24,36,0.86)` | Glass that can float over anything: navigation, dialogs, menus, toolbars, toasts |
+| `glass-strong` | `rgba(255,255,255,0.86)` | `rgba(24,24,36,0.86)` | Glass that can float over anything: dialogs, menus, toolbars, toasts |
+| `glass-nav` | `rgba(255,255,255,0.92)`, blur 36 px | `rgba(21,21,31,0.94)`, blur 36 px | The navigation (top bar and phone tab bar): content scrolls under it all the time, so it's the most opaque |
 
 **Legibility:** every glass surface keeps 4.5:1 for `fg` and `muted` text against the worst case behind it. The base
 recipe passes over the session mist, but not over dark text or a bright module colour, so glass that can float over
@@ -132,7 +133,8 @@ any content uses `glass-strong`; `tokens.test.ts` checks each against its worst 
 | **Button: ghost / link** | No fill; hover `subtle`. Links are `link` violet |
 | **Button: destructive** | `surface` fill, `danger` text and border; hover a faint danger tint |
 | **States** | Hover (fill steps), pressed (scale 0.98), focus-visible (2 px `ring` outline, 2 px offset), selected (`accent-soft` or a raised surface), disabled (45 % opacity), loading (skeletons), empty, error (`danger` text with `role="alert"`), success (`success` text) |
-| **Top navigation** | Sticky glass bar, radius 20, inset from the edges. Wordmark (17/600 with a gradient dot), then sections; the current one is an `accent-soft` pill. Below 640 px the sections scroll sideways under the wordmark |
+| **Navigation** | One `<nav>`. From 640 px: a sticky `glass-nav` bar at the top, radius 20, inset from the edges, with the wordmark (17/600 with a gradient dot) and the sections; the current one is an `accent-soft` pill. Below 640 px: the wordmark stays at the top and the sections become a `glass-nav` tab bar fixed to the bottom (icons and 11 px labels, safe-area insets, the current tab violet on `accent-soft`) |
+| **Menu** (`ui/dropdown-menu.tsx`) | A "…" button (`MoreButton`, with a label) opening a `glass-strong` popover, radius 16; items 13/500, min-height 40; destructive items in `danger`. For secondary actions (a module's Edit and Delete; a topic's actions on touch screens) |
 | **Page header** | Label eyebrow, then H1 (or Display on Today), optional description, actions or tiles on the right |
 | **Card** | Solid `surface`, 1 px `line`, `shadow-sm`, radius 20, padding 20–24. `key` adds `shadow-md` |
 | **Segmented control** (tabs) | `subtle` track, radius 12, padding 4; segments radius 9; the selected one is a raised `surface` with `fg` text; others `muted`. Real `role="tab"` + `aria-selected`; scrolls sideways when narrow |
@@ -144,27 +146,34 @@ any content uses `glass-strong`; `tokens.test.ts` checks each against its worst 
 | **Meters** | Solid track (`subtle`), violet fill, with the *Measured* / *Estimated* labels beside them |
 | **Skeleton** | `skeleton` utility: a `subtle` block that pulses (opacity only) |
 | **Empty state** | One icon in an `accent-soft` well, one sentence, at most one action |
+| **Search result** | Leads with what will open, in strong text: the material's title and "page N"; the snippet underneath (Markdown stripped for display, highlights kept), clamped to 3 lines; one result per page, with "N matches on this page" when there are more |
+| **Viewer page** | A solid surface. **Fit page** (the default) fits the whole page into the visible area with no scrollbars; **Fit width** fits the width and scrolls down, with its scrollbar space reserved so the width never changes while drawing |
+| **Topic tree rows** | Chapters 15/600, subtopics 15/400, page counts muted. Row actions appear on hover and focus-within (still in the tab order); on touch screens they're behind one "…" menu |
 | **Icons** | lucide-react only, one stroke width (1.75, set globally) |
 
 ## Screens
 
 - **Today** (the most expressive): an editorial date in Display type; "Next up" as the hero card, the gradient as its
-  background with its text on a `glass-hero` layer; countdown tiles, deadlines and the day timeline (module-colour
-  blocks) calm and solid; the system status card quiet.
-- **Session** (`/session`): a very large, light timer inside a progress ring with a gradient stroke; a faint ambient
-  gradient mist behind it in both themes; a floating `glass` control bar (pause, break, end); the reflection form solid
-  and calm; the away dialog in glass.
-- **Modules and module detail:** a clean header with the module's colour; tabs as a segmented control; solid, readable
-  lists and tables.
+  background with its text on a `glass-hero` layer; countdown tiles and deadlines calm and solid; "Your day" a compact empty state until the
+  planner (Phase 4) supplies blocks; the system status card quiet.
+- **Session** (`/session`): one centred column: a very large, light timer inside a progress ring with a gradient
+  stroke; a faint ambient gradient mist behind it in both themes; a floating `glass` control bar (pause, break, end);
+  then one small card for Materials and the tutor note (the tutor gets its own column when it exists, Phase 3); the
+  reflection form solid and calm; the away dialog in glass.
+- **Modules and module detail:** a clean header with the module's colour, Start session as the one primary action and
+  Edit and Delete in a "…" menu; tabs as a segmented control; solid, readable lists and tables.
 - **Topics:** a solid tree; AI and review state shown subtly (a small violet dot and a quiet label); the ReviewBar a
   floating glass toolbar; the merge and linked-pages dialogs in glass.
 - **Materials:** a refined upload area and status, skeleton loaders, a prominent search box, and the viewer's chrome
   in glass with the page canvas on a solid surface.
-- **Settings:** AI providers in solid cards with violet usage meters (labels kept), and Appearance.
+- **Settings:** Appearance first, then AI providers in solid cards with violet usage meters (labels kept).
 - **Placeholders** (Plan, Practice, Insights): a designed empty state saying which phase each arrives in.
 
-## Responsive
+## Layout and responsive
 
-Desktop (1440), tablet (768) and mobile (375). Page padding 16 on mobile, 32 on tablet, 40 on desktop. Grids collapse
-to one column below 1024 px; the navigation scrolls sideways below 640 px; dialogs stay within the viewport and scroll
-inside.
+- **One container per page:** 1120 px, centred. A page's header and its content share it, so header actions line up
+  with the content's right edge. Sections don't add narrower columns of their own; only long prose keeps a readable
+  measure (`max-w-2xl` on the paragraph).
+- Desktop (1440), tablet (768) and mobile (375). Page padding 16 on mobile, 32 on tablet, 40 on desktop. Grids collapse
+  to one column below 1024 px; below 640 px the navigation is the bottom tab bar and pages keep room for it; dialogs
+  stay within the viewport and scroll inside.

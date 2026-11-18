@@ -104,13 +104,16 @@ describe.each([
     }
   });
 
-  it("strong glass keeps fg and muted text at 4.5:1 over anything behind it", () => {
-    for (const behind of backdrops(t)) {
-      const glass = over(t["glass-strong"]!, behind);
-      expect(contrastRatio(t.fg!, glass), `fg over ${behind}`).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio(t.muted!, glass), `muted over ${behind}`).toBeGreaterThanOrEqual(4.5);
-    }
-  });
+  it.each(["glass-strong", "glass-nav"])(
+    "%s keeps fg and muted text at 4.5:1 over anything behind it",
+    (token) => {
+      for (const behind of backdrops(t)) {
+        const glass = over(t[token]!, behind);
+        expect(contrastRatio(t.fg!, glass), `fg over ${behind}`).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(t.muted!, glass), `muted over ${behind}`).toBeGreaterThanOrEqual(4.5);
+      }
+    },
+  );
 
   it("the hero's glass keeps its text at 4.5:1 over every point of the gradient", () => {
     for (const stop of GRADIENT_STOPS) {

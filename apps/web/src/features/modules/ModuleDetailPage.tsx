@@ -4,8 +4,14 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { PageHeader } from "@/app/PageHeader";
 import { ApiError } from "@/lib/api/errors";
-import { Button } from "@/ui/button";
 import { ConfirmDialog } from "@/ui/confirm-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  MoreButton,
+} from "@/ui/dropdown-menu";
 import { ModuleBadge } from "@/ui/module-badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs";
@@ -77,12 +83,19 @@ export function ModuleDetailPage() {
         aside={
           <>
             <StartSessionButton moduleId={data.id} />
-            <Button variant="outline" onClick={() => setEditing(true)}>
-              <Pencil aria-hidden /> Edit
-            </Button>
-            <Button variant="destructive" onClick={() => setDeleting(true)}>
-              <Trash2 aria-hidden /> Delete
-            </Button>
+            {/* Start session is the one primary action; the rest wait in the menu. */}
+            <DropdownMenu>
+              <MoreButton label="Module actions" className="size-11" />
+              <DropdownMenuContent>
+                <DropdownMenuItem onSelect={() => setEditing(true)}>
+                  <Pencil aria-hidden /> Edit
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem destructive onSelect={() => setDeleting(true)}>
+                  <Trash2 aria-hidden /> Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         }
       />

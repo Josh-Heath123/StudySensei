@@ -29,7 +29,7 @@ export function SessionsTab({ moduleId }: { moduleId: string }) {
   const topics = tree.data ?? [];
 
   return (
-    <section aria-labelledby="sessions-heading" className="max-w-3xl">
+    <section aria-labelledby="sessions-heading">
       <h2 id="sessions-heading" className="type-h2 mb-6">
         Sessions
       </h2>

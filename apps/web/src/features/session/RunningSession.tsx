@@ -12,7 +12,7 @@ import { useModule, useTopicTree } from "../modules/api";
 import type { SessionController, SessionMeta } from "./controller";
 import { timerView } from "./display";
 import { AwayDialog } from "./AwayDialog";
-import { MaterialsCard, TutorPlaceholder } from "./SessionPanels";
+import { SessionNotes } from "./SessionPanels";
 import { SessionBanners } from "./SessionBanners";
 import { findTopicName } from "./topics";
 import { useDocumentTitle, useSessionClock } from "./useSessionClock";
@@ -29,7 +29,8 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 /**
  * docs/DESIGN.md "Screens: Session": a clean header, the timer inside its gradient ring
- * over a faint mist, the floating glass control bar, then materials and the tutor.
+ * over a faint mist, the floating glass control bar, then a slim card for materials and
+ * the tutor, all in one centred column.
  */
 export function RunningSession({
   controller,
@@ -71,8 +72,9 @@ export function RunningSession({
         <h1 className="type-h3 min-w-0 flex-1 break-words">{topicName ?? "Whole module"}</h1>
       </header>
 
-      <main className="mx-auto grid max-w-[1440px] items-start gap-8 px-4 pt-2 pb-12 sm:px-8 lg:grid-cols-[3fr_2fr] lg:px-10">
-        <div className="grid min-w-0 gap-8">
+      {/* One centred column: the tutor gets a column of its own once it exists (Phase 3). */}
+      <main className="mx-auto max-w-[1440px] px-4 pt-2 pb-12 sm:px-8 lg:px-10">
+        <div className="mx-auto grid w-full max-w-[640px] min-w-0 gap-8">
           <SessionBanners controller={controller} snapshot={snapshot} plan={PLAN} />
           <section aria-label="Timer" className="grid justify-items-center gap-6">
             <div className="relative grid aspect-square w-full max-w-[560px] place-items-center">
@@ -150,9 +152,8 @@ export function RunningSession({
               </p>
             </div>
           </section>
-          <MaterialsCard moduleId={meta.moduleId} />
+          <SessionNotes moduleId={meta.moduleId} />
         </div>
-        <TutorPlaceholder />
       </main>
 
       {away && <AwayDialog message={away.message} controller={controller} />}

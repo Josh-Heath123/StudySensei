@@ -30,7 +30,7 @@ export function TodayPage() {
           <NextUpCard />
         </div>
         <div className="grid min-w-0 gap-6 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:gap-8">
-          <DayTimeline now={now} />
+          <DayTimeline />
           <DeadlinesCard />
         </div>
         <div className="min-w-0 lg:col-start-2 lg:row-start-2">

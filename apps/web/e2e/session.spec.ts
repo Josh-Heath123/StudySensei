@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { uniqueCode } from "./env";
+
 const SEC = 1000;
 const MIN = 60 * SEC;
 
@@ -11,11 +13,11 @@ async function pass(page: Page, ms: number) {
 test("start → pause → resume → reload → break → end → reflect → summary", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   // A module with a topic, made through the real API.
   const module = await (
     await request.post("/api/modules", {
-      data: { code: "E2E101", name: "End-to-end testing", colour: "#5EE0B0" },
+      data: { code: uniqueCode("E2E101", testInfo), name: "End-to-end testing", colour: "#5EE0B0" },
     })
   ).json();
   const topic = await (
@@ -26,14 +28,17 @@ test("start → pause → resume → reload → break → end → reflect → su
   // the server refuses if they're in the future) stay in the past however far we run.
   const start = Date.now() - 3 * 60 * MIN;
   await page.clock.install({ time: start });
-  // Frozen: only runFor moves time, so the numbers below are exact.
-  await page.clock.pauseAt(start + SEC);
   await page.goto("/");
 
+  // The clock keeps running while the dialog loads: the app's data layer delivers results
+  // through timers, so a paused clock would starve it (switching to this run's module, when
+  // an earlier run's module is the default, never showed its topics).
   await page.getByRole("button", { name: "Start session" }).click();
   const dialog = page.getByRole("dialog", { name: "Start a study session" });
   await dialog.getByLabel("Module").selectOption(module.id);
   await dialog.getByLabel("Topic (optional)").selectOption(topic.id);
+  // Frozen from here: only runFor moves time, so the numbers below are exact.
+  await page.clock.pauseAt(start + MIN);
   await dialog.getByRole("button", { name: "Start" }).click();
 
   const timer = page.getByRole("timer");

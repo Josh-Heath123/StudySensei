@@ -36,13 +36,13 @@ export function AssessmentsTab({ moduleId }: { moduleId: string }) {
   const total = weighted.reduce((sum, a) => sum + (a.weight ?? 0), 0);
 
   return (
-    <section aria-labelledby="assessments-heading" className="max-w-3xl">
+    <section aria-labelledby="assessments-heading">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0 flex-1 basis-64">
           <h2 id="assessments-heading" className="type-h2 mb-1">
             Assessments
           </h2>
-          <p className="text-muted text-sm">
+          <p className="text-muted max-w-2xl text-sm">
             Exams, tests and assignments, with their dates, weights and the topics they cover.
           </p>
         </div>

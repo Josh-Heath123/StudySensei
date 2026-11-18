@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
+import { Profiler, useState } from "react";
 import { vi } from "vitest";
 
 import { mockApi } from "@/test/mockApi";
@@ -16,20 +16,25 @@ vi.mock("./pdf", async (importOriginal) => {
 });
 const open = vi.mocked(openPdf);
 
-type Drawn = { page: number; width: number; cancelled: boolean };
+type Drawn = { page: number; width: number; height?: number; cancelled: boolean };
 
-/** A fake document: records each render; `pending` renders never finish. */
+/**
+ * A fake document: records each render; `pending` renders never finish on their own, and
+ * `finish[i]()` completes the i-th render.
+ */
 function aPdf({ numPages = 4, pending = false, fails = false } = {}) {
   const drawn: Drawn[] = [];
+  const finish: (() => void)[] = [];
   const doc: PdfDocument = {
     numPages,
     destroy: vi.fn(),
-    render: (page, _canvas, width) => {
-      const entry = { page, width, cancelled: false };
+    render: (page, _canvas, fit) => {
+      const entry = { page, width: fit.width, height: fit.height, cancelled: false };
       drawn.push(entry);
       let reject: (err: unknown) => void = () => {};
       const promise = new Promise<void>((resolve, rej) => {
         reject = rej;
+        finish.push(resolve);
         if (fails) rej(new Error("bad page"));
         else if (!pending) resolve();
       });
@@ -42,7 +47,7 @@ function aPdf({ numPages = 4, pending = false, fails = false } = {}) {
       };
     },
   };
-  return { doc, drawn };
+  return { doc, drawn, finish };
 }
 
 const PDF: ViewedMaterial = { id: "mat1", title: "CH03 slides", content_type: "application/pdf" };
@@ -58,6 +63,14 @@ function serveText() {
       is_scanned: false,
     }),
   });
+}
+
+/** "Page N:busy" for the page region after every commit (read during the commit itself). */
+const commits: string[] = [];
+function logCommit() {
+  const region = document.querySelector("section[aria-busy]");
+  if (region)
+    commits.push(`${region.getAttribute("aria-label")}:${region.getAttribute("aria-busy")}`);
 }
 
 /** The viewer with its page held in state, as PagesDialog holds it. */
@@ -76,7 +89,9 @@ function renderViewer(material: ViewedMaterial, { page = 1, pageCount = 4 } = {}
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <Harness />
+      <Profiler id="viewer" onRender={logCommit}>
+        <Harness />
+      </Profiler>
     </QueryClientProvider>,
   );
   return userEvent.setup();
@@ -128,6 +143,55 @@ test("changing page cancels a drawing still in flight", async () => {
   expect(drawn[0]).toMatchObject({ page: 1, cancelled: true });
   expect(drawn[1]).toMatchObject({ page: 2, cancelled: false });
   expect(screen.queryByText(/Couldn't show the PDF/)).not.toBeInTheDocument();
+});
+
+test("a new page is busy from its first render until it's drawn (no stale 'drawn' state)", async () => {
+  const { doc, drawn, finish } = aPdf({ pending: true });
+  open.mockResolvedValue(doc);
+  commits.length = 0;
+  const user = renderViewer(PDF);
+  await waitFor(() => expect(drawn).toHaveLength(1));
+  finish[0]!();
+  await waitFor(() =>
+    expect(screen.getByRole("region", { name: "Page 1" })).toHaveAttribute("aria-busy", "false"),
+  );
+
+  // Every commit's page region, read inside the commit (before effects run).
+  await user.click(screen.getByRole("button", { name: "Next page" }));
+  await waitFor(() => expect(drawn).toHaveLength(2));
+  expect(screen.getByRole("region", { name: "Page 2" })).toHaveAttribute("aria-busy", "true");
+
+  finish[1]!();
+  await waitFor(() =>
+    expect(screen.getByRole("region", { name: "Page 2" })).toHaveAttribute("aria-busy", "false"),
+  );
+  // Page 2 never looked drawn before its render finished: its first commit was already busy.
+  const page2 = commits.filter((c) => c.startsWith("Page 2:"));
+  expect(page2[0]).toBe("Page 2:true");
+  expect(page2.at(-1)).toBe("Page 2:false");
+});
+
+test("Fit page is the default; Fit width fits only the width", async () => {
+  const { doc, drawn } = aPdf();
+  open.mockResolvedValue(doc);
+  const user = renderViewer(PDF);
+  await waitFor(() => expect(drawn).toHaveLength(1));
+
+  const zoom = screen.getByRole("group", { name: "Zoom" });
+  expect(within(zoom).getByRole("button", { name: "Fit page" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  // The whole page: both a width and a height to fit into.
+  expect(drawn[0]!.height).toBeGreaterThan(0);
+
+  await user.click(within(zoom).getByRole("button", { name: "Fit width" }));
+  await waitFor(() => expect(drawn).toHaveLength(2));
+  expect(drawn[1]).toMatchObject({ page: 1, height: undefined });
+  expect(within(zoom).getByRole("button", { name: "Fit width" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 });
 
 test("a PDF that won't load falls back to its extracted text", async () => {

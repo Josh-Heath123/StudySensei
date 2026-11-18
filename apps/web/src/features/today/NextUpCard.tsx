@@ -1,11 +1,10 @@
 import { StartSessionButton } from "../session/StartSessionButton";
-import { NO_PLAN_YET } from "./copy";
 
 /**
  * docs/DESIGN.md "Screens: Today": the hero. The signature gradient is its background
  * and every word sits on the inner `glass-hero` layer, never on the gradient itself.
  * It will name the next planned block once the planner exists (Phase 4); until then
- * it says so.
+ * it offers an unplanned session.
  */
 export function NextUpCard() {
   return (
@@ -18,7 +17,7 @@ export function NextUpCard() {
         <h2 id="next-up-heading" className="type-h2">
           Nothing planned yet
         </h2>
-        <p className="text-muted mt-2">{NO_PLAN_YET}</p>
+        <p className="text-muted mt-2">Start a session on any module.</p>
         <div className="mt-6">
           <StartSessionButton />
         </div>

@@ -149,3 +149,27 @@ test("shows the server's message when a move fails", async () => {
 
   expect(await screen.findByRole("alert")).toHaveTextContent("can't be moved under itself");
 });
+
+test("the touch menu offers the same actions, and Rename starts renaming", async () => {
+  const { calls, user } = renderTree();
+
+  await user.click(await screen.findByRole("button", { name: "Actions for Queues" }));
+  const menu = await screen.findByRole("menu");
+  expect(within(menu).getByRole("menuitem", { name: "Move down" })).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  expect(within(menu).getByRole("menuitem", { name: "Delete" })).toBeInTheDocument();
+  await user.click(within(menu).getByRole("menuitem", { name: "Rename" }));
+
+  const input = await screen.findByLabelText("Rename Queues");
+  await waitFor(() => expect(input).toHaveFocus());
+  await user.clear(input);
+  await user.type(input, "Message queues{Enter}");
+  await waitFor(() =>
+    expect(lastCall(calls, "PATCH")).toMatchObject({
+      path: "/topics/q",
+      body: { name: "Message queues" },
+    }),
+  );
+});

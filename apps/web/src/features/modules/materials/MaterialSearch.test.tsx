@@ -99,7 +99,46 @@ test("with no materials there's no search box", async () => {
   expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
 });
 
-test("a search shows snippets with file and page; a result opens that page", async () => {
+test("hits on one page show once, with the best snippet, its Markdown hidden", async () => {
+  serve([aMaterial()], (q) => ({
+    query: q,
+    indexed_chunks: 12,
+    results: [
+      aResult({
+        chunk_id: "best",
+        material_title: "TCP notes",
+        page_number: 2,
+        page_title: null,
+        snippet: [
+          { text: "- **", highlight: false },
+          { text: "Inference", highlight: true },
+          { text: "** is `slow`", highlight: false },
+        ],
+      }),
+      aResult({ chunk_id: "other", page_number: 3 }),
+      aResult({ chunk_id: "worse", material_title: "TCP notes", page_number: 2 }),
+    ],
+  }));
+  openTab();
+  const user = userEvent.setup();
+
+  await user.type(await screen.findByRole("searchbox", { name: "Search materials" }), "inference");
+  await user.click(screen.getByRole("button", { name: "Search" }));
+
+  const results = await screen.findByRole("list", { name: "Results for “inference”" });
+  const items = within(results).getAllByRole("button");
+  expect(items).toHaveLength(2);
+  const [first, second] = items as [HTMLElement, HTMLElement];
+  expect(first).toHaveTextContent("TCP notes · page 2");
+  expect(first).toHaveTextContent("Inference is slow");
+  expect(first).not.toHaveTextContent(/[*`]/);
+  expect(within(first).getByText("Inference").tagName).toBe("MARK");
+  expect(first).toHaveTextContent("2 matches on this page");
+  expect(second).toHaveTextContent("CH03 slides · page 3");
+  expect(second).not.toHaveTextContent(/matches on this page/);
+});
+
+test("a search shows snippets with material and page; a result opens that page", async () => {
   const { calls } = serve(
     [aMaterial(), aMaterial({ id: "mat2", title: "CH04", status: "processing" })],
     (q) => ({ query: q, indexed_chunks: 12, results: [aResult()] }),
@@ -118,7 +157,10 @@ test("a search shows snippets with file and page; a result opens that page", asy
   const item = within(results).getByRole("button", { name: /Passwords are salted/ });
   expect(within(item).getByText("Passwords").tagName).toBe("MARK");
   expect(within(item).getByText("salted").tagName).toBe("MARK");
-  expect(item).toHaveTextContent("CH03.pptx · Page 3 · User authentication");
+  expect(within(item).getByText("CH03 slides · page 3").tagName).toBe("STRONG");
+  expect(item).toHaveTextContent("CH03 slides · page 3 · User authentication");
+  expect(item).not.toHaveTextContent("CH03.pptx");
+  expect(item).not.toHaveTextContent(/matches on this page/);
 
   await user.click(item);
   const dialog = await screen.findByRole("dialog", { name: "CH03 slides" });

@@ -220,10 +220,14 @@ test("the day timeline and next-up card say the plan isn't built yet, with no ma
     "href",
     "/modules",
   );
-  expect(within(day).getByText("NOW")).toBeInTheDocument(); // 10:00 is inside the 08:00–20:00 grid
+  // With no plan there's no hour grid (and so no NOW marker) to scroll past.
+  expect(within(day).queryByText("NOW")).not.toBeInTheDocument();
+  expect(within(day).queryByText("08:00")).not.toBeInTheDocument();
 
   const nextUp = screen.getByRole("region", { name: "Nothing planned yet" });
-  expect(nextUp).toHaveTextContent("Your plan appears here once the planner is built.");
+  expect(nextUp).toHaveTextContent("Start a session on any module.");
+  // The "not built yet" sentence is said once, in Your day, not repeated in the hero.
+  expect(nextUp).not.toHaveTextContent("Your plan appears here once the planner is built.");
   // No made-up plan actions: the only button starts an unplanned session.
   expect(
     within(nextUp)

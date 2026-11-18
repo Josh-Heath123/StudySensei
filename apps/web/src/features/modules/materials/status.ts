@@ -14,11 +14,7 @@ export function statusText(material: Material): StatusText {
     return { text, tone: "muted" };
   }
   if (material.status === "uploaded") return { text: "Waiting to be processed…", tone: "muted" };
-  const scanned = material.scanned_page_count ?? 0;
-  const pages = material.page_count ?? 0;
-  if (scanned > 0) {
-    return { text: `Ready · ${scanned} of ${plural(pages, "page")} scanned`, tone: "ink" };
-  }
+  // The scanned-page count is on the details line (pageDetails), so it isn't repeated here.
   return { text: "Ready", tone: "ink" };
 }
 
