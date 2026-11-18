@@ -48,6 +48,7 @@ async def relink(ctx: JobContext, module_id: uuid.UUID) -> None:
         embedder=embedder,
         threshold=settings.topic_link_threshold,
         max_chunks=settings.topic_link_max_chunks,
+        min_page_chars=settings.topic_link_min_page_chars,
     )
 
 
