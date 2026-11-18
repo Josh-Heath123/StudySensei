@@ -54,3 +54,13 @@ This runs ruff, prettier, eslint, mypy, tsc, pytest (against real Postgres) and 
 - [Progress](docs/PROGRESS.md): session log
 - [Decisions](docs/decisions/)
 - [Legacy notes](docs/legacy-notes.md): ideas kept from the prototype
+- [Changelog](CHANGELOG.md): what each phase delivered
+- [Contributing](CONTRIBUTING.md): the merge gate and branch rules
+
+## Ownership and licence
+
+StudySensei is a personal project owned by Joshua Heath. All rights reserved: see [LICENSE](LICENSE).
+
+- [docs/AUTHORSHIP.md](docs/AUTHORSHIP.md): who makes it and how, as a dated record.
+- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): the third-party components it uses and their licences (generated
+  by `npm run licenses`).

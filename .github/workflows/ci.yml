@@ -70,21 +70,16 @@ jobs:
           enable-cache: true
       - run: uv sync --locked
         working-directory: apps/api
+      # The licence scripts read package-lock.json directly, so no npm ci here.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Restore node_modules
-        id: node-modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules
-            apps/web/node_modules
-          key: node-modules-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
-      - if: steps.node-modules.outputs.cache-hit != 'true'
-        run: npm ci
       - name: Licences (no AGPL, GPL, SSPL or unknown; reviewed exceptions in scripts/license-allowlist.json)
         run: node scripts/check-licenses.mjs
+      - name: THIRD_PARTY_NOTICES.md is up to date (npm run licenses)
+        run: |
+          node scripts/third-party-notices.mjs
+          git diff --exit-code -- THIRD_PARTY_NOTICES.md
 
   api:
     needs: changes

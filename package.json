@@ -20,7 +20,8 @@
     "check": "node scripts/with-lock.mjs check npm run check:steps",
     "check:steps": "node scripts/check.mjs",
     "e2e": "node scripts/e2e.mjs",
-    "check:serial": "node scripts/check.mjs --serial"
+    "check:serial": "node scripts/check.mjs --serial",
+    "licenses": "node scripts/third-party-notices.mjs"
   },
   "devDependencies": {
     "concurrently": "^10.0.7"

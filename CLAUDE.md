@@ -32,6 +32,7 @@ Web rebuild of a retired PyQt prototype (tag `v0-pyqt-prototype`). Product: `doc
 | `npm run check` | Everything CI runs except e2e, in two parallel phases with step timings (about 1 minute): ruff, ruff format, prettier, eslint, mypy, tsc, then pytest (4 xdist workers) and vitest. A failed step's log tail is printed under its name; full logs in `.locks/check/` |
 | `npm run e2e` | Playwright against the real stack on its own ports (API :8001, web :5174, db `studysensei_e2e`, rebuilt each run). First time: `npx playwright install chromium` |
 | `npm run format` | Auto-fix formatting (ruff + prettier) |
+| `npm run licenses` | Regenerate `THIRD_PARTY_NOTICES.md` from `uv.lock` and `package-lock.json`. Run after any dependency change |
 | `npm run gen:api` | Re-export OpenAPI and regenerate the TS client types. Run after any API schema change |
 | `npm run db:up` / `db:down` | Start or stop Postgres only |
 | `npm run db:migrate` / `db:seed` | Alembic upgrade head / create the local user |
@@ -95,6 +96,11 @@ docs/           PRODUCT · ARCHITECTURE · DESIGN · ROADMAP · PROGRESS · deci
 - Never commit `.env`, uploads, course material or anything under `data/`.
 - Decisions go in `docs/decisions/NNNN-title.md` (context, decision, alternatives, consequences). They're never edited afterwards; supersede them with a new one.
 - Update `PRODUCT.md` / `ARCHITECTURE.md` in the same PR as a change that alters them.
+
+## Ownership
+- StudySensei is owned by Joshua Heath (all rights reserved: `LICENSE`, `docs/AUTHORSHIP.md`).
+- Never add third-party code, licence headers or course material without saying so in the PR description.
+- Keep `THIRD_PARTY_NOTICES.md` current: run `npm run licenses` after any dependency change (CI fails if it's stale).
 
 ## Running the check (do this, every time)
 - Run `npm run check` in the **foreground** with a 10-minute Bash timeout. Never run it in the background, and never pipe
