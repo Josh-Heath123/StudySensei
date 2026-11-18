@@ -22,7 +22,10 @@
     "e2e": "node scripts/e2e.mjs",
     "check:serial": "node scripts/check.mjs --serial",
     "licenses": "node scripts/third-party-notices.mjs",
-    "spike:s1": "npm run spike:s1 -w apps/web"
+    "spike:s1": "npm run spike:s1 -w apps/web",
+    "assets": "node scripts/assets.mjs",
+    "screenshots": "node scripts/screenshots.mjs",
+    "links": "node scripts/check-links.mjs"
   },
   "devDependencies": {
     "concurrently": "^10.0.7"
