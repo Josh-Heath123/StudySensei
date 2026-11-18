@@ -2,6 +2,38 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-18: Repository presentation (README, assets, screenshots, docs, redaction)
+
+- **Done:**
+  - A new README: banner, summary, three badges, the Today screenshot, a "What it does" table, four screenshots,
+    engineering highlights, a Mermaid architecture diagram (checked in light and dark with mermaid-cli), the status
+    table, run instructions and the docs table.
+  - `npm run assets` renders the banners (3200×800, light and dark) and the social preview (1280×640) from
+    `docs/assets/src/banner.html` with the self-hosted fonts.
+  - `npm run screenshots` runs its own stack and `studysensei_demo` database. It seeds the synthetic NET201 module
+    (`apps/api/scripts/demo_seed.py`: original text; 3 materials through the real pipeline, 6 jobs, no AI calls;
+    6 sessions; 9 topics; 57 chunk links), shoots Today, a session, Topics and the viewer at 1440×900 ×2 with the date
+    fixed to Mon 16 Nov 2026 10:40, and tears down. Both scripts ran clean from a dropped database.
+  - `tests/fixtures/make_fixtures.py` gained `slide_deck_pdf` and `notes_docx`; `_pdf` still writes byte-identical
+    fixtures.
+  - `docs/README.md` (hub), `docs/decisions/README.md` (ADR index), and `npm run links`: 72 relative links and images
+    in 23 files resolve.
+  - `docs/PLAN.md` and `docs/PROJECT_HANDOVER.md` moved to `docs/archive/` with an "Archived. Personal identifiers
+    redacted" note; links fixed.
+  - Personal identifiers redacted from tracked files (except `docs/AUTHORSHIP.md`, on purpose): the former owner name
+    is now Joshua or "the owner", and the student number and local paths are gone. The course-material path and the
+    submissions' file pattern now live in the gitignored `CLAUDE.local.md`. Git history isn't rewritten.
+- **Sources for the README's figures:**
+  - 155 and 15 AI calls: ADRs 0007 and 0008.
+  - Search 15 of 15 in the top 3, slide 11 of 15, MRR 0.900: `apps/api/evals/README.md`.
+  - CI 1.5 minutes: PR #31's run.
+  - 603, 304 and 3 tests: this branch's `npm run check`, and the two Playwright specs.
+- **Found:**
+  - There's a `v0.2.0` tag but no GitHub release, so the README links the tag.
+  - The session screen's Materials panel still says "Materials arrive in Phase 2". That's app copy, left for a fix PR.
+- **Next:** set the social preview in GitHub settings (upload `docs/assets/social-preview.png`); fix the stale
+  session-screen copy; then Phase 3.
+
 ## 2026-11-18: Spike S1, a camera measurement page (not yet run)
 
 - **Done:**
@@ -120,7 +152,7 @@ Newest first. 3–5 lines per session: what was done, what was decided, what's n
 
 ## 2026-11-18: Phase 2, COS330 review and link check
 
-- **Review:** Malcolm used Keep all: 53 kept, 0 renamed, 0 merged, 0 dismissed. The Project chat then checked all 53
+- **Review:** Joshua used Keep all: 53 kept, 0 renamed, 0 merged, 0 dismissed. The Project chat then checked all 53
   against the decks, notes and study guide.
   - Every name holds up, so the ≥ 80 % check passes on content.
   - Two missing subtopics were added by hand: Ch5 "Inference and Inference Detection" and Ch10 "Other Overflow
