@@ -114,7 +114,7 @@ This is input for the design system (spike S3), not a final decision.
 
 ## 8. Bugs not to repeat
 
-These were confirmed by running the prototype (PLAN.md §1). Each should have a regression test in the rebuild.
+These were confirmed by running the prototype ([the original plan](archive/PLAN.md) §1). Each should have a regression test in the rebuild.
 
 1. **Unpinned dependencies.** `mediapipe>=0.10.0` resolved to a release without `mp.solutions`. Pin and lock everything.
 2. **Hidden lifecycle side effects.** A "memory manager" released the camera and stopped the timer every 60 s while the UI

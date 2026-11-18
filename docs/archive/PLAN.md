@@ -1,16 +1,18 @@
 # StudySensei — Assessment, Product Direction & Roadmap
 
+> Archived. Personal identifiers redacted on 18 Nov 2026.
+
 > **Frozen source document (12 Nov 2026).** The working docs split from it are
-> [PRODUCT.md](PRODUCT.md), [ARCHITECTURE.md](ARCHITECTURE.md), [ROADMAP.md](ROADMAP.md) and [decisions/](decisions/).
+> [PRODUCT.md](../PRODUCT.md), [ARCHITECTURE.md](../ARCHITECTURE.md), [ROADMAP.md](../ROADMAP.md) and [decisions/](../decisions/).
 > Edit those, not this file.
 
-Nov 12, 2026 · @Malcolm Heath
+Nov 12, 2026 · @Joshua Heath
 
-> **Decisions confirmed by Malcolm on 12 Nov 2026**
+> **Decisions confirmed by Joshua on 12 Nov 2026**
 > - The web rebuild is approved. Archive the PyQt code under the tag `v0-pyqt-prototype`.
 > - Docker Desktop is installed, so use local Postgres via `docker-compose.yml`.
 > - AI must cost nothing. Use the Gemini API free tier as primary (Flash for the tutor, topic maps and scanned papers; Flash-Lite for bulk classification) and the Groq free tier as fallback. Local Ollama is optional. All go through one OpenAI-compatible adapter; drop the Anthropic adapter for now. Free-tier prompts may be used by the provider, so never send personal data. Record this as `docs/decisions/0002-free-ai-providers.md`.
-> - Test module: COS330 (exclude Malcolm's own `u23541475_*` submissions from AI processing), at `C:\Users\flosh\OneDrive\Documents\UNI\3rd Year 2026\Semester 2\COS330`. This is read-only course material. Never copy it into the repo or commit it.
+> - Test module: COS330 (exclude Joshua's own submissions from AI processing), at a local folder (its path is in `CLAUDE.local.md`, which isn't committed). This is read-only course material. Never copy it into the repo or commit it.
 > - Diagrams from the online version of this plan appear below as "embedded content" placeholders; the surrounding text describes them.
 
 ## Summary

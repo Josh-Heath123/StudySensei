@@ -1,5 +1,7 @@
 # StudySensei: project handover
 
+> Archived. Personal identifiers redacted on 18 Nov 2026.
+
 Snapshot of 17 Nov 2026, 21:45. For current status see ROADMAP and PROGRESS.
 
 - **Written:** 17 Nov 2026, about 21:45 SAST, by Claude (the StudySensei Project chat in claude.ai) for a fresh session.
@@ -24,7 +26,7 @@ Snapshot of 17 Nov 2026, 21:45. For current status see ROADMAP and PROGRESS.
   It is built around one loop: *know what's coming → decide what to study → study with support → check understanding →
   adjust*. Everything is grounded in the student's own course material. It replaces a retired PyQt webcam-focus
   prototype (git tag `v0-pyqt-prototype`).
-- **Who it's for.** One local user for now: Malcolm, the product owner. His COS330 Computer Security module (2026 S2) is
+- **Who it's for.** One local user for now: Joshua, the product owner. His COS330 Computer Security module (2026 S2) is
   the real test corpus. Multi-user beta is Phase 9.
 - **Where it stands.**
   - Phases 0 and 1 are built and merged: foundations, then modules, topics, assessments, tasks, Today, study sessions
@@ -45,7 +47,7 @@ Snapshot of 17 Nov 2026, 21:45. For current status see ROADMAP and PROGRESS.
 
   Also outstanding: the Phase 1 real-use gate (real study days logged) has not been done.
 - **Immediate next task.**
-  1. Check CI on the topic-review PR, have Malcolm merge it, and run migration 0014.
+  1. Check CI on the topic-review PR, have Joshua merge it, and run migration 0014.
   2. Rebuild and review COS330's topic map, then record the review line for the "≥ 80 % kept" check.
   3. Then the next unchecked Phase 2 roadmap task: the **materials viewer** (pdf.js, jump to page). See §9.
 
@@ -377,13 +379,13 @@ Status keys:
 - "Gemini 3.8 Flash as the primary smart model" (superseded 17 Nov by the rebalanced routes).
 - The 400–800-token chunk plan (ADR 0005).
 
-**Real COS330 results** *(from the build conversation; the dev DB is Malcolm's local Docker volume)*:
+**Real COS330 results** *(from the build conversation; the dev DB is Joshua's local Docker volume)*:
 - **Uploaded (29 materials):**
   - 12 slide decks (CH01–CH11, CH13), re-uploaded with kind Slides;
   - 8 ST1 past papers (kind Past paper);
   - chapter notes: Ch1–6 as `.md` and Ch7–8 as `.docx` (8 files; the duplicate `.docx` for Ch5/Ch6 was deleted);
   - the Final Study Guide.
-- **Not uploaded:** the `u23541475_*` files, the 34 MB textbook, the zips and the `2024 Exam`/`P4` folders.
+- **Not uploaded:** the owner's own submissions, the 34 MB textbook, the zips and the `2024 Exam`/`P4` folders.
 - **Topic tree:** Ch1 Overview, Ch2 Cryptographic tools and Ch3 User authentication are the student's own anchors.
   Ch4 Access Control through Ch13 Cloud Computing and IoT Security are AI topics, each with 3–6 subtopics; Ch9
   Firewalls is its own chapter.
@@ -421,7 +423,7 @@ Status keys:
 
 ### Known issues and limitations (verified in code or docs unless marked)
 
-1. **Unmerged review branch.** Migration 0014 isn't on `main`, so Malcolm's dev DB won't have it until he merges the
+1. **Unmerged review branch.** Migration 0014 isn't on `main`, so Joshua's dev DB won't have it until he merges the
    branch and restarts `npm run dev`.
 2. **Unvalidated similarity threshold.** The cut-off is 0.63 (`TOPIC_LINK_THRESHOLD`, top 12), calibrated on synthetic
    text with a thin margin (0.63–0.90 related vs 0.41–0.62 unrelated). Re-check it on COS330 in the evals task.
@@ -453,7 +455,7 @@ Status keys:
 
 ## 5. Decisions and context
 
-**Do not reverse these without understanding the reason and asking Malcolm.**
+**Do not reverse these without understanding the reason and asking Joshua.**
 
 ### Architecture decision records (`docs/decisions/`)
 
@@ -471,10 +473,10 @@ Status keys:
 
 ### Other established decisions *(from the build conversation unless the repo also says so)*
 
-- **Test corpus: COS330.** It lives at `C:\Users\flosh\OneDrive\Documents\UNI\3rd Year 2026\Semester 2\COS330` and is
-  read-only. Never copy it into the repo, use it as test fixtures, or commit it. The student's own `u23541475_*`
+- **Test corpus: COS330.** It lives at a local folder (its path is in `CLAUDE.local.md`, which isn't committed) and is
+  read-only. Never copy it into the repo, use it as test fixtures, or commit it. The student's own
   submissions are never uploaded or sent to AI. (CLAUDE.md agrees.)
-- **AI providers.** Malcolm has free keys for Gemini (AI Studio) and Groq in `apps/api/.env`. Groq gpt-oss-120b leads the
+- **AI providers.** Joshua has free keys for Gemini (AI Studio) and Groq in `apps/api/.env`. Groq gpt-oss-120b leads the
   `smart` role because Gemini 3.8 Flash's free tier was too slow and too limited (two 30 s timeouts, ~20 requests a
   day, 503 "high demand").
 - **For the future tutor (Phase 3):** an *interactive* call should move straight on from a 503 rather than wait.
@@ -492,10 +494,10 @@ Status keys:
 - **Workflow.**
   - Claude Code implements one roadmap task per branch and PR. It pushes, opens the PR and watches CI itself, and it
     **never merges** and never pushes to main.
-  - Malcolm merges.
+  - Joshua merges.
   - The Project chat writes the Claude Code prompts, reviews reports and PRs, and checks results in the built-in
     browser.
-- **Don't run the app while Claude Code edits it.** Malcolm runs `npm run dev` in his own terminal and **stops it while
+- **Don't run the app while Claude Code edits it.** Joshua runs `npm run dev` in his own terminal and **stops it while
   Claude Code works**, because they share one working tree. Half-finished code and migrations otherwise hit the running
   app, and restarting would apply an unfinished migration to the dev DB. The Docker database keeps running after
   Ctrl+C, so Claude Code can still query it with `docker compose exec db psql -U studysensei -d studysensei`.
@@ -511,7 +513,7 @@ Status keys:
 - **OS and shell:** Windows; repo at `C:\StudySensei`; PowerShell.
 - **Tools:**
   - Docker Desktop (Postgres container `studysensei-db-1`).
-  - `uv`, installed via scoop (Python 3.12 lives under `C:\Users\flosh\scoop\persist\uv\python\…`).
+  - `uv`, installed via scoop (Python 3.12 lives under the user's scoop folder).
   - Node LTS.
   - VS Code with the **Claude Code extension in Auto mode**.
 - **WSL:** not otherwise used. Once, a background dev server started by Claude Code was killed for low memory; capping
@@ -677,7 +679,7 @@ GROQ_API_KEY=<your Groq key>
 **Work to preserve:**
 - `phase-2/topic-review`: pushed, but not merged.
 - `apps/api/.env` holds the keys. It's local only and must never be committed.
-- `data/` (uploads and model cache, gitignored) and the Docker volume `db-data` hold Malcolm's COS330 data.
+- `data/` (uploads and model cache, gitignored) and the Docker volume `db-data` hold Joshua's COS330 data.
 
 **This file:** `docs/PROJECT_HANDOVER.md` was written while `phase-2/topic-review` was checked out. Commit it on purpose,
 for example in its own small `docs: project handover` PR, or keep it untracked. Don't let a feature PR sweep it in by
@@ -706,19 +708,19 @@ accident.
 ### Then, in order
 
 1. **Close out the topic review (task 7).**
-   - If the PR's CI is green, Malcolm merges it. Then `git switch main`, `git pull` and `npm run dev`, which applies
+   - If the PR's CI is green, Joshua merges it. Then `git switch main`, `git pull` and `npm run dev`, which applies
      migration 0014.
    - On COS330's Topics tab:
      1. If the last merge never finished, click **Build topic map**. With the compact input, Groq can now take it.
      2. Turn on the **Review** filter.
-     3. Malcolm reviews: Keep, Rename, Merge, Dismiss. Open a few topics' linked pages and unlink wrong ones.
+     3. Joshua reviews: Keep, Rename, Merge, Dismiss. Open a few topics' linked pages and unlink wrong ones.
    - Record the review line ("Review: N kept, N renamed, N merged, N dismissed") in PROGRESS or the status doc. That is
      the Phase 2 "≥ 80 % kept with small edits" check.
    - Also note how many linked pages were wrong. That feeds the 0.63 threshold check.
 2. **Next roadmap task: "Upload UI with processing status, materials viewer (pdf.js, jump to page) and module search".**
    - **Why next:** it's the next unchecked Phase 2 task in ROADMAP order. Search results, topic linked pages and (in
      Phase 3) tutor citations all need "open this exact page". PROGRESS's last entry suggests the AI settings page
-     next, which is a reasonable alternative. Confirm with Malcolm if unsure, and default to ROADMAP order.
+     next, which is a reasonable alternative. Confirm with Joshua if unsure, and default to ROADMAP order.
    - **Already exists, so don't rebuild it:**
      - upload with live processing status and per-material topic status (`MaterialsTab.tsx`);
      - search (`MaterialSearch.tsx`, `GET /modules/{id}/search`);
@@ -749,10 +751,10 @@ accident.
 4. **Evals.**
    - `apps/api/evals/search`: 15 hand-written COS330 queries with expected material and page. Target: 12 of 15 in the
      top 3.
-   - `apps/api/evals/topic_extraction`: compare against Malcolm's reviewed tree.
+   - `apps/api/evals/topic_extraction`: compare against Joshua's reviewed tree.
    - Commit only queries, expected answers and page refs, never course text (`apps/api/evals/README.md`).
    - Re-check the 0.63 linking threshold here.
-5. **In parallel or after:** spike S1 (camera in the browser); the Phase 1 real-use gate (Malcolm studies with the timer
+5. **In parallel or after:** spike S1 (camera in the browser); the Phase 1 real-use gate (Joshua studies with the timer
    for three days); a small docs PR fixing the inconsistencies in §4.9.
 6. **Then Phase 3 (tutor and voice):**
    - Retrieval with a current-topic boost.
@@ -767,8 +769,8 @@ Each task is one prompt pasted into Claude Code. The prompt should:
 - say whether to skip plan mode;
 - end with "take it straight to a green PR".
 
-Claude Code then works through CLAUDE.md's PR steps. Malcolm pastes its report back to the Project chat, and the chat
-reviews it (reading the diff via the bridge, and testing in the browser when the app is running) before telling Malcolm
+Claude Code then works through CLAUDE.md's PR steps. Joshua pastes its report back to the Project chat, and the chat
+reviews it (reading the diff via the bridge, and testing in the browser when the app is running) before telling Joshua
 to merge.
 
 ---
@@ -793,7 +795,7 @@ to merge.
    - measured/estimated labels;
    - no secrets in git;
    - free-tier AI only, and no personal data in prompts;
-   - COS330 is read-only and never in the repo; never process `u23541475_*`.
+   - COS330 is read-only and never in the repo; never process the owner's own submissions.
 4. **AI work:**
    - Everything goes through `app/ai/` (`complete_text`/`complete_json`, roles in config).
    - Course text only through `app/ai/sources.py`.
@@ -813,12 +815,12 @@ to merge.
    - Never edit a merged migration.
 7. **Git safety:**
    - Never push to main, force-push, merge PRs, `reset --hard` or `git clean`.
-   - Malcolm merges.
-   - Don't start `npm run dev` (Malcolm runs it).
-   - Ask Malcolm to stop it before code changes, because the working tree is shared.
+   - Joshua merges.
+   - Don't start `npm run dev` (Joshua runs it).
+   - Ask Joshua to stop it before code changes, because the working tree is shared.
 8. **Verify with evidence.** Don't claim tests pass or features work without running them or seeing the output. For AI
    features, check results on real COS330 data before calling the task done.
-9. **Talking to Malcolm:**
+9. **Talking to Joshua:**
    - He wants a streamlined process: you make the technical decisions and give him exact commands and copy-paste
      prompts.
    - Ask only when a decision is genuinely his: scope, cost, privacy, or reversing an earlier decision.
@@ -830,7 +832,7 @@ to merge.
 ## 11. Unknowns (could not be established from the repo)
 
 - The PR number and CI result for `phase-2/topic-review` (probably #22).
-- Whether migration 0014 is applied in Malcolm's dev DB (probably not; the branch is unmerged).
+- Whether migration 0014 is applied in Joshua's dev DB (probably not; the branch is unmerged).
 - Whether COS330's last merge (17 Nov ~21:10) finished, or failed with "providers too busy".
 - The material `kind` values in the dev DB (believed to be Slides, Past paper, Notes and Study guide after the
   re-upload; not re-checked).
@@ -847,7 +849,7 @@ Copy everything in the block below into a new Claude chat in the StudySensei Pro
 ```text
 You're continuing development of StudySensei, an existing project: a personal study planner and tutor (React/Vite
 web app + FastAPI/Postgres+pgvector API, free-tier Gemini/Groq AI). The repo is at C:\StudySensei on my Windows
-laptop (GitHub: Josh-Heath123/StudySensei). I'm Malcolm, the product owner and only user. My COS330 Computer Security
+laptop (GitHub: Josh-Heath123/StudySensei). I'm Joshua, the product owner and only user. My COS330 Computer Security
 module is the real test data.
 
 Your role: technical lead and reviewer. Claude Code (VS Code extension, Auto mode) does the implementation: you write

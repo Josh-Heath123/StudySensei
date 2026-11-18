@@ -1,6 +1,6 @@
 """What every eval runner shares: config files, a read-only dev-database session, the module.
 
-The evals run locally against the dev database (Malcolm's real data), never in CI, and
+The evals run locally against the dev database (Joshua's real data), never in CI, and
 never call an AI provider. The session is read-only in Postgres itself
 (``default_transaction_read_only``), so a runner can't write even by mistake.
 """

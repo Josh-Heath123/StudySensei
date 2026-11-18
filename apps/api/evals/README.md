@@ -24,11 +24,11 @@ Committed: queries, material titles, page numbers, topic names, chapter patterns
   topic's from its top-level "ChN" ancestor). Shared by the linking and topic evals; app code knows
   nothing about chapters.
 - `search/cos330.yaml`: 15 queries, each with its acceptable pages (material title, page, slide flag).
-- `topic_extraction/cos330_reference.yaml`: Malcolm's reviewed tree, 58 topics as names and parent names.
+- `topic_extraction/cos330_reference.yaml`: Joshua's reviewed tree, 58 topics as names and parent names.
 - `metrics.py`: the pure metric functions, unit-tested in `tests/evals/` (those tests do run in CI).
 
 **Never committed: course text** (no page text, snippets, descriptions or file contents), and nothing
-from the student's own `u23541475_*` submissions. The course files stay outside the repo.
+from the student's own submissions. The course files stay outside the repo.
 
 ## Definitions
 

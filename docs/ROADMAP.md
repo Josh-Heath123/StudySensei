@@ -153,7 +153,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 - [ ] Segmentation and classification prompts and schemas (from S2), plus a correction UI
 - [ ] Assessment-profile queries (exact counts) and a profile page with drill-down; hidden below 3 papers
 - [ ] Past questions in practice, timed paper mode, and profile weights feeding planner priority and tutor emphasis
-- [ ] `evals/pastpapers` from hand-labelled COS330 papers (excluding the student's own `u23541475_*` submissions)
+- [ ] `evals/pastpapers` from hand-labelled COS330 papers (excluding the student's own submissions)
 
 **Verify:**
 - at least 90 % of questions segmented correctly

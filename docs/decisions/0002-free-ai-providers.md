@@ -21,7 +21,7 @@ OpenAI-compatible adapter. The product owner confirmed that **AI must cost nothi
 - **No personal data in prompts.** Free-tier prompts may be used by the provider to improve its models, so:
   - only course material and the student's study questions are sent
   - no names, student numbers, emails or reflections
-  - for the COS330 test module, the student's own `u23541475_*` submissions are excluded from AI processing entirely
+  - for the COS330 test module, the student's own submissions are excluded from AI processing entirely
 
 ## Alternatives considered
 

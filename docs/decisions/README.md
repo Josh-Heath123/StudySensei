@@ -1,0 +1,18 @@
+# Decisions
+
+Architecture decision records: the context, the decision, the alternatives and the consequences. They're never edited
+after they're accepted (apart from redacting personal identifiers); a later record supersedes or amends an earlier one.
+
+| Number | Decision | Status |
+| --- | --- | --- |
+| [0001](0001-web-rebuild.md) | Rebuild StudySensei as a web app (React and FastAPI, Postgres with pgvector) | Accepted |
+| [0002](0002-free-ai-providers.md) | Free-tier AI (Gemini and Groq, optional Ollama) behind one OpenAI-compatible adapter | Accepted |
+| [0003](0003-session-event-log.md) | Study sessions are an append-only event log; totals are derived | Accepted |
+| [0004](0004-material-storage-and-jobs.md) | Materials stored by content hash; background work runs from a Postgres job queue | Accepted |
+| [0005](0005-chunking-and-search.md) | Page-bound 400-token chunks, local bge-small embeddings, exact hybrid search | Accepted |
+| [0006](0006-topic-maps.md) | AI topic maps: per-material proposals, one anchored merge, local chunk links | Accepted |
+| [0007](0007-bounded-topic-extraction.md) | Bounded, lenient topic extraction: parts, call caps, pacing, no error cascades | Accepted; amends 0006 |
+| [0008](0008-busy-models-and-refusals.md) | Busy models and refusals move on to the next model | Accepted; amends 0007 |
+| [0009](0009-topic-review.md) | Topic review: the student's edits win, and a merge Groq can take | Accepted; builds on 0006–0008 |
+| [0010](0010-merge-token-ratio.md) | The merge's token ratio is 2.5 characters, and an oversized merge is reported, not cut | Accepted; supersedes part of 0009 |
+| [0011](0011-large-merges-gemini-only.md) | Large topic-map merges are Gemini-only | Accepted; settles 0010's open question |

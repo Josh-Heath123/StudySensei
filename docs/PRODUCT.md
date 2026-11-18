@@ -1,6 +1,6 @@
 # Product
 
-The "what" and the "why". Change it in the same PR as any change that alters it. Source: PLAN.md §2 (12 Nov 2026).
+The "what" and the "why". Change it in the same PR as any change that alters it. Source: [the original plan](archive/PLAN.md) §2 (12 Nov 2026).
 
 ## Statement
 
