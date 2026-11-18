@@ -86,7 +86,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 **Objective:** help during study, answered from your own material.
 **Depends on:** Phase 2.
 
-- [ ] Retrieval with a current-topic boost, and prompt templates (sources labelled as untrusted material)
+- [x] Retrieval with a current-topic boost, and prompt templates (sources labelled as untrusted material)
 - [ ] SSE tutor endpoint, plus `conversations` / `messages` storage with citations
 - [ ] Tutor panel in the session: streamed answers, clickable [S1]–[S8] citations into the viewer, KaTeX
 - [ ] "Explain differently", "Give an example", "Quiz me" (3 questions)
