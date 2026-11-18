@@ -2,6 +2,26 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-18: Phase 2, COS330 review and link check
+
+- **Review:** Malcolm used Keep all: 53 kept, 0 renamed, 0 merged, 0 dismissed. The Project chat then checked all 53
+  against the decks, notes and study guide.
+  - Every name holds up, so the ≥ 80 % check passes on content.
+  - Two missing subtopics were added by hand: Ch5 "Inference and Inference Detection" and Ch10 "Other Overflow
+    Attacks". COS330 now has 58 topics.
+- **Links before PR #26:** 869 (551 cited, 318 similarity). 127 similarity links went to pages under 150 characters,
+  and 115 crossed chapters.
+- **Links after PR #26's relink:** 861 (551 cited, 310 similarity). None go to near-empty pages, and 91 cross
+  chapters. Similarity scores run 0.67–0.88, so the 0.63 threshold never limits anything.
+- **AI citations:** citations into the decks were all correct in a full check of Ch5, Ch8 and Ch11. Citations into the
+  notes and the study guide spill into neighbouring sections: about 26 of 190 were wrong, worst in the Ch8 notes.
+- **Checked on real data on 18 Nov:**
+  - The viewer (PR #24): search opens CH05 at p29, linked pages open at their page, and the scanned ST1 2016 renders.
+  - Settings (PR #25): it matches `/ai/status`. Test keys: 4 models OK, and Gemini 3.8 Flash returned a 503 that
+    wasn't counted.
+- **Also:** committed `docs/PROJECT_HANDOVER.md` as a dated snapshot; ADR 0011 (large merges are Gemini-only)
+  replaces the strict-xfail COS330-sized merge test; docs inconsistencies from the handover fixed.
+
 ## 2026-11-18: Phase 2 fix, near-empty pages no longer link by similarity
 
 - **Found** (COS330's links on 18 Nov): 318 similarity links, scored 0.69–0.83. 127 of them (40 %) were pages
@@ -104,7 +124,7 @@ Newest first. 3–5 lines per session: what was done, what was decided, what's n
   - Migration 0013. ADR 0008.
 - **Next:** merge, run migration 0013 (start the dev servers), then Retry topics on the three materials.
 
-## 2026-11-18: Phase 2, topic map fixes after the first COS330 run
+## 2026-11-17: Phase 2, topic map fixes after the first COS330 run
 
 - **Found:** 21 materials took 142 extraction calls and 13 merge calls, where ~22 were needed.
   - **Flash-Lite:** 66 replies were `invalid_json`, and 28 calls failed with HTTP errors.
