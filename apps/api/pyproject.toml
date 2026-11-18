@@ -26,6 +26,7 @@ dev = [
     "pikepdf>=10.18.1",
     "pytest>=9.2.0",
     "pytest-asyncio>=1.5.0",
+    "pytest-xdist>=3.8.0",
     "pyyaml>=6.0.3",
     "ruff>=0.17.4",
     "types-pyyaml>=6.0.12.20261113",
@@ -55,6 +56,11 @@ plugins = ["pydantic.mypy"]
 [[tool.mypy.overrides]]
 # pypdfium2 ships no type information.
 module = ["pypdfium2", "pypdfium2.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# asyncpg ships no type information (tests/conftest.py uses it to create xdist databases).
+module = ["asyncpg", "asyncpg.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

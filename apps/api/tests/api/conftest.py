@@ -89,8 +89,8 @@ def storage(tmp_path: Path) -> Iterator[LocalStorage]:
 
 
 # Fake keys: only the fake transport ever sees them.
-PING_GEMINI_KEY = "gemini-ping-test-key-0000"
-PING_GROQ_KEY = "groq-ping-test-key-0000"
+PING_GEMINI_KEY = "fake-gemini-key-for-ping-tests"
+PING_GROQ_KEY = "fake-groq-key-for-ping-tests"
 
 
 def ping_settings(*, keys: bool = True) -> Settings:

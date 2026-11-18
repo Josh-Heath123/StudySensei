@@ -2,6 +2,48 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-18: CI as the merge gate; faster CI and local check (infrastructure)
+
+- **Measured before:**
+  - CI, last 10 PR runs: median wall 2.07 min (1.6–2.6). Slowest steps: pytest 23–45 s, vitest 32–63 s,
+    `npm ci` 8–54 s (uncached node_modules), Playwright 24–49 s, Chromium install 13–33 s, service containers 11–18 s.
+  - Local `check:steps` (serial, warm caches): ruff 2.6 s, ruff format 0.1 s, prettier 3.1 s, eslint 9.7 s, mypy 2.1 s,
+    tsc 7.9 s, pytest 81.4 s, vitest 31.8 s; 138.8 s in total. Vitest once hung locally for 48 minutes and held the
+    check lock, failing every check after it.
+- **Done:**
+  - **CI passed**, the one job a ruleset will require: it needs every job, runs always, and fails if any failed or was
+    cancelled. A `changes` job (`dorny/paths-filter`) skips api, web and e2e for Markdown/`docs/`-only changes. The
+    push trigger no longer lists `rebuild`.
+  - **hygiene** job, always: gitleaks 8.30.1 (checksum-verified) over the PR's commits; `scripts/check-licenses.mjs` over
+    the Python environment (73 packages) and npm production dependencies (97). One reviewed exception:
+    `py-rust-stemmers` ships an MIT licence file but no metadata. A full-history gitleaks scan found one hit, a fake test
+    key that looked real (`PING_GROQ_KEY`); the fake keys now look fake. The dev DB password didn't trip.
+  - Faster: pytest on 4 xdist workers, each with its own `studysensei_gwN_test` database (the `_test` guard stays);
+    vitest on the `vmThreads` pool; `node_modules` and Playwright browsers cached.
+  - `scripts/check.mjs`: two parallel phases (static steps with Postgres starting, then pytest and vitest), per-step
+    time limits that kill a hung step, logs in `.locks/check/`, a failed step's log tail under its name, and timings.
+    `with-lock.mjs` also takes over a lock held for more than 20 minutes (an orphan).
+  - Rulesets as code (`.github/rulesets/main.json`, `main-signed.json`) and CONTRIBUTING.md on applying them; not applied.
+  - CLAUDE.md: run the check in the foreground with a 10-minute timeout, never end a turn with a check, push or CI pending.
+- **After, local:** `npm run check` 64.4–66.0 s wall (pytest 50 s and vitest 23 s in parallel); `check:serial` 89.2 s
+  (pytest 37.4 s, vitest 19.7 s, eslint 14.1 s, tsc 9.3 s).
+- **After, CI** (PR #29's first full run, node_modules cached, Playwright browsers not yet): wall 2.0 min. e2e 110 s
+  (Playwright 47 s, Chromium install 22 s, the cache now saved), api 85 s (pytest 42 s), web 68 s (vitest 20 s, no
+  `npm ci`), hygiene 22 s, changes 6 s. The wall was already under the 5-minute target; it's set by e2e. pytest-xdist
+  didn't help on CI's 4 vCPUs (42 s against 23–45 s before: each worker migrates its own database), only locally.
+  With both caches warm (the next run): **wall 1.8 min**, 13 % under the old median; e2e 92 s (Chromium restored,
+  13 s for its system libraries), web 45 s (vitest 13 s), api 84 s, hygiene 17 s. Not the 40 % cut, but under 5 minutes
+  before and after, with no check dropped: what's left is Playwright (38 s) and pytest (40 s) themselves.
+- **Fixed a flaky test** CI caught on this PR: `MaterialViewer` "a PDF that won't load falls back to its extracted text"
+  checked the page-text region's content as soon as the region appeared, before its text had loaded. It now waits for
+  the text.
+- **Vitest hang, seen again** during this PR's final check: it printed its header and then nothing, and the new step
+  limit killed it after 6 minutes, reported it by name, and released the lock. Six runs on their own (13–17 s each)
+  and two more full checks didn't reproduce it; both hangs came while or just after pytest ran. Cause unknown. The
+  limit is now 2 minutes (a normal run is about 20 s), and a timed-out vitest is retried once and reported as such; a
+  failing test is never retried. Final checks: 53.0 s and 61.0 s.
+- **Next:** apply `.github/rulesets/main.json` (CONTRIBUTING.md), then spike S1.
+
 ## 2026-11-18: Phase 2, evals for search, linking and topic extraction
 
 - **Done:** `apps/api/evals/` with three runners against the dev database (read-only in Postgres, no AI calls,

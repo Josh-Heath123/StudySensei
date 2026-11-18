@@ -16,10 +16,11 @@
     "format": "uv run --directory apps/api ruff format . && uv run --directory apps/api ruff check --fix . && npm run format -w apps/web",
     "typecheck": "uv run --directory apps/api mypy && npm run typecheck -w apps/web",
     "test": "npm run test:api && npm run test -w apps/web",
-    "test:api": "npm run db:up && uv run --directory apps/api pytest",
+    "test:api": "npm run db:up && uv run --directory apps/api pytest -n 4",
     "check": "node scripts/with-lock.mjs check npm run check:steps",
-    "check:steps": "npm run lint && npm run format:check -w apps/web && npm run typecheck && npm run test",
-    "e2e": "node scripts/e2e.mjs"
+    "check:steps": "node scripts/check.mjs",
+    "e2e": "node scripts/e2e.mjs",
+    "check:serial": "node scripts/check.mjs --serial"
   },
   "devDependencies": {
     "concurrently": "^10.0.7"

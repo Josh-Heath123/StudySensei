@@ -7,6 +7,10 @@
 // - The lock is `.locks/<name>.lock` at the repo root (gitignored), holding the PID.
 // - A second run waits for the first to finish, up to 10 minutes, then runs.
 // - A lock whose PID is no longer alive is stale: it's removed and taken over.
+// - So is a lock held longer than MAX_HOLD_MS. scripts/check.mjs kills any step past its
+//   time limit, so no real check holds it that long; an older holder is an orphan (on
+//   Windows, stopping a background shell can leave its node process alive, and on 18 Nov
+//   one sat on a hung vitest for 48 minutes, failing every check after it).
 import { spawn } from "node:child_process";
 import {
   mkdirSync,
@@ -23,6 +27,8 @@ const WAIT_MS = 10 * 60 * 1000;
 const POLL_MS = 1000;
 // A lock file that's still empty this long after creation lost its writer.
 const EMPTY_GRACE_MS = 10 * 1000;
+// Longer than any check can run with its step limits (the slowest is 8 minutes).
+const MAX_HOLD_MS = 20 * 60 * 1000;
 
 const [name, ...command] = process.argv.slice(2);
 if (!name || command.length === 0) {
@@ -76,11 +82,23 @@ function tryAcquire() {
     }
     if (age < EMPTY_GRACE_MS) return false;
   } else if (isAlive(holder)) {
-    return false;
+    let age = 0;
+    try {
+      age = Date.now() - statSync(lockPath).mtimeMs;
+    } catch {
+      return false;
+    }
+    if (age < MAX_HOLD_MS) return false;
+    console.error(
+      `[${name}] process ${holder} has held the lock for ${Math.round(age / 60000)} minutes, ` +
+        "longer than any check runs; taking it over (that process is probably an orphan)",
+    );
+  } else {
+    console.error(`[${name}] removing a stale lock (process ${holder} is gone)`);
   }
-  console.error(
-    `[${name}] removing a stale lock (process ${holder || "unknown"} is gone)`,
-  );
+  if (Number.isNaN(holder)) {
+    console.error(`[${name}] removing a stale lock (it was never written)`);
+  }
   try {
     unlinkSync(lockPath);
   } catch {

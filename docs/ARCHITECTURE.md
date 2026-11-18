@@ -488,8 +488,20 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   `studysensei_e2e` database, rebuilt each run, so it never touches the dev servers. The browser clock is installed three
   hours back and paused, so `runFor` gives exact times and no event is in the server's future.
 - **AI quality:** `apps/api/evals/` runs before and after every prompt or model change.
-- **CI** (`.github/workflows/ci.yml`), on PRs and pushes to main or rebuild:
-  - **api:** ruff, ruff format, mypy (strict), alembic upgrade, pytest (pgvector service) and an OpenAPI-staleness check
-  - **web:** eslint, prettier, tsc, vitest and vite build
-  - **e2e:** Playwright (Chromium) with a pgvector service holding `studysensei_e2e`; the report is uploaded on failure
+- **CI** (`.github/workflows/ci.yml`), on PRs and pushes to main. Merges into main need the **CI passed** check
+  (rulesets in `.github/rulesets/`, applied as described in CONTRIBUTING.md):
+  - **changes:** `dorny/paths-filter`. A change to Markdown and `docs/` only skips api, web and e2e; anything else runs all.
+  - **hygiene** (always): gitleaks over the PR's (or push's) commits, and `scripts/check-licenses.mjs`, which fails on
+    AGPL, GPL, SSPL or an unknown licence in the Python environment or the npm production dependencies, unless
+    reviewed in `scripts/license-allowlist.json`.
+  - **api:** ruff, ruff format, mypy (strict), alembic upgrade, pytest on 4 xdist workers (each with its own
+    `studysensei_gwN_test` database; conftest still refuses any name not ending in `_test`) and an OpenAPI-staleness check
+  - **web:** eslint, prettier, tsc, vitest (`vmThreads` pool) and vite build
+  - **e2e:** Playwright (Chromium, browsers cached by Playwright version) with a pgvector service holding
+    `studysensei_e2e`; the report is uploaded on failure
+  - **CI passed:** needs every job and runs always; fails if any failed or was cancelled (skipped is fine). It's the only
+    required check, so jobs can be added, split or skipped without changing the ruleset.
+  - `node_modules` is cached on the lockfile's hash.
+- **Local check** (`npm run check`, `scripts/check.mjs` under `scripts/with-lock.mjs`): the same steps as api and web,
+  in two parallel phases with per-step time limits and timings.
 - **Hosting from Phase 9:** an API and worker image on Fly.io/Railway/Hetzner, Supabase, and Cloudflare Pages for the web app.
