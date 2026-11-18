@@ -37,6 +37,11 @@ Newest first. 3–5 lines per session: what was done, what was decided, what's n
 - **Fixed a flaky test** CI caught on this PR: `MaterialViewer` "a PDF that won't load falls back to its extracted text"
   checked the page-text region's content as soon as the region appeared, before its text had loaded. It now waits for
   the text.
+- **Vitest hang, seen again** during this PR's final check: it printed its header and then nothing, and the new step
+  limit killed it after 6 minutes, reported it by name, and released the lock. Six runs on their own (13–17 s each)
+  and two more full checks didn't reproduce it; both hangs came while or just after pytest ran. Cause unknown. The
+  limit is now 2 minutes (a normal run is about 20 s), and a timed-out vitest is retried once and reported as such; a
+  failing test is never retried. Final checks: 53.0 s and 61.0 s.
 - **Next:** apply `.github/rulesets/main.json` (CONTRIBUTING.md), then spike S1.
 
 ## 2026-11-18: Phase 2, evals for search, linking and topic extraction

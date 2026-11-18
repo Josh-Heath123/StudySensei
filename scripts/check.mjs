@@ -38,7 +38,14 @@ const phases = [
   ],
   [
     { name: "pytest", cmd: `${api} pytest -n 4 -p no:cacheprovider`, limit: 8 * MINUTE },
-    { name: "vitest", cmd: "npm run test -w apps/web -- --maxWorkers=8", limit: 6 * MINUTE },
+    // About 20 s normally. Vitest has twice hung on Windows before finishing any file (once for
+    // 48 minutes); a run that times out is retried once. A failing test is never retried.
+    {
+      name: "vitest",
+      cmd: "npm run test -w apps/web -- --maxWorkers=8",
+      limit: 2 * MINUTE,
+      retryOnTimeout: true,
+    },
   ],
 ];
 const steps = phases.flat();
@@ -60,7 +67,17 @@ function killTree(child) {
   }
 }
 
-function run(step) {
+async function run(step) {
+  const result = await runOnce(step);
+  if (result.timedOut && step.retryOnTimeout) {
+    console.log(`[check] ${step.name} timed out after ${seconds(step.limit)}; retrying once`);
+    const retry = await runOnce(step);
+    return { ...retry, ms: result.ms + retry.ms, retried: true };
+  }
+  return result;
+}
+
+function runOnce(step) {
   const logPath = path.join(logDir, `${step.name.replace(/\s+/g, "-")}.log`);
   const log = createWriteStream(logPath);
   const started = Date.now();
@@ -115,7 +132,9 @@ for (const result of failed) {
 
 console.log("\n[check] step times:");
 for (const result of results) {
-  console.log(`  ${result.name.padEnd(width)} ${seconds(result.ms).padStart(8)}  ${result.ok ? "ok" : result.timedOut ? "timed out" : "FAILED"}`);
+  const status = result.ok ? "ok" : result.timedOut ? "timed out" : "FAILED";
+  const retried = result.retried ? " (after a timed-out first run)" : "";
+  console.log(`  ${result.name.padEnd(width)} ${seconds(result.ms).padStart(8)}  ${status}${retried}`);
 }
 console.log(`  ${"total".padEnd(width)} ${seconds(Date.now() - started).padStart(8)}  (wall)`);
 if (failed.length) {
