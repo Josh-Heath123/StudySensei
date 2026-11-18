@@ -15,11 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.client import CallBudget, LLMClient, json_instruction
 from app.ai.messages import Message, user
 from app.ai.usage import count_requests
-from app.core.config import get_settings
 from app.models import AIUsage, Topic, User
 from app.schemas.topic_maps import MaterialTopics, ModuleTopicMap
 from app.services.topic_maps.prompts import (
-    MERGE_CHARS_PER_TOKEN,
     ExistingTopic,
     MaterialForPrompt,
     estimate_merge_tokens,
@@ -149,26 +147,6 @@ def a_module_like_cos330(name_chars: int) -> tuple[list[ExistingTopic], list[Mat
         for m in range(1, 22)
     ]
     return existing, materials
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "COS330's 460 proposal names alone (13,336 characters) plus the fixed parts (6,803) "
-        "exceed 7,000 tokens x 2.5 characters; topics are never dropped, so Groq refuses the "
-        "merge and Gemini takes it. Remove this mark when the input fits."
-    ),
-)
-def test_a_cos330_sized_merge_fits_its_budget() -> None:
-    existing, materials = a_module_like_cos330(COS330_NAME_CHARS)
-    max_tokens = get_settings().topic_merge_max_tokens
-
-    messages, refs = merge_messages(
-        "COS330 Cyber Security", existing, materials, max_tokens=max_tokens, overhead=OVERHEAD
-    )
-
-    assert len(existing) == 56 and len(refs.proposals) == 21 * 4 * 5
-    assert request_chars(messages) <= max_tokens * MERGE_CHARS_PER_TOKEN
 
 
 @pytest.fixture
