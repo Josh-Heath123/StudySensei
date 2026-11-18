@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { vi } from "vitest";
@@ -136,8 +136,9 @@ test("a PDF that won't load falls back to its extracted text", async () => {
   const user = renderViewer(PDF, { page: 3 });
 
   expect(await screen.findByText(/Couldn't show the PDF itself/)).toBeInTheDocument();
+  // The region appears before its text has loaded: wait for the text itself.
   const text = await screen.findByRole("region", { name: "Page 3 text" });
-  expect(text).toHaveTextContent("Text of page 3");
+  expect(await within(text).findByText("Text of page 3")).toBeInTheDocument();
 
   await user.keyboard("{ArrowRight}");
   expect(await screen.findByText("Text of page 4")).toBeInTheDocument();

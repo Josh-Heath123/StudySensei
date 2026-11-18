@@ -34,6 +34,9 @@ Newest first. 3–5 lines per session: what was done, what was decided, what's n
   With both caches warm (the next run): **wall 1.8 min**, 13 % under the old median; e2e 92 s (Chromium restored,
   13 s for its system libraries), web 45 s (vitest 13 s), api 84 s, hygiene 17 s. Not the 40 % cut, but under 5 minutes
   before and after, with no check dropped: what's left is Playwright (38 s) and pytest (40 s) themselves.
+- **Fixed a flaky test** CI caught on this PR: `MaterialViewer` "a PDF that won't load falls back to its extracted text"
+  checked the page-text region's content as soon as the region appeared, before its text had loaded. It now waits for
+  the text.
 - **Next:** apply `.github/rulesets/main.json` (CONTRIBUTING.md), then spike S1.
 
 ## 2026-11-18: Phase 2, evals for search, linking and topic extraction
