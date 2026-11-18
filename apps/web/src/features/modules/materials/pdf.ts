@@ -12,13 +12,16 @@ export type PdfRender = {
   cancel: () => void;
 };
 
+/** The box a page is drawn into, in CSS pixels: fit its width, or the whole page when `height` is given. */
+export type PdfFit = { width: number; height?: number };
+
 export type PdfDocument = {
   numPages: number;
   /**
-   * Draw page `pageNumber` (1-based) on `canvas`, `cssWidth` CSS pixels wide, sharp at
-   * the device pixel ratio.
+   * Draw page `pageNumber` (1-based) on `canvas`, scaled to `fit` (the width, or the whole
+   * page inside width × height), sharp at the device pixel ratio.
    */
-  render: (pageNumber: number, canvas: HTMLCanvasElement, cssWidth: number) => PdfRender;
+  render: (pageNumber: number, canvas: HTMLCanvasElement, fit: PdfFit) => PdfRender;
   destroy: () => void;
 };
 
@@ -52,14 +55,16 @@ export async function openPdf(url: string): Promise<PdfDocument> {
     numPages: doc.numPages,
     // Destroying the loading task frees the document and its worker side.
     destroy: () => void loading.destroy(),
-    render(pageNumber, canvas, cssWidth) {
+    render(pageNumber, canvas, fit) {
       let cancelled = false;
       let task: ReturnType<Awaited<ReturnType<typeof doc.getPage>>["render"]> | null = null;
       const promise = (async () => {
         const page = await doc.getPage(pageNumber);
         if (cancelled) throw new PdfRenderCancelled();
         const unscaled = page.getViewport({ scale: 1 });
-        const viewport = page.getViewport({ scale: cssWidth / unscaled.width });
+        const byWidth = fit.width / unscaled.width;
+        const scale = fit.height ? Math.min(byWidth, fit.height / unscaled.height) : byWidth;
+        const viewport = page.getViewport({ scale });
         const ratio = window.devicePixelRatio || 1;
         canvas.width = Math.floor(viewport.width * ratio);
         canvas.height = Math.floor(viewport.height * ratio);

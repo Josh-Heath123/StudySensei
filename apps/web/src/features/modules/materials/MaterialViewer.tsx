@@ -1,11 +1,12 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
+import { cn } from "@/lib/utils";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 
 import { materialFileUrl, usePage } from "./api";
-import { openPdf, PdfRenderCancelled, type PdfDocument } from "./pdf";
+import { openPdf, PdfRenderCancelled, type PdfDocument, type PdfFit } from "./pdf";
 
 export type ViewedMaterial = {
   id: string;
@@ -16,10 +17,14 @@ export type ViewedMaterial = {
 
 const PDF = "application/pdf";
 
+/** "page": the whole page in view (the default); "width": the page as wide as the box, scrolling down. */
+type Fit = "page" | "width";
+
 /**
- * One page of a material: a PDF drawn with pdf.js (fit to the width, sharp at the device
- * pixel ratio), anything else as its extracted text. Previous / next, a page box, the ←/→
- * keys and "Page N of M" work for both. A PDF that won't load or draw falls back to text.
+ * One page of a material: a PDF drawn with pdf.js (the whole page fitted into view by default,
+ * or fitted to the width; sharp at the device pixel ratio), anything else as its extracted
+ * text. Previous / next, a page box, the ←/→ keys and "Page N of M" work for both. A PDF that
+ * won't load or draw falls back to text.
  */
 export function MaterialViewer({
   material,
@@ -36,6 +41,7 @@ export function MaterialViewer({
   const isPdf = material.content_type === PDF;
   const pdf = usePdf(isPdf ? material.id : null);
   const [drawFailed, setDrawFailed] = useState(false);
+  const [fit, setFit] = useState<Fit>("page");
   const total = Math.max(pageCount, pdf.doc?.numPages ?? 0);
   const asText = !isPdf || pdf.failed || drawFailed;
 
@@ -64,7 +70,13 @@ export function MaterialViewer({
 
   return (
     <div className="grid min-w-0 gap-3">
-      <PageNav page={page} total={total} onGo={go} />
+      <PageNav
+        page={page}
+        total={total}
+        onGo={go}
+        fit={pdf.doc && !asText ? fit : undefined}
+        onFit={setFit}
+      />
       {material.content_type === undefined ? (
         <PageSkeleton label="Loading…" />
       ) : asText ? (
@@ -81,6 +93,7 @@ export function MaterialViewer({
           doc={pdf.doc}
           page={page}
           label={`Page ${page} of ${material.title}`}
+          fit={fit}
           onError={() => setDrawFailed(true)}
         />
       ) : (
@@ -94,10 +107,15 @@ function PageNav({
   page,
   total,
   onGo,
+  fit,
+  onFit,
 }: {
   page: number;
   total: number;
   onGo: (n: number) => void;
+  /** Shown only while a PDF page is drawn. */
+  fit?: Fit;
+  onFit: (fit: Fit) => void;
 }) {
   return (
     <nav aria-label="Page navigation" className="flex flex-wrap items-center gap-2">
@@ -121,10 +139,37 @@ function PageNav({
       </Button>
       {/* Keyed by page so the box shows the current page after any navigation. */}
       <JumpForm key={page} page={page} total={total} onGo={onGo} />
+      {fit && <FitToggle fit={fit} onFit={onFit} />}
       <span className="tabular ml-auto text-sm font-medium" aria-live="polite">
         {total > 0 ? `Page ${page} of ${total}` : `Page ${page}`}
       </span>
     </nav>
+  );
+}
+
+/** Fit page / Fit width, as a two-segment control (docs/DESIGN.md "Segmented control"). */
+function FitToggle({ fit, onFit }: { fit: Fit; onFit: (fit: Fit) => void }) {
+  const options: { value: Fit; label: string }[] = [
+    { value: "page", label: "Fit page" },
+    { value: "width", label: "Fit width" },
+  ];
+  return (
+    <div role="group" aria-label="Zoom" className="bg-subtle flex gap-1 rounded-[12px] p-1">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          aria-pressed={fit === option.value}
+          onClick={() => onFit(option.value)}
+          className={cn(
+            "min-h-8 cursor-pointer rounded-[9px] px-3 text-sm font-semibold transition-[background-color,color,box-shadow]",
+            fit === option.value ? "bg-surface text-fg shadow-sm" : "text-muted hover:text-fg",
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -202,27 +247,38 @@ function PdfPage({
   doc,
   page,
   label,
+  fit,
   onError,
 }: {
   doc: PdfDocument;
   page: number;
   label: string;
+  fit: Fit;
   onError: () => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [width, setWidth] = useState(0);
-  const [drawing, setDrawing] = useState(true);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  // What was last drawn completely: busy is derived from it, so a new page, zoom or size is
+  // busy from its very first render. (A `drawing` flag set in the effect was still false for
+  // one commit after a page change, which let readers see "drawn" before the canvas was.)
+  const [drawn, setDrawn] = useState<string | null>(null);
   const onErrorRef = useRef(onError);
   useEffect(() => {
     onErrorRef.current = onError;
   });
 
-  // Fit to the width, and follow it when the dialog or window resizes.
+  // Measure the box, and follow it when the dialog or window resizes. In "page" mode the box
+  // has a fixed height and never scrolls; in "width" mode its scrollbar space is reserved, so
+  // drawing a taller page never changes the width it was drawn for.
   useEffect(() => {
     const element = box.current;
     if (!element) return;
-    const measure = () => setWidth(Math.floor(element.clientWidth) || 800);
+    const measure = () => {
+      const width = Math.floor(element.clientWidth) || 800;
+      const height = Math.floor(element.clientHeight) || 600;
+      setSize((old) => (old?.width === width && old.height === height ? old : { width, height }));
+    };
     measure();
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(measure);
@@ -230,28 +286,43 @@ function PdfPage({
     return () => observer.disconnect();
   }, []);
 
-  // Draw; a new page or width cancels the drawing in flight.
+  const target: PdfFit | null = size
+    ? fit === "page"
+      ? { width: size.width, height: size.height }
+      : { width: size.width }
+    : null;
+  const key = target ? `${page}:${fit}:${target.width}x${target.height ?? "auto"}` : null;
+  const busy = key === null || drawn !== key;
+
+  // Draw; a new page, zoom or size cancels the drawing in flight.
   useEffect(() => {
-    if (!width || !canvas.current) return;
-    setDrawing(true);
-    const task = doc.render(page, canvas.current, width);
+    if (!target || !key || !canvas.current) return;
+    const task = doc.render(page, canvas.current, target);
     task.promise.then(
-      () => setDrawing(false),
+      () => setDrawn(key),
       (err: unknown) => {
         if (!(err instanceof PdfRenderCancelled)) onErrorRef.current();
       },
     );
     return () => task.cancel();
-  }, [doc, page, width]);
+    // `key` stands for `target` (a new object every render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc, page, key]);
 
   return (
-    <section aria-label={`Page ${page}`} aria-busy={drawing} className="min-w-0">
+    <section aria-label={`Page ${page}`} aria-busy={busy} className="min-w-0">
       <div
         ref={box}
-        className="bg-surface border-line relative max-h-[70vh] overflow-y-auto rounded-lg border shadow-sm"
+        data-fit={fit}
+        className={cn(
+          "bg-surface border-line relative rounded-lg border shadow-sm",
+          fit === "page"
+            ? "flex h-[min(64vh,calc(100dvh-18rem))] min-h-64 items-center justify-center overflow-hidden"
+            : "max-h-[64vh] [scrollbar-gutter:stable] overflow-y-auto",
+        )}
       >
         <canvas ref={canvas} role="img" aria-label={label} className="block" />
-        {drawing && (
+        {busy && (
           <p className="text-muted bg-surface border-line absolute top-3 left-3 rounded-sm border px-2 py-1 text-xs shadow-sm">
             Drawing page {page}…
           </p>
@@ -261,7 +332,6 @@ function PdfPage({
   );
 }
 
-/** A page's extracted text: what the search and tutor read. */
 function PageText({ materialId, page }: { materialId: string; page: number }) {
   const text = usePage(materialId, page);
 
