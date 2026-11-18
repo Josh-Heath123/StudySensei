@@ -2,6 +2,21 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-18: Phase 2, AI provider settings page
+
+- **Done:**
+  - `POST /ai/ping` tests every configured model concurrently and returns one result each: ok with latency, failed
+    with the provider's error text, or skipped (budget used up, not called) with the reset time, plus whether the
+    model is in the provider's `/models` list. Calls are logged as purpose `ping` against the caller.
+  - `app/ai/ping.py` now has one `ping_routes` that returns structured results; the CLI formats them (same lines, plus
+    a `skipped` line). `LLMClient.budget_reset` is public so the ping can skip a spent model.
+  - Settings replaces its placeholder with "AI providers": key set or not, roles with what uses them, usage meters
+    (measured count, estimated budget, local reset time), "Test keys" and the privacy note.
+- **Tests:** API (ok, failure text without keys, lost connection, not in `/models`, skipped budget, no providers),
+  cross-user (Alice spending Flash's budget doesn't skip Bob's Flash; rows belong to the caller), CLI line format,
+  and Vitest for the page. The test usage store now takes a lock, since the ping writes concurrently.
+- **Next:** `evals/topic_extraction` and `evals/search` from COS330.
+
 ## 2026-11-17: Phase 2, the materials viewer
 
 - **Done:**

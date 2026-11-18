@@ -88,6 +88,7 @@ the web app calls the API through the typed `openapi-fetch` client. CI fails if 
 | Tasks | `GET/POST /modules/{id}/tasks`, `GET /tasks?status=` (all modules), `GET/PATCH/DELETE /tasks/{id}` (`status: "done"` sets `completed_at`) |
 | Sessions | `POST /sessions`, `GET /sessions/active`, `GET/DELETE /sessions/{id}`, `POST /sessions/{id}/events`, `PUT /sessions/{id}/reflection`, `GET /modules/{id}/sessions?limit=&offset=` (a page `{items, total, limit, offset}`: the open session first, then newest first; limit 1–100, default 20), `GET /modules/{id}/sessions/summary?week_start=` (session count and active seconds, all time and since `week_start`) |
 | AI | `GET /ai/status`: per provider whether it's configured (`key_set` is yes/no only), each role's models in order, and per model `used_today` / `daily_budget` / `resets_at` for the current user |
+| AI | `POST /ai/ping` (no body): tests every configured model at once, one short request each (30 s limit each), logged in `ai_usage` as purpose `ping` against the caller. One result per model: `status` `ok` (`latency_ms`), `failed` (`error`: the provider's own text, never a key) or `skipped` (daily budget used up, so not called; `resets_at`), plus `in_models_list` (null with `models_list_error` when the provider's `/models` failed). No provider configured → `results: []` |
 | Materials | `POST /modules/{id}/materials` (multipart: `file`, `kind`, `title?`, `allow_ai`; 413 over 50 MB, 415 wrong type, 409 same file in the module), `GET /modules/{id}/materials`, `GET/PATCH/DELETE /materials/{id}` (PATCH: title, kind, allow_ai), `POST /materials/{id}/retry` (failed only), `GET /materials/{id}/pages` (page number, title, char count, is_scanned), `GET /materials/{id}/pages/{n}` (adds the text), `GET /materials/{id}/file` (the stored original, streamed through `Storage`: its own `Content-Type`, `Content-Disposition: inline` with the RFC 5987 filename, `X-Content-Type-Options: nosniff`, `ETag` = the sha256 with `Cache-Control: private, max-age=31536000, immutable`, and 304 for a matching `If-None-Match`; 404 for another user's material or a missing blob) |
 
 Notes on these endpoints:
@@ -295,10 +296,15 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   - The client never looks the user up: `user_id` is only for usage rows and budgets. No names, emails, student
     numbers or reflections go in prompts.
   - For COS330, the student turns `allow_ai` off on their own `u23541475_*` submissions.
-- **Checking keys:** `uv run python -m app.ai.ping` sends "Reply with the single word: pong" to every configured model
-  at `minimal` effort. It prints `→ provider/model …` before each call, then `ok` with the latency and reply, or `FAIL`
-  with the reason, and says if a model ID is missing from the provider's `/models` list. Each model gets 30 s in total,
-  so a slow one can't hold up the rest.
+- **Checking keys:** `app/ai/ping.py` `ping_routes` sends "Reply with the single word: pong" to every configured model
+  at once, at `minimal` effort, and returns one structured `PingOutcome` per model. A model whose daily budget is used
+  up isn't called (`skipped`, with its reset time). Each model gets 30 s in total, so a slow one can't hold up the
+  rest, and it also checks each model ID against the provider's `/models` list. Two front ends share it:
+  `uv run python -m app.ai.ping` prints `→ provider/model …` then `ok` with the latency and reply, `FAIL` with the
+  reason, or `skipped`; and `POST /ai/ping` behind the Settings page's "Test keys" button.
+- **Settings page** (`features/settings/`): providers as "Key set" / "No key" (Ollama: model set or not), each role's
+  models in order with what uses it, today's usage per model as a meter (count measured, budget estimated, reset in
+  local time), "Test keys", and the privacy note. Keys and routes are edited only in `apps/api/.env` until Phase 9.
 - **Tests never call a provider:** `tests/conftest.py` blanks the key variables (the environment beats `.env`) and
   installs a client whose transport fails any request. AI tests script replies with `FakeLLM` (`tests/fakes.py`).
 - **AI suggests, code decides:** AI never changes the plan, deletes data or sends notifications.

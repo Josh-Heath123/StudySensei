@@ -69,7 +69,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 - [x] Topic-extraction prompts and Pydantic schemas (per material, then merged per module), with chunk–topic linking
 - [x] Upload UI with processing status, materials viewer (pdf.js, jump to page) and module search
 - [x] Topic review UI (confirm, rename, merge, delete; user edits win)
-- [ ] AI provider settings page
+- [x] AI provider settings page
 - [ ] `evals/topic_extraction` and `evals/search` from COS330
 
 **Verify:**
