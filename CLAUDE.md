@@ -32,6 +32,7 @@ Web rebuild of a retired PyQt prototype (tag `v0-pyqt-prototype`). Product: `doc
 | `npm run check` | Everything CI runs except e2e, in two parallel phases with step timings (about 1 minute): ruff, ruff format, prettier, eslint, mypy, tsc, then pytest (4 xdist workers) and vitest. A failed step's log tail is printed under its name; full logs in `.locks/check/` |
 | `npm run e2e` | Playwright against the real stack on its own ports (API :8001, web :5174, db `studysensei_e2e`, rebuilt each run). First time: `npx playwright install chromium` |
 | `npm run format` | Auto-fix formatting (ruff + prettier) |
+| `npm run spike:s1` | The S1 camera spike page on :5175 (`apps/web/spikes/s1-camera/`; not part of the app) |
 | `npm run licenses` | Regenerate `THIRD_PARTY_NOTICES.md` from `uv.lock` and `package-lock.json`. Run after any dependency change |
 | `npm run gen:api` | Re-export OpenAPI and regenerate the TS client types. Run after any API schema change |
 | `npm run db:up` / `db:down` | Start or stop Postgres only |
