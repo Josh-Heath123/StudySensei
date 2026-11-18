@@ -28,13 +28,6 @@ const FONTS = [
     license: "SIL Open Font License 1.1 (OFL-1.1)",
     copyright: "Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)",
   },
-  {
-    name: "Space Grotesk",
-    package: "@fontsource/space-grotesk",
-    license: "SIL Open Font License 1.1 (OFL-1.1)",
-    copyright:
-      "Copyright 2020 The Space Grotesk Project Authors (https://github.com/floriankarsten/space-grotesk)",
-  },
 ];
 
 const cell = (text) => (text || "unknown").replace(/\|/g, "\\|");
@@ -74,7 +67,7 @@ package declares them.
 - **${MODEL.name}**: ${MODEL.license}. ${MODEL.use}
   ${MODEL.source}
 
-## Fonts
+## Font
 
 Self-hosted from npm (no requests to Google Fonts).
 

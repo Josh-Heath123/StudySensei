@@ -12,12 +12,11 @@ package declares them.
 - **BAAI/bge-small-en-v1.5**: MIT. Local text embeddings for search and topic links (apps/api/app/services/search/embedding.py).
   Licence on the model card at https://huggingface.co/BAAI/bge-small-en-v1.5. fastembed downloads the ONNX copy Qdrant/bge-small-en-v1.5-onnx-Q (https://huggingface.co/Qdrant/bge-small-en-v1.5-onnx-Q), also MIT. The model is downloaded at runtime to data/models and is not in the repository.
 
-## Fonts
+## Font
 
 Self-hosted from npm (no requests to Google Fonts).
 
 - **Inter** (`@fontsource-variable/inter`): SIL Open Font License 1.1 (OFL-1.1). Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter).
-- **Space Grotesk** (`@fontsource/space-grotesk`): SIL Open Font License 1.1 (OFL-1.1). Copyright 2020 The Space Grotesk Project Authors (https://github.com/floriankarsten/space-grotesk).
 
 ## Python packages (59)
 
@@ -87,7 +86,7 @@ Notes:
 
 - **py-rust-stemmers:** Reviewed 18 Nov 2026: 0.1.8 (via fastembed) has no licence metadata, but its wheel ships an MIT LICENSE (qdrant).
 
-## npm packages (107)
+## npm packages (106)
 
 | Package | Version | Licence |
 | --- | --- | --- |
@@ -96,7 +95,6 @@ Notes:
 | @floating-ui/react-dom | 2.1.9 | MIT |
 | @floating-ui/utils | 0.2.12 | MIT |
 | @fontsource-variable/inter | 5.3.0 | OFL-1.1 |
-| @fontsource/space-grotesk | 5.3.0 | OFL-1.1 |
 | @napi-rs/canvas | 1.1.1 | MIT |
 | @napi-rs/canvas-android-arm64 | 1.1.1 | MIT |
 | @napi-rs/canvas-darwin-arm64 | 1.1.1 | MIT |

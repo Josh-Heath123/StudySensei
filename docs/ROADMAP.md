@@ -10,7 +10,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 
 ## Parallel spikes
 
-- [x] **S3 Visual direction** (alongside Phases 0–1, in the Project chat): three directions for Today, Session and Module → pick one → design system v1 input
+- [x] **S3 Visual direction** (alongside Phases 0–1, in the Project chat): three directions for Today, Session and Module → pick one → design system v1 input (superseded on 18 Nov by direction C "Glass", decision 0012)
 - [ ] **S1 Camera in the browser** (alongside Phase 2): test background-tab throttling with a Web Worker + `MediaStreamTrackProcessor`, Document Picture-in-Picture, and a Tauri fallback. The result decides web vs Tauri for Phase 7
 - [ ] **S2 Past-paper parsing accuracy** (alongside Phases 4–5): try segmentation and classification prompts on real COS330 papers and record the accuracy
 

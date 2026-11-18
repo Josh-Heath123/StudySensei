@@ -1,5 +1,7 @@
 # StudySensei design system v1: "Planner"
 
+> Archived 18 Nov 2026: superseded by direction C "Glass" (decision 0012, `docs/DESIGN.md`).
+
 Chosen 13 Nov 2026 from three directions (canvas: https://claude.ai/artifact/VRuYrxfbGF65SRyfiAfqyd, row B).
 Crisp black on white, bold headings, and each module's own colour used as a solid fill. The day is something you can see.
 This file is the spec. The tokens live in `apps/web/src/index.css` and the components in `apps/web/src/ui/`.
