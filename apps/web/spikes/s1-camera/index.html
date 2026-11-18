@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>S1 camera spike</title>
+    <style>
+      :root {
+        color: #111;
+        background: #fff;
+        font:
+          15px/1.5 system-ui,
+          sans-serif;
+      }
+      body {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 24px 20px 48px;
+      }
+      h1 {
+        font-size: 28px;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 18px;
+        margin: 28px 0 8px;
+      }
+      section {
+        border: 2px solid #e8e8e8;
+        border-radius: 6px;
+        padding: 16px 20px;
+        margin-top: 16px;
+      }
+      .key {
+        border-color: #111;
+      }
+      button,
+      select {
+        font: inherit;
+        min-height: 40px;
+        padding: 6px 16px;
+        border-radius: 4px;
+        border: 2px solid #111;
+        background: #111;
+        color: #fff;
+        cursor: pointer;
+      }
+      select {
+        background: #fff;
+        color: #111;
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+      .muted {
+        color: #5b5b5b;
+      }
+      #phase {
+        font-size: 22px;
+        font-weight: 700;
+      }
+      pre {
+        background: #f0f0f0;
+        padding: 12px;
+        border-radius: 4px;
+        overflow-x: auto;
+        font-size: 13px;
+      }
+      video {
+        width: 240px;
+        border-radius: 4px;
+        background: #111;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Spike S1: camera in the background</h1>
+    <p class="muted">
+      Can the browser keep processing webcam frames at 5 or more a second while this tab is in the
+      background, hidden or minimised? Frames are reduced to two numbers each and dropped; nothing
+      is uploaded or stored.
+    </p>
+
+    <section>
+      <h2>1. Camera</h2>
+      <div class="row">
+        <button id="enable">Allow camera</button>
+        <span id="camera-status" class="muted">Asked once; every mode reuses it.</span>
+      </div>
+      <p><video id="preview" muted playsinline></video></p>
+    </section>
+
+    <section>
+      <h2>2. Mode</h2>
+      <div class="row">
+        <label for="mode">Technique</label>
+        <select id="mode"></select>
+      </div>
+      <p id="mode-detail" class="muted"></p>
+      <div class="row">
+        <button id="start" disabled>Start run</button>
+        <button id="stop" disabled>Stop early</button>
+        <button id="download" disabled>Download results</button>
+      </div>
+    </section>
+
+    <section class="key">
+      <h2>3. Protocol (<span id="protocol-length"></span> per mode)</h2>
+      <p class="muted">
+        Run one mode at a time. Start the run, then follow these steps at the times shown (once a
+        run starts, they become clock times). The phases are marked in the data, so keep to them; a
+        phone timer helps, because you can't see this page while it's hidden. Don't play sound in
+        another tab: audible tabs aren't throttled.
+      </p>
+      <ol id="schedule"></ol>
+      <p id="phase">Not running</p>
+      <p id="instruction" class="muted"></p>
+    </section>
+
+    <section>
+      <h2>4. Live readout</h2>
+      <p id="readout" class="muted">Start a run to see frames per second.</p>
+      <pre id="log"></pre>
+      <h2>Last run</h2>
+      <pre id="summary">No run yet.</pre>
+    </section>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
