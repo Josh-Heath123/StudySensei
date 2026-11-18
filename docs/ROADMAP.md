@@ -10,7 +10,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 
 ## Parallel spikes
 
-- [ ] **S3 Visual direction** (alongside Phases 0–1, in the Project chat): three directions for Today, Session and Module → pick one → design system v1 input
+- [x] **S3 Visual direction** (alongside Phases 0–1, in the Project chat): three directions for Today, Session and Module → pick one → design system v1 input
 - [ ] **S1 Camera in the browser** (alongside Phase 2): test background-tab throttling with a Web Worker + `MediaStreamTrackProcessor`, Document Picture-in-Picture, and a Tauri fallback. The result decides web vs Tauri for Phase 7
 - [ ] **S2 Past-paper parsing accuracy** (alongside Phases 4–5): try segmentation and classification prompts on real COS330 papers and record the accuracy
 
@@ -220,3 +220,4 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 - [ ] Better voices or real-time voice
 - [ ] Tauri wrapper, if S1 calls for one
 - [ ] Shared class modules (after a copyright and privacy review)
+- [ ] Incremental topic-map merges that send only materials added since the last merge, if waiting for Gemini on large merges becomes a problem (decision 0011)

@@ -7,7 +7,7 @@ Web rebuild of a retired PyQt prototype (tag `v0-pyqt-prototype`). Product: `doc
 
 1. Read `docs/ROADMAP.md` and pick the next unchecked task in the current phase (one task = one session = one PR).
 2. Skim the latest entries in `docs/PROGRESS.md`.
-3. Use plan mode for anything touching more than a couple of files.
+3. Use plan mode for anything touching more than a couple of files, unless the task prompt is fully specified and says "skip plan mode".
 4. Work on a branch named `phase-N/<task>`.
 
 ## Rules (non-negotiable)

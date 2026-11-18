@@ -65,7 +65,7 @@ apps/web/            React app
 apps/web/e2e/        Playwright specs
 infra/db/init.sql    creates studysensei_test
 docker-compose.yml   Postgres 16 + pgvector on host port 5433
-scripts/dev.mjs      `npm run dev`: db → migrate → seed → api + web
+scripts/dev.mjs      `npm run dev`: db → migrate → seed → api + job worker + web
 ```
 
 Folders marked with a phase are created when that phase starts.
@@ -125,8 +125,8 @@ Derived tables can always be rebuilt from source tables.
 | --- | --- | --- |
 | People and settings | `users`, `ai_credentials`, `consents`, `push_subscriptions` | Keys Fernet-encrypted; consent per feature with timestamps |
 | Academic structure | `modules`, `topics` (tree via `parent_id`), `assessments`, `assessment_topics`, `tasks` | `topics.source` is `ai` or `user`; user edits never overwritten |
-| Materials | `materials`, `material_pages` (text per page, `is_scanned`), `chunks` (one page each: page number, position, text, token count, `embedding vector(384)`, generated `tsv tsvector`), `chunk_topics` (chunk, topic, score, method `pages`/`similarity`) |
-| Topic maps | `topic_proposals` (one per material: validated AI JSON + provider and model), `topic_pages` (pages each topic was drawn from), `topic_reviews` (what the student did with each AI topic; outlives it), `topic_unlinks` (pages unlinked from a topic) | Decisions 0006, 0009 | `materials.kind`: slides, notes, study_guide, tutorial, past_paper, test, assignment, outline, other; `status`, `error`, `page_count`, `allow_ai`; `UNIQUE (module_id, sha256)` |
+| Materials | `materials`, `material_pages` (text per page, `is_scanned`), `chunks` (one page each: page number, position, text, token count, `embedding vector(384)`, generated `tsv tsvector`), `chunk_topics` (chunk, topic, score, method `pages`/`similarity`) | `materials.kind`: slides, notes, study_guide, tutorial, past_paper, test, assignment, outline, other; `status`, `error`, `page_count`, `allow_ai`; `UNIQUE (module_id, sha256)` |
+| Topic maps | `topic_proposals` (one per material: validated AI JSON + provider and model), `topic_pages` (pages each topic was drawn from), `topic_reviews` (what the student did with each AI topic; outlives it), `topic_unlinks` (pages unlinked from a topic) | Decisions 0006, 0009 |
 | Past papers | `past_questions`, `past_question_topics` | Profile computed by queries, never stored as AI output |
 | Planning | `availability_rules`, `availability_exceptions`, `plan_blocks` | `plan_version` on each block |
 | Sessions | `study_sessions`, `session_events`, `session_minutes` | No images or audio, ever |
@@ -199,7 +199,7 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
 
   | Role | Used for | Models, in order | Thinking |
   | --- | --- | --- | --- |
-  | `smart` | tutor, topic maps | `groq/openai/gpt-oss-120b`, `gemini/gemini-3.5-flash-lite`, `gemini/gemini-3.8-flash` | `low` |
+  | `smart` | the tutor | `groq/openai/gpt-oss-120b`, `gemini/gemini-3.5-flash-lite`, `gemini/gemini-3.8-flash` | `low` |
   | `bulk` | classification, tagging | `gemini/gemini-3.5-flash-lite` (`minimal`), `groq/openai/gpt-oss-20b` (`low`) | as listed |
   | `vision` | any request with an image: scanned pages, figure slides | `gemini/gemini-3.5-flash-lite`, `groq/qwen/qwen3.8-27b`, `gemini/gemini-3.8-flash` | `low` |
   | `long` | whole documents in one prompt: topic extraction and the module merge | `gemini/gemini-3.5-flash-lite`, `gemini/gemini-3.8-flash`, `groq/openai/gpt-oss-120b` | `low` |
@@ -367,6 +367,7 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
      - **Topics are never dropped to fit.** A request over budget with no descriptions is sent as it is, with a
        warning in the log. Groq then refuses it (413) and Gemini takes it. COS330 is in that state: 27,216 characters
        for 460 proposals and 56 existing topics, which Groq counted as 9,072 tokens (about 3.0 characters a token).
+       Large merges like this are Gemini-only by decision (0011); incremental merges are the fix if the waits hurt.
      - **The student's review wins:** a dismissed name is never added again (nor anything under it), and the AI's
        old name of a renamed or merged-away topic adds to the topic that carries it now.
    - **Linking** (no AI): `chunk_topics` from cited pages (`pages`), and from local embeddings of "name: description"
