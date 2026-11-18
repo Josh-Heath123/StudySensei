@@ -6,12 +6,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.client import LLMClient
-from app.ai.sources import SourcePage
+from app.ai.sources import UNTRUSTED, SourcePage
 from app.jobs import queue
 from app.jobs.kinds import EXTRACT_TOPICS, MERGE_TOPICS
 from app.models import AIUsage, Job, Material, TopicProposal
 from app.services.topic_maps import queue_extraction
-from app.services.topic_maps.prompts import UNTRUSTED, extraction_messages
+from app.services.topic_maps.prompts import extraction_messages
 from tests.fakes import FakeLLM, ok
 from tests.search.conftest import run_jobs
 from tests.topic_maps.conftest import (

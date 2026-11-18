@@ -9,12 +9,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.client import LLMClient
+from app.ai.sources import UNTRUSTED
 from app.jobs import queue
 from app.jobs.kinds import MERGE_TOPICS
 from app.models import Topic, TopicPage, TopicProposal
 from app.schemas.topic_maps import MaterialTopics
 from app.services.topic_maps.prompts import (
-    UNTRUSTED,
     ExistingTopic,
     MaterialForPrompt,
     merge_messages,
