@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -50,13 +51,25 @@ def fake_llm() -> FakeLLM:
     return FakeLLM()
 
 
-@pytest.fixture
-def usage_sessions(session: AsyncSession) -> SessionFactory:
+def shared_session(session: AsyncSession) -> SessionFactory:
+    """A usage-store session factory over the one test session.
+
+    A lock lets concurrent calls (the ping tests every model at once) take turns, since
+    one AsyncSession can't run two queries at the same time.
+    """
+    lock = asyncio.Lock()
+
     @asynccontextmanager
     async def factory() -> AsyncIterator[AsyncSession]:
-        yield session
+        async with lock:
+            yield session
 
     return factory
+
+
+@pytest.fixture
+def usage_sessions(session: AsyncSession) -> SessionFactory:
+    return shared_session(session)
 
 
 class Sleeps:

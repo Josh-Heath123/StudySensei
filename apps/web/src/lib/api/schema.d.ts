@@ -845,6 +845,29 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/ai/ping": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Ping
+     * @description Test every configured model with one short request each, all at once.
+     *
+     *     A model whose daily budget is used up isn't called. Each call is logged in ai_usage
+     *     (purpose "ping") against the current user. Errors carry the provider's text, never a key.
+     */
+    post: operations["ping_ai_ping_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -865,6 +888,33 @@ export interface components {
       used_today: number;
       /** Resets At */
       resets_at: string | null;
+    };
+    /** AIPingOut */
+    AIPingOut: {
+      /** Results */
+      results: components["schemas"]["AIPingResult"][];
+    };
+    /** AIPingResult */
+    AIPingResult: {
+      /** Provider */
+      provider: string;
+      /** Model */
+      model: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "ok" | "failed" | "skipped";
+      /** Latency Ms */
+      latency_ms: number | null;
+      /** Error */
+      error: string | null;
+      /** Resets At */
+      resets_at: string | null;
+      /** In Models List */
+      in_models_list: boolean | null;
+      /** Models List Error */
+      models_list_error: string | null;
     };
     /** AIProviderStatus */
     AIProviderStatus: {
@@ -3521,6 +3571,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AIStatusOut"];
+        };
+      };
+    };
+  };
+  ping_ai_ping_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AIPingOut"];
         };
       };
     };

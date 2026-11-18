@@ -58,7 +58,8 @@ class FakeLLM:
     Script replies per model with ``fake.reply("model", ok("hi"), rate_limited(5))``; each
     request takes the model's next reply. A reply can also be an exception to raise, such
     as ``httpx.ReadTimeout("slow")``, and ``slow("model", seconds)`` delays every answer.
-    A request for an unscripted model fails the test.
+    A request for an unscripted model fails the test. GET /models lists the scripted
+    models, except those added to ``unlisted``.
     ``requests`` records what was sent (host, model, JSON body and headers).
     """
 
@@ -67,6 +68,8 @@ class FakeLLM:
         self.delays: dict[str, float] = {}
         self.hooks: dict[str, Callable[[], Awaitable[None]]] = {}
         self.requests: list[SentRequest] = []
+        # Scripted models left out of the /models list.
+        self.unlisted: set[str] = set()
 
     def reply(self, model: str, *responses: httpx.Response | Exception) -> None:
         self.script.setdefault(model, []).extend(responses)
@@ -80,7 +83,7 @@ class FakeLLM:
 
     async def _handle(self, request: httpx.Request) -> httpx.Response:
         if request.method == "GET" and request.url.path.endswith("/models"):
-            listed = [{"id": model} for model in self.script]
+            listed = [{"id": model} for model in self.script if model not in self.unlisted]
             return httpx.Response(200, json={"object": "list", "data": listed})
         body = json.loads(request.content)
         model = str(body["model"])

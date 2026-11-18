@@ -10,11 +10,13 @@ from typing import Any
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import AIUsage, Material, TopicReview, User
 from app.storage.local import LocalStorage
 from tests.academics.conftest import Rows
+from tests.fakes import FakeLLM, ok
 from tests.materials import samples
 
 # A start for POST /sessions; it never gets far enough to be stored.
@@ -346,3 +348,31 @@ async def test_ai_status_counts_only_your_own_usage(
 
     assert hers["used_today"] == 4  # a 429 was refused, so it used no quota
     assert his["used_today"] == 0
+
+
+async def test_ai_ping_logs_and_budgets_only_against_the_caller(
+    ping_llm: FakeLLM,
+    session: AsyncSession,
+    alice_api: AsyncClient,
+    bob_api: AsyncClient,
+    user_a: User,
+    user_b: User,
+) -> None:
+    """POST /ai/ping takes no IDs; what it touches is usage, so its rows are the caller's.
+
+    Alice uses up Flash's budget (two a day) with two tests; Bob's test still calls Flash.
+    """
+    for model in ("flash", "flash-lite", "oss-120b"):
+        ping_llm.reply(model, ok("pong"), ok("pong"), ok("pong"))
+
+    for _ in range(2):
+        assert (await alice_api.post("/ai/ping")).status_code == 200
+    his = (await bob_api.post("/ai/ping")).json()
+
+    flash = next(r for r in his["results"] if r["model"] == "flash")
+    assert flash["status"] == "ok"
+    rows = await session.execute(
+        select(AIUsage.user_id, AIUsage.model).where(AIUsage.purpose == "ping")
+    )
+    owners = [user for user, model in rows if model == "flash"]
+    assert sorted(owners) == sorted([user_a.id, user_a.id, user_b.id])

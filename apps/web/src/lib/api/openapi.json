@@ -2546,6 +2546,28 @@
           }
         }
       }
+    },
+    "/ai/ping": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Ping",
+        "description": "Test every configured model with one short request each, all at once.\n\nA model whose daily budget is used up isn't called. Each call is logged in ai_usage\n(purpose \"ping\") against the current user. Errors carry the provider's text, never a key.",
+        "operationId": "ping_ai_ping_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIPingOut"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2607,6 +2629,111 @@
           "resets_at"
         ],
         "title": "AIModelStatus"
+      },
+      "AIPingOut": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/AIPingResult"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "results"
+        ],
+        "title": "AIPingOut"
+      },
+      "AIPingResult": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "failed",
+              "skipped"
+            ],
+            "title": "Status"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "resets_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resets At"
+          },
+          "in_models_list": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Models List"
+          },
+          "models_list_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Models List Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "model",
+          "status",
+          "latency_ms",
+          "error",
+          "resets_at",
+          "in_models_list",
+          "models_list_error"
+        ],
+        "title": "AIPingResult"
       },
       "AIProviderStatus": {
         "properties": {
