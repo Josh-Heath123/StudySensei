@@ -29,7 +29,7 @@ export default defineConfig({
     // One VM context per file in shared threads: per-file isolation, but jsdom starts much
     // faster than in a fresh worker per file (32 s → 24 s for the suite on 18 Nov).
     pool: "vmThreads",
-    // Playwright owns e2e/ (npm run e2e).
-    include: ["src/**/*.test.{ts,tsx}"],
+    // Playwright owns e2e/ (npm run e2e). Spikes test their pure parts only.
+    include: ["src/**/*.test.{ts,tsx}", "spikes/**/*.test.ts"],
   },
 });

@@ -2,6 +2,29 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-18: Spike S1, a camera measurement page (not yet run)
+
+- **Done:**
+  - `apps/web/spikes/s1-camera/`, served by `npm run spike:s1` on :5175. It has its own Vite entry, and is linted,
+    type-checked (`tsconfig.spikes.json`) and tested with the web app, but it's not in the app's bundle or routes.
+  - It asks for the camera once, then runs one mode at a time on the same workload: frames scaled to 160×120, mean
+    brightness and frame difference, no ML. The modes are: (a) `requestVideoFrameCallback`; (b) `setInterval` at
+    100 ms; (c) a worker fed by `MediaStreamTrackProcessor` with the track transferred in; (d) c plus Document
+    Picture-in-Picture; (e) c plus a held Web Lock.
+  - A protocol panel with clock times and a countdown: 30 s visible, 60 s on another tab, 60 s minimised, 30 s
+    visible again.
+  - Frame times, visibility and PiP changes are stored as timestamps and turned into per-second samples when a run
+    ends, so throttled page timers can't distort them. The results JSON adds the browser, OS, mode and a per-phase
+    summary.
+  - Vitest covers the pure parts: aggregation, phase marking and the workload. No camera runs in CI.
+- **Decided:**
+  - Mode e uses a Web Lock: Chrome's freezing heuristics document that it exempts a page. It's flagged as a risk,
+    because it's a heuristic, not a guarantee.
+  - No audible-silence trick, because it isn't documented and real audio would change the measurement.
+  - No Tauri work.
+- **Next:** Joshua runs all five modes on his laptop and sends the five JSON files. The results are reviewed, then
+  S1 is decided (and ticked, with an ADR). S1 stays unticked until then.
+
 ## 2026-11-18: Ownership, licence and third-party notices (docs)
 
 - **Done:**
