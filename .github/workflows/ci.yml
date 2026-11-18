@@ -3,7 +3,8 @@ name: CI
 # Branch protection requires only the "CI passed" job (see .github/rulesets/ and
 # CONTRIBUTING.md), so jobs can be added, split or skipped without touching the rule.
 # Every job runs on ubuntu-24.04, pinned so a change of GitHub's "latest" image can't change
-# the toolchain underneath us; actions are on their Node 24 majors.
+# the toolchain underneath us; actions are on their Node 24 majors (setup-uv publishes no
+# moving major tag past v7, so it is pinned to an exact release).
 
 on:
   pull_request:
@@ -67,7 +68,7 @@ jobs:
           fi
           echo "Scanning $range"
           "$RUNNER_TEMP/gitleaks" git --no-banner --redact --verbose --log-opts="$range" .
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
       - run: uv sync --locked
@@ -105,7 +106,7 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://studysensei:studysensei@localhost:5433/studysensei_test
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
       - run: uv sync --locked
@@ -182,7 +183,7 @@ jobs:
           --health-interval 2s --health-timeout 3s --health-retries 30
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
       - run: uv sync --locked
