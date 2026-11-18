@@ -6,6 +6,8 @@
 - protected.pdf: lecture.pdf with a user password
 - slides.pptx: 3 slides; titles, bullets, speaker notes, and a picture-only slide
 - notes.docx: two headed sections, a table, and a long section that splits by length
+
+``slide_deck_pdf`` and ``notes_docx`` build other synthetic documents (the demo seed uses them).
 """
 
 import io
@@ -64,7 +66,11 @@ def _pdf(pages: list[bytes | None]) -> bytes:
         == pages_id
     )
     catalog = add(b"<< /Type /Catalog /Pages %d 0 R >>" % pages_id)
+    return _serialise(objects, catalog)
 
+
+def _serialise(objects: list[bytes], catalog: int) -> bytes:
+    """Numbered objects (1-based, in order), the xref table and the trailer."""
     out = io.BytesIO()
     out.write(b"%PDF-1.4\n")
     offsets = []
@@ -97,6 +103,75 @@ def _png(width: int = 8, height: int = 8) -> bytes:
         + chunk(b"IDAT", zlib.compress(raw))
         + chunk(b"IEND", b"")
     )
+
+
+def _pdf_text(text: str) -> bytes:
+    """A PDF string literal's contents (Helvetica, WinAnsi: keep to ASCII)."""
+    raw = text.encode("ascii")
+    return raw.replace(b"\\", b"\\\\").replace(b"(", b"\\(").replace(b")", b"\\)")
+
+
+# A 16:9 slide in points, with an orange band along the top (the design system's default
+# module colour) so a rendered page reads as a slide.
+SLIDE_WIDTH, SLIDE_HEIGHT = 960, 540
+
+
+def slide_deck_pdf(slides: list[tuple[str, list[str]]]) -> bytes:
+    """A synthetic lecture deck: one 16:9 page per (title, bullets), with a real text layer.
+
+    Used by tests and by the demo seed (scripts/demo_seed.py); the text is the caller's own.
+    """
+    objects: list[bytes] = []
+
+    def add(body: bytes) -> int:
+        objects.append(body)
+        return len(objects)
+
+    regular = add(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+    bold = add(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>")
+    pages_id = len(objects) + 1 + 2 * len(slides)
+    kids = []
+    for number, (title, bullets) in enumerate(slides, start=1):
+        ops = [
+            b"1 0.478 0.239 rg 0 %d %d 14 re f" % (SLIDE_HEIGHT - 14, SLIDE_WIDTH),
+            b"0.067 0.067 0.067 rg",
+            b"BT /F2 34 Tf 64 %d Td (%s) Tj ET" % (SLIDE_HEIGHT - 96, _pdf_text(title)),
+        ]
+        y = SLIDE_HEIGHT - 168
+        for bullet in bullets:
+            ops.append(b"BT /F1 21 Tf 80 %d Td (- %s) Tj ET" % (y, _pdf_text(bullet)))
+            y -= 40
+        ops.append(b"0.357 0.357 0.357 rg BT /F1 12 Tf 64 28 Td (%d) Tj ET" % number)
+        content = b"\n".join(ops)
+        stream = add(b"<< /Length %d >>\nstream\n" % len(content) + content + b"\nendstream")
+        kids.append(
+            add(
+                b"<< /Type /Page /Parent %d 0 R /MediaBox [0 0 %d %d] /Contents %d 0 R "
+                b"/Resources << /Font << /F1 %d 0 R /F2 %d 0 R >> >> >>"
+                % (pages_id, SLIDE_WIDTH, SLIDE_HEIGHT, stream, regular, bold)
+            )
+        )
+    assert (
+        add(
+            b"<< /Type /Pages /Kids [%s] /Count %d >>"
+            % (b" ".join(b"%d 0 R" % k for k in kids), len(kids))
+        )
+        == pages_id
+    )
+    catalog = add(b"<< /Type /Catalog /Pages %d 0 R >>" % pages_id)
+    return _serialise(objects, catalog)
+
+
+def notes_docx(sections: list[tuple[str, list[str]]]) -> bytes:
+    """Synthetic study notes: a heading and paragraphs per section (the caller's own text)."""
+    doc = Document()
+    for heading, paragraphs in sections:
+        doc.add_heading(heading, level=1)
+        for paragraph in paragraphs:
+            doc.add_paragraph(paragraph)
+    out = io.BytesIO()
+    doc.save(out)
+    return out.getvalue()
 
 
 def make_pdfs() -> None:
