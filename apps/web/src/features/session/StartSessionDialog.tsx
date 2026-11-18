@@ -56,7 +56,7 @@ export function StartSessionDialog({ moduleId: fixedModuleId, onClose }: Props) 
         {noModules ? (
           <p>
             Add a module first.{" "}
-            <Link to="/modules" className="font-semibold underline underline-offset-4">
+            <Link to="/modules" className="text-link font-semibold underline underline-offset-4">
               Go to modules
             </Link>
           </p>

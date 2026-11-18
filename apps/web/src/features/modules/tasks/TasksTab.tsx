@@ -1,4 +1,4 @@
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { CircleCheck, ListTodo, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { formatDue, isPast, relativeDay } from "@/lib/dates";
@@ -18,6 +18,8 @@ import {
   type Task,
   type TaskStatus,
 } from "./api";
+import { EmptyState } from "../EmptyState";
+import { LoadingRows } from "../LoadingRows";
 import { TaskForm } from "./TaskForm";
 
 export function TasksTab({ moduleId }: { moduleId: string }) {
@@ -45,26 +47,26 @@ export function TasksTab({ moduleId }: { moduleId: string }) {
 
   return (
     <section aria-labelledby="tasks-heading" className="max-w-3xl">
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <div>
-          <h2 id="tasks-heading" className="type-h3">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h2 id="tasks-heading" className="type-h2 mb-1">
             Tasks
           </h2>
-          <p className="text-muted text-sm">
+          <p className="text-muted tabular text-sm">
             {all.length - doneCount} open · {doneCount} done
           </p>
         </div>
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <label className="hover:bg-subtle flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-2 text-sm font-medium transition-colors">
             <input
               type="checkbox"
               checked={showDone}
               onChange={(e) => setShowDone(e.target.checked)}
-              className="accent-ink size-5 cursor-pointer"
+              className="accent-primary size-5 cursor-pointer"
             />
             Show done
           </label>
-          <Button onClick={() => setEditing("new")}>
+          <Button variant="outline" onClick={() => setEditing("new")}>
             <Plus aria-hidden /> Add task
           </Button>
         </div>
@@ -75,22 +77,25 @@ export function TasksTab({ moduleId }: { moduleId: string }) {
           {error}
         </p>
       )}
-      {tasks.isPending && <p className="text-muted text-sm">Loading…</p>}
+      {tasks.isPending && <LoadingRows label="Loading tasks…" />}
       {tasks.isError && (
         <p role="alert" className="text-danger text-sm">
           Couldn't load tasks: {tasks.error.message}
         </p>
       )}
       {tasks.data && visible.length === 0 && (
-        <p className="text-muted border-line rounded-lg border-2 p-6">
+        <EmptyState icon={all.length === 0 ? ListTodo : CircleCheck}>
           {all.length === 0
             ? "No tasks yet. Break assignments into steps you can tick off."
             : "Everything here is done."}
-        </p>
+        </EmptyState>
       )}
 
       {visible.length > 0 && (
-        <ul aria-label="Tasks" className="divide-line border-line divide-y border-y">
+        <ul
+          aria-label="Tasks"
+          className="surface-card divide-line divide-y overflow-hidden rounded-xl"
+        >
           {visible.map((task) => (
             <TaskRow
               key={task.id}
@@ -156,19 +161,19 @@ function TaskRow({
   const overdue = !done && task.due_at !== null && isPast(task.due_at);
 
   return (
-    <li className="flex items-center gap-3 py-3">
+    <li className="hover:bg-subtle flex flex-wrap items-center gap-x-3 gap-y-2 py-3 pr-2 pl-4 transition-colors sm:pl-5">
       <input
         type="checkbox"
         aria-label={`Done: ${task.title}`}
         checked={done}
         onChange={(e) => onStatus(e.target.checked ? "done" : "todo")}
-        className="accent-ink size-5 shrink-0 cursor-pointer"
+        className="accent-primary size-5 shrink-0 cursor-pointer"
       />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[10rem] flex-1">
         <p className={cn("truncate text-sm font-medium", done && "text-muted line-through")}>
           {task.title}
         </p>
-        <p className="text-muted flex flex-wrap gap-x-3 text-xs">
+        <p className="text-muted mt-0.5 flex flex-wrap gap-x-3 text-xs">
           {task.due_at && (
             <span className={cn(overdue && "text-danger font-medium")}>
               {overdue && "Overdue · "}
@@ -182,7 +187,7 @@ function TaskRow({
         aria-label={`Status: ${task.title}`}
         value={task.status}
         onChange={(e) => onStatus(e.target.value as TaskStatus)}
-        className="w-36 shrink-0"
+        className="ml-8 w-36 shrink-0 sm:ml-0"
       >
         {Object.entries(TASK_STATUS_LABELS).map(([value, label]) => (
           <option key={value} value={value}>
@@ -190,7 +195,7 @@ function TaskRow({
           </option>
         ))}
       </NativeSelect>
-      <div className="flex shrink-0">
+      <div className="ml-auto flex shrink-0">
         <Button variant="ghost" size="icon-sm" aria-label={`Edit: ${task.title}`} onClick={onEdit}>
           <Pencil aria-hidden />
         </Button>

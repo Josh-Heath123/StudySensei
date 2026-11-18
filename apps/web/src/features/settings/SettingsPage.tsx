@@ -1,4 +1,14 @@
+import { Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
+import { useId, useState } from "react";
+
 import { PageHeader } from "@/app/PageHeader";
+import {
+  type Appearance,
+  APPEARANCES,
+  applyAppearance,
+  readAppearance,
+  writeAppearance,
+} from "@/lib/appearance";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card";
@@ -26,8 +36,12 @@ export function SettingsPage() {
             The free-tier models StudySensei uses, and how much of today&apos;s allowance is left.
           </p>
         </div>
-        {status.isPending && <p className="text-muted">Loading the AI setup…</p>}
-        {status.isError && <p className="text-danger">{status.error.message}</p>}
+        {status.isPending && <SettingsSkeleton />}
+        {status.isError && (
+          <p role="alert" className="text-danger">
+            {status.error.message}
+          </p>
+        )}
         {status.data && (
           <div className="grid items-start gap-6 lg:grid-cols-2">
             <div className="grid min-w-0 gap-6">
@@ -42,7 +56,84 @@ export function SettingsPage() {
           </div>
         )}
       </section>
+      <AppearanceSection />
     </>
+  );
+}
+
+/** Two columns of card-shaped placeholders while the AI setup loads. */
+function SettingsSkeleton() {
+  return (
+    <div aria-busy="true" className="grid items-start gap-6 lg:grid-cols-2">
+      <p className="sr-only">Loading the AI setup…</p>
+      {[0, 1].map((column) => (
+        <div key={column} aria-hidden className="surface-card grid gap-4 rounded-xl p-5 sm:p-6">
+          <div className="skeleton h-5 w-1/3" />
+          <div className="skeleton h-3 w-2/3" />
+          <div className="skeleton h-9 w-full" />
+          <div className="skeleton h-9 w-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const APPEARANCE_OPTIONS: Record<Appearance, { label: string; icon: LucideIcon }> = {
+  system: { label: "System", icon: Monitor },
+  light: { label: "Light", icon: Sun },
+  dark: { label: "Dark", icon: Moon },
+};
+
+/** System (the default), Light or Dark: stored in this browser and applied at once. */
+function AppearanceSection() {
+  const [value, setValue] = useState<Appearance>(readAppearance);
+  const name = useId();
+
+  function choose(next: Appearance) {
+    setValue(next);
+    writeAppearance(next);
+    applyAppearance(next);
+  }
+
+  return (
+    <section aria-labelledby="appearance" className="mt-12 grid gap-6">
+      <h2 id="appearance" className="type-h2">
+        Appearance
+      </h2>
+      <Card className="max-w-xl">
+        <CardContent className="grid gap-3">
+          <div
+            role="radiogroup"
+            aria-labelledby="appearance"
+            className="bg-subtle grid grid-cols-3 gap-1 rounded-[12px] p-1"
+          >
+            {APPEARANCES.map((option) => {
+              const { label, icon: Icon } = APPEARANCE_OPTIONS[option];
+              return (
+                <label
+                  key={option}
+                  className="text-muted hover:text-fg has-checked:bg-surface has-checked:text-fg has-focus-visible:outline-ring relative flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-[9px] px-3 py-2 text-sm font-semibold transition-[background-color,color,box-shadow] has-checked:shadow-sm has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-disabled:opacity-45"
+                >
+                  <input
+                    type="radio"
+                    name={name}
+                    value={option}
+                    checked={value === option}
+                    onChange={() => choose(option)}
+                    className="sr-only"
+                  />
+                  <Icon aria-hidden className="size-4" />
+                  {label}
+                </label>
+              );
+            })}
+          </div>
+          <p className="text-muted text-sm">
+            System follows your device&apos;s light or dark setting.
+          </p>
+        </CardContent>
+      </Card>
+    </section>
   );
 }
 
@@ -172,10 +263,10 @@ function UsageRow({ model }: { model: AiModelStatus }) {
           aria-valuemax={budget}
           aria-valuenow={Math.min(used, budget)}
           aria-valuetext={`${used} of about ${budget}`}
-          className="bg-surface h-2 overflow-hidden rounded-sm"
+          className="bg-subtle h-2 overflow-hidden rounded-full"
         >
           <div
-            className="bg-ink h-full transition-[width] duration-150 ease-out"
+            className="bg-primary ease-soft h-full rounded-full transition-[width] duration-200"
             style={{ width: `${Math.round(share * 1000) / 10}%` }}
           />
         </div>
@@ -216,7 +307,11 @@ function TestKeysCard({ models }: { models: AiModelStatus[] }) {
             {ping.isPending ? "Testing…" : "Test keys"}
           </Button>
         </div>
-        {ping.isError && <p className="text-danger text-sm">{ping.error.message}</p>}
+        {ping.isError && (
+          <p role="alert" className="text-danger text-sm">
+            {ping.error.message}
+          </p>
+        )}
         {ping.data && (
           <ul className="divide-line divide-y" aria-label="Test results">
             {ping.data.results.length === 0 && (

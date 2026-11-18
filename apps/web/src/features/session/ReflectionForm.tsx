@@ -100,7 +100,7 @@ export function ReflectionForm({
 
   return (
     <div
-      className="mx-auto max-w-[720px] px-5 py-8 sm:px-10 sm:py-10"
+      className="mx-auto max-w-[720px] px-4 py-8 sm:px-8 sm:py-12"
       style={{ "--module": module.data?.colour } as CSSProperties}
     >
       <header className="mb-8">
@@ -115,7 +115,7 @@ export function ReflectionForm({
         </p>
       </header>
 
-      <form className="grid gap-8" onSubmit={submit} noValidate>
+      <form className="surface-card grid gap-8 rounded-xl p-5 sm:p-6" onSubmit={submit} noValidate>
         <RatingField
           legend="How focused were you?"
           name="focus"
@@ -150,7 +150,7 @@ export function ReflectionForm({
                 <label className="flex min-h-11 items-center gap-3">
                   <input
                     type="checkbox"
-                    className="accent-ink size-5"
+                    className="accent-primary size-5"
                     checked={ticked}
                     onChange={(event) => toggle(topic.id, event.target.checked)}
                   />

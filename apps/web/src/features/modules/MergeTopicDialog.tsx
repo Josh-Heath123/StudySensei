@@ -45,7 +45,7 @@ export function MergeTopicDialog({
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
-        <form onSubmit={submit} className="grid gap-4">
+        <form onSubmit={submit} className="grid gap-5">
           <DialogHeader>
             <DialogTitle>Merge “{topic.name}” into…</DialogTitle>
             <DialogDescription>
@@ -73,7 +73,7 @@ export function MergeTopicDialog({
             </p>
           )}
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={!target || merge.isPending}>

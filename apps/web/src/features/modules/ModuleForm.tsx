@@ -104,7 +104,7 @@ export function ModuleForm({ initial, submitLabel, onSubmit, onCancel }: Props) 
       </div>
 
       <fieldset className="grid gap-2">
-        <legend className="mb-1.5 text-sm font-semibold">Colour</legend>
+        <legend className="text-fg mb-1.5 text-sm font-semibold">Colour</legend>
         <div className="flex flex-wrap items-center gap-2">
           {MODULE_SWATCHES.map(({ name, value }) => {
             const selected = colour.toUpperCase() === value;
@@ -117,8 +117,10 @@ export function ModuleForm({ initial, submitLabel, onSubmit, onCancel }: Props) 
                 aria-pressed={selected}
                 onClick={() => setColour(value)}
                 className={cn(
-                  "text-ink flex size-9 cursor-pointer items-center justify-center rounded-md border-2",
-                  selected ? "border-ink" : "border-transparent",
+                  "text-on-fill ease-soft flex size-9 cursor-pointer items-center justify-center rounded-md transition-shadow duration-[120ms]",
+                  selected
+                    ? "ring-ring ring-offset-surface ring-2 ring-offset-2"
+                    : "ring-line hover:ring-line-strong ring-1 ring-inset",
                 )}
                 style={{ backgroundColor: value }}
               >
@@ -126,7 +128,7 @@ export function ModuleForm({ initial, submitLabel, onSubmit, onCancel }: Props) 
               </button>
             );
           })}
-          <label className="text-muted ml-1 flex items-center gap-2 text-sm">
+          <label className="text-muted ml-1 flex min-h-9 items-center gap-2 text-sm">
             Custom
             <input
               type="color"
@@ -134,7 +136,7 @@ export function ModuleForm({ initial, submitLabel, onSubmit, onCancel }: Props) 
               onChange={(e) => setColour(e.target.value.toUpperCase())}
               aria-invalid={colourError ? true : undefined}
               aria-describedby={colourError ? "module-colour-error" : undefined}
-              className="border-line size-9 cursor-pointer rounded-md border-2 bg-transparent"
+              className="border-line-strong size-9 cursor-pointer rounded-md border bg-transparent"
             />
           </label>
         </div>

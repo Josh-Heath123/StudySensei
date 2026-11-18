@@ -1,4 +1,4 @@
-import { CalendarClock, Pencil, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, ClipboardList, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { formatDue, relativeDay } from "@/lib/dates";
@@ -17,6 +17,8 @@ import {
   useUpdateAssessment,
   type Assessment,
 } from "./api";
+import { EmptyState } from "../EmptyState";
+import { LoadingRows } from "../LoadingRows";
 import { AssessmentForm } from "./AssessmentForm";
 
 export function AssessmentsTab({ moduleId }: { moduleId: string }) {
@@ -35,35 +37,38 @@ export function AssessmentsTab({ moduleId }: { moduleId: string }) {
 
   return (
     <section aria-labelledby="assessments-heading" className="max-w-3xl">
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <div>
-          <h2 id="assessments-heading" className="type-h3">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0 flex-1 basis-64">
+          <h2 id="assessments-heading" className="type-h2 mb-1">
             Assessments
           </h2>
           <p className="text-muted text-sm">
             Exams, tests and assignments, with their dates, weights and the topics they cover.
           </p>
         </div>
-        <Button onClick={() => setEditing("new")}>
+        <Button variant="outline" onClick={() => setEditing("new")}>
           <Plus aria-hidden /> Add assessment
         </Button>
       </div>
 
-      {assessments.isPending && <p className="text-muted text-sm">Loading…</p>}
+      {assessments.isPending && <LoadingRows label="Loading assessments…" />}
       {assessments.isError && (
         <p role="alert" className="text-danger text-sm">
           Couldn't load assessments: {assessments.error.message}
         </p>
       )}
       {assessments.data?.length === 0 && (
-        <p className="text-muted border-line rounded-lg border-2 p-6">
+        <EmptyState icon={ClipboardList}>
           No assessments yet. Add the module's exams, tests and assignments from the study guide.
-        </p>
+        </EmptyState>
       )}
 
       {items.length > 0 && (
         <>
-          <ul aria-label="Assessments" className="divide-line border-line divide-y border-y">
+          <ul
+            aria-label="Assessments"
+            className="surface-card divide-line divide-y overflow-hidden rounded-xl"
+          >
             {items.map((assessment) => (
               <AssessmentRow
                 key={assessment.id}
@@ -74,9 +79,9 @@ export function AssessmentsTab({ moduleId }: { moduleId: string }) {
             ))}
           </ul>
           {weighted.length > 0 && (
-            <p className="text-muted mt-2 text-right text-sm">
-              Weights total <span className="text-ink font-medium">{total}%</span>
-              {total !== 100 && " (not 100%)"}
+            <p className="text-muted mt-3 px-1 text-right text-sm">
+              Weights total <span className="text-fg tabular font-semibold">{total}%</span>
+              {total !== 100 && <span className="text-warning"> (not 100%)</span>}
             </p>
           )}
         </>
@@ -134,15 +139,22 @@ function AssessmentRow({
   const topics = topic_ids.length;
 
   return (
-    <li className={cn("flex items-center gap-3 py-3", done && "opacity-60")}>
-      <Badge variant="secondary" className="w-24 shrink-0">
+    <li className="hover:bg-subtle flex items-center gap-3 py-3 pr-2 pl-4 transition-colors sm:pl-5">
+      <Badge variant="secondary" className="hidden w-24 shrink-0 sm:inline-flex">
         {KIND_LABELS[kind]}
       </Badge>
       <div className="min-w-0 flex-1">
-        <p className={cn("truncate font-medium", status === "cancelled" && "line-through")}>
+        <p
+          className={cn(
+            "truncate font-medium",
+            done && "text-muted",
+            status === "cancelled" && "line-through",
+          )}
+        >
           {title}
         </p>
-        <p className="text-muted flex flex-wrap items-center gap-x-3 text-xs">
+        <p className="text-muted mt-0.5 flex flex-wrap items-center gap-x-3 text-xs">
+          <span className="sm:hidden">{KIND_LABELS[kind]}</span>
           <span className="inline-flex items-center gap-1">
             <CalendarClock className="size-3.5" aria-hidden />
             {due_at ? (
@@ -154,10 +166,19 @@ function AssessmentRow({
             )}
           </span>
           <span>{topics === 0 ? "No topics" : `${topics} topic${topics === 1 ? "" : "s"}`}</span>
-          {done && <span>{STATUS_LABELS[status]}</span>}
+          {done && (
+            <span className={cn("font-semibold", status === "completed" && "text-success")}>
+              {STATUS_LABELS[status]}
+            </span>
+          )}
         </p>
       </div>
-      <span className="w-12 text-right text-sm font-medium tabular-nums">
+      <span
+        className={cn(
+          "w-12 shrink-0 text-right text-sm font-semibold tabular-nums",
+          done && "text-muted",
+        )}
+      >
         {weight !== null ? `${weight}%` : "—"}
       </span>
       <div className="flex shrink-0">

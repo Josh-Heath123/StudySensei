@@ -5,6 +5,7 @@ import {
   ArrowUp,
   Check,
   GitMerge,
+  ListTree,
   Pencil,
   Plus,
   Trash2,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
+import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { ConfirmDialog } from "@/ui/confirm-dialog";
@@ -32,6 +34,8 @@ import { MergeTopicDialog } from "./MergeTopicDialog";
 import { ReviewBar } from "./ReviewBar";
 import { TopicMapPanel } from "./TopicMapPanel";
 import { TopicPagesDialog } from "./TopicPagesDialog";
+import { EmptyState } from "./EmptyState";
+import { LoadingRows } from "./LoadingRows";
 import { aiDescendants, unreviewedOnly } from "./topicReview";
 import { moveTarget } from "./treeMoves";
 
@@ -109,10 +113,10 @@ export function TopicTree({ moduleId }: { moduleId: string }) {
 
   return (
     <section aria-labelledby="topics-heading" className="max-w-3xl">
-      <h2 id="topics-heading" className="type-h3 mb-1">
+      <h2 id="topics-heading" className="type-h2 mb-2">
         Topics
       </h2>
-      <p className="text-muted mb-4 text-sm">
+      <p className="text-muted mb-6 max-w-2xl text-sm">
         Build the module's topic tree. Use the arrows to reorder, indent and outdent. Topics marked
         AI were suggested from your materials: keep, rename, merge or dismiss each one, and it
         becomes yours. Click a topic to see its pages.
@@ -127,27 +131,33 @@ export function TopicTree({ moduleId }: { moduleId: string }) {
         </p>
       )}
 
-      {tree.isPending && <p className="text-muted text-sm">Loading topics…</p>}
+      {tree.isPending && <LoadingRows label="Loading topics…" rows={4} rowClassName="h-11" />}
       {tree.isError && (
         <p role="alert" className="text-danger text-sm">
           Couldn't load topics: {tree.error.message}
         </p>
       )}
       {tree.data?.length === 0 && (
-        <p className="text-muted mb-3 text-sm">No topics yet. Add the first one below.</p>
+        <EmptyState icon={ListTree} className="mb-4">
+          No topics yet. Add the first one below.
+        </EmptyState>
       )}
       {filtering && tree.data && shown.length === 0 && (
-        <p className="text-muted mb-3 text-sm">Every AI topic has been reviewed.</p>
+        <EmptyState icon={Check} className="mb-4">
+          Every AI topic has been reviewed.
+        </EmptyState>
       )}
       {shown.length > 0 && (
-        <TopicList nodes={shown} parent={null} actions={actions} label="Topics" />
+        <div className="surface-card rounded-xl p-2 sm:p-3">
+          <TopicList nodes={shown} parent={null} actions={actions} label="Topics" />
+        </div>
       )}
 
       <AddTopicForm
         label="New topic"
         placeholder="Add a topic"
         onAdd={(name) => actions.add(name, null)}
-        className="mt-3"
+        className="mt-4"
       />
 
       <ConfirmDialog
@@ -199,7 +209,7 @@ function TopicList({
   return (
     <ul
       aria-label={label}
-      className={parent ? "border-line mt-1 ml-6 border-l-2 pl-3" : "space-y-1"}
+      className={parent ? "border-line ml-5 border-l pl-2 sm:ml-6 sm:pl-3" : "divide-line divide-y"}
     >
       {nodes.map((node, index) => (
         <TopicItem
@@ -239,8 +249,11 @@ function TopicItem({
   ] as const;
 
   return (
-    <li>
-      <div className="group hover:bg-surface flex items-center gap-1 rounded-md py-0.5 pr-1 pl-2">
+    <li className="py-0.5">
+      <div className="group hover:bg-subtle flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1 rounded-md py-1 pr-1 pl-3 transition-colors">
+        {node.source === "ai" && !renaming && (
+          <span aria-hidden className="bg-primary size-2 shrink-0 rounded-full" />
+        )}
         {renaming ? (
           <RenameInput
             initial={node.name}
@@ -254,7 +267,7 @@ function TopicItem({
           <button
             type="button"
             onClick={() => actions.showPages(node)}
-            className="min-w-0 flex-1 truncate py-1 text-left text-sm"
+            className="min-w-[8rem] flex-1 cursor-pointer truncate rounded-sm py-1.5 text-left text-sm font-medium"
             title="Show its linked pages"
           >
             {node.name}
@@ -263,7 +276,7 @@ function TopicItem({
         {!renaming && (
           <span className="flex shrink-0 items-center gap-2">
             {node.linked_pages > 0 && (
-              <span className="text-muted text-xs">
+              <span className="text-muted tabular text-xs">
                 {node.linked_pages} {node.linked_pages === 1 ? "page" : "pages"}
               </span>
             )}
@@ -275,7 +288,7 @@ function TopicItem({
           </span>
         )}
 
-        <div className="flex shrink-0 items-center opacity-60 group-focus-within:opacity-100 group-hover:opacity-100">
+        <div className="ml-auto flex shrink-0 flex-wrap items-center opacity-60 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
           {moves.map(({ action, label, icon: Icon }) => {
             const target = moveTarget(action, siblings, index, parent);
             return (
@@ -365,7 +378,7 @@ function TopicItem({
           label={`New subtopic of ${node.name}`}
           placeholder="Subtopic name"
           autoFocus
-          className="mt-1 ml-9"
+          className="mt-1 mb-2 ml-5 sm:ml-9"
           onAdd={(name) => actions.add(name, node.id)}
           onDone={() => setAdding(false)}
         />
@@ -451,7 +464,7 @@ function AddTopicForm({
   }
 
   return (
-    <form onSubmit={submit} className={`flex gap-2 ${className ?? ""}`}>
+    <form onSubmit={submit} className={cn("flex flex-wrap items-center gap-2", className)}>
       <Input
         aria-label={label}
         placeholder={placeholder}
@@ -460,13 +473,13 @@ function AddTopicForm({
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => e.key === "Escape" && onDone?.()}
         maxLength={200}
-        className="max-w-sm"
+        className="max-w-sm flex-1 basis-48"
       />
-      <Button type="submit" size="sm" variant="secondary" disabled={!name.trim()}>
+      <Button type="submit" variant="outline" disabled={!name.trim()}>
         Add
       </Button>
       {onDone && (
-        <Button type="button" size="sm" variant="ghost" onClick={onDone}>
+        <Button type="button" variant="ghost" onClick={onDone}>
           Done
         </Button>
       )}

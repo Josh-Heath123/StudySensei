@@ -8,6 +8,7 @@ import { NativeSelect } from "@/ui/native-select";
 import { Textarea } from "@/ui/textarea";
 
 import { useTopicTree, type TopicNode } from "../api";
+import { LoadingRows } from "../LoadingRows";
 import {
   DEFAULT_TIME,
   KIND_LABELS,
@@ -86,7 +87,7 @@ export function AssessmentForm({ moduleId, initial, submitLabel, onSubmit, onCan
 
   return (
     <form onSubmit={handleSubmit} className="grid gap-4" noValidate>
-      <div className="grid grid-cols-[1fr_10rem] gap-3">
+      <div className="grid gap-3 sm:grid-cols-[1fr_10rem]">
         <div className="grid gap-1.5">
           <Label htmlFor="assessment-title">Title</Label>
           <Input
@@ -114,7 +115,7 @@ export function AssessmentForm({ moduleId, initial, submitLabel, onSubmit, onCan
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="grid gap-1.5">
           <Label htmlFor="assessment-date">Date</Label>
           <Input
@@ -137,7 +138,7 @@ export function AssessmentForm({ moduleId, initial, submitLabel, onSubmit, onCan
             }}
           />
         </div>
-        <div className="grid gap-1.5">
+        <div className="col-span-2 grid gap-1.5 sm:col-span-1">
           <Label htmlFor="assessment-weight">Weight (%)</Label>
           <Input
             id="assessment-weight"
@@ -171,23 +172,23 @@ export function AssessmentForm({ moduleId, initial, submitLabel, onSubmit, onCan
       )}
 
       <fieldset className="grid gap-1.5">
-        <legend className="mb-1.5 text-sm font-medium">Topics it covers</legend>
-        {tree.isPending && <p className="text-muted text-sm">Loading topics…</p>}
+        <legend className="text-fg mb-1.5 text-sm font-semibold">Topics it covers</legend>
+        {tree.isPending && <LoadingRows label="Loading topics…" rows={3} rowClassName="h-8" />}
         {tree.data && topics.length === 0 && (
           <p className="text-muted text-sm">
             This module has no topics yet. Add them on the Topics tab.
           </p>
         )}
         {topics.length > 0 && (
-          <ul className="max-h-48 overflow-y-auto rounded-md border p-2">
+          <ul className="bg-surface border-line max-h-48 overflow-y-auto rounded-md border p-2">
             {topics.map(({ topic, depth }) => (
               <li key={topic.id} style={{ paddingLeft: `${depth * 1.25}rem` }}>
-                <label className="flex items-center gap-2 py-0.5 text-sm">
+                <label className="hover:bg-subtle flex min-h-9 cursor-pointer items-center gap-2.5 rounded-sm px-2 text-sm transition-colors">
                   <input
                     type="checkbox"
                     checked={topicIds.has(topic.id)}
                     onChange={(e) => toggleTopic(topic.id, e.target.checked)}
-                    className="accent-ink size-5 cursor-pointer"
+                    className="accent-primary size-5 shrink-0 cursor-pointer"
                   />
                   {topic.name}
                 </label>

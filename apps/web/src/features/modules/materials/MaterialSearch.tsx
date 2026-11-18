@@ -36,17 +36,26 @@ export function MaterialSearch({
 
   return (
     <section aria-label="Search materials" className="mb-8">
-      <form role="search" onSubmit={submit} className="flex gap-2">
-        <Input
-          type="search"
-          aria-label="Search materials"
-          placeholder={searchable ? "Search your materials" : "Search opens once a file is indexed"}
-          value={draft}
-          disabled={!searchable}
-          maxLength={500}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        <Button type="submit" variant="outline" disabled={!searchable || !draft.trim()}>
+      <form role="search" onSubmit={submit} className="flex flex-col gap-2 sm:flex-row">
+        <div className="relative min-w-0 flex-1">
+          <Search
+            aria-hidden
+            className="text-muted pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2"
+          />
+          <Input
+            type="search"
+            aria-label="Search materials"
+            placeholder={
+              searchable ? "Search your materials" : "Search opens once a file is indexed"
+            }
+            value={draft}
+            disabled={!searchable}
+            maxLength={500}
+            onChange={(event) => setDraft(event.target.value)}
+            className="min-h-12 pl-12 text-base shadow-sm"
+          />
+        </div>
+        <Button type="submit" size="lg" disabled={!searchable || !draft.trim()}>
           <Search aria-hidden />
           Search
         </Button>
@@ -66,7 +75,12 @@ export function MaterialSearch({
         </p>
       )}
 
-      {query && search.isPending && <p className="text-muted mt-4 text-sm">Searching…</p>}
+      {query && search.isPending && (
+        <p className="text-muted mt-4 flex items-center gap-2 text-sm">
+          <span aria-hidden className="skeleton h-2 w-16 rounded-full" />
+          Searching…
+        </p>
+      )}
       {search.isError && (
         <p role="alert" className="text-danger mt-4 text-sm">
           {search.error.message}
@@ -84,19 +98,22 @@ export function MaterialSearch({
       {search.data && search.data.results.length > 0 && (
         <ol
           aria-label={`Results for “${search.data.query}”`}
-          className="divide-line border-line mt-4 divide-y border-y"
+          className="surface-card divide-line mt-4 divide-y overflow-hidden rounded-xl"
         >
           {search.data.results.map((result) => (
             <li key={result.chunk_id}>
               <button
                 type="button"
                 onClick={() => setOpen(result)}
-                className="hover:bg-surface w-full px-2 py-3 text-left"
+                className="hover:bg-subtle focus-visible:bg-subtle w-full px-4 py-3.5 text-left transition-colors focus-visible:-outline-offset-2 sm:px-5"
               >
                 <p className="text-sm">
                   {result.snippet.map((part, index) =>
                     part.highlight ? (
-                      <mark key={index} className="bg-surface text-ink rounded-sm font-semibold">
+                      <mark
+                        key={index}
+                        className="bg-accent-soft text-fg rounded-sm px-0.5 font-semibold"
+                      >
                         {part.text}
                       </mark>
                     ) : (

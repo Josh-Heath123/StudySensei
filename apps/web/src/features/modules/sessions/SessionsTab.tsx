@@ -1,4 +1,4 @@
-import { Play } from "lucide-react";
+import { Play, Timer } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 
@@ -11,6 +11,8 @@ import { useTopicTree, type TopicNode } from "../api";
 import { findTopicName } from "../../session/topics";
 import { useModuleSessions, useSessionSummary, type SessionRow } from "./api";
 import { activeSecondsAt, startOfWeek } from "./history";
+import { EmptyState } from "../EmptyState";
+import { LoadingRows } from "../LoadingRows";
 import { SessionDetailDialog } from "./SessionDetailDialog";
 
 const minutes = (seconds: number) => formatDuration(seconds * 1000);
@@ -28,24 +30,25 @@ export function SessionsTab({ moduleId }: { moduleId: string }) {
 
   return (
     <section aria-labelledby="sessions-heading" className="max-w-3xl">
-      <h2 id="sessions-heading" className="type-h3 mb-4">
+      <h2 id="sessions-heading" className="type-h2 mb-6">
         Sessions
       </h2>
       <Summary moduleId={moduleId} now={now} />
 
-      {sessions.isPending && <p className="text-muted text-sm">Loading…</p>}
+      {sessions.isPending && <LoadingRows label="Loading sessions…" />}
       {sessions.isError && (
         <p role="alert" className="text-danger text-sm">
           {sessions.error.message}
         </p>
       )}
       {sessions.isSuccess && rows.length === 0 && (
-        <p className="text-muted border-line rounded-lg border-2 p-6">
-          No sessions yet. Start one from the button above.
-        </p>
+        <EmptyState icon={Timer}>No sessions yet. Start one from the button above.</EmptyState>
       )}
       {rows.length > 0 && (
-        <ol aria-label="Sessions" className="divide-line border-line divide-y border-y">
+        <ol
+          aria-label="Sessions"
+          className="surface-card divide-line divide-y overflow-hidden rounded-xl"
+        >
           {rows.map((row) => (
             <SessionItem
               key={row.id}
@@ -86,15 +89,15 @@ function Summary({ moduleId, now }: { moduleId: string; now: Date }) {
   ];
   return (
     <section aria-label="Study time" className="mb-6">
-      <dl className="grid gap-4 sm:grid-cols-3">
+      <dl className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-3 sm:gap-4">
         {stats.map((stat) => (
-          <div key={stat.label} className="border-line rounded-lg border-2 p-4">
-            <dt className="text-sm font-semibold">{stat.label}</dt>
-            <dd className="type-h2 tabular mt-1">{stat.value}</dd>
+          <div key={stat.label} className="surface-card rounded-xl px-5 py-4">
+            <dt className="type-label text-muted">{stat.label}</dt>
+            <dd className="type-h2 tabular mt-2">{stat.value}</dd>
           </div>
         ))}
       </dl>
-      <p className="text-muted mt-2 text-xs">
+      <p className="text-muted mt-3 px-1 text-xs">
         Measured · active time from timer events, {plural(session_count, "session")}. This week
         starts Monday.
       </p>
@@ -121,24 +124,24 @@ function SessionItem({
   }));
 
   return (
-    <li className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+    <li className="hover:bg-subtle flex flex-wrap items-center gap-x-4 gap-y-2 py-3 pr-3 pl-4 transition-colors sm:pl-5">
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium">
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium">
           <button
             type="button"
             onClick={onOpen}
-            className="hover:underline hover:underline-offset-4"
+            className="cursor-pointer rounded-sm text-left underline-offset-4 hover:underline"
             aria-label={`${formatDue(session.started_at)}, ${topic}`}
           >
             <time dateTime={session.started_at}>{formatDue(session.started_at)}</time> · {topic}
           </button>
           {inProgress && (
-            <span className="type-label text-ink ml-3 rounded-md bg-[var(--module)] px-2 py-0.5">
+            <span className="type-label text-on-fill rounded-sm bg-[var(--module)] px-2 py-0.5">
               In progress
             </span>
           )}
         </p>
-        <p className="text-muted flex flex-wrap gap-x-3 text-xs">
+        <p className="text-muted tabular mt-0.5 flex flex-wrap gap-x-3 text-xs">
           <span>Active {minutes(activeSecondsAt(session, now))}</span>
           <span>Break {minutes(session.break_seconds)}</span>
           {session.focus_rating !== null ? (
@@ -154,7 +157,7 @@ function SessionItem({
         </p>
       </div>
       {inProgress && (
-        <Button variant="module" size="sm" asChild>
+        <Button variant="outline" size="sm" asChild>
           <Link to="/session">
             <Play aria-hidden /> Resume
           </Link>

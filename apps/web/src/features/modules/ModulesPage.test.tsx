@@ -66,7 +66,7 @@ test("won't save a custom colour too dark for black text", async () => {
   fireEvent.change(custom, { target: { value: "#5856d6" } });
 
   expect(within(dialog).getByRole("alert")).toHaveTextContent(
-    "Too dark for black text (3.3:1; needs 4.5:1)",
+    "Too dark for black text (3.4:1; needs 4.5:1)",
   );
   expect(custom).toHaveAttribute("aria-invalid", "true");
   expect(within(dialog).getByRole("button", { name: "Create module" })).toBeDisabled();

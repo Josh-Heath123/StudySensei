@@ -1,10 +1,12 @@
-import { Unlink } from "lucide-react";
+import { FileText, Unlink } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/ui/dialog";
 
 import { useTopicPages, useUnlinkPage, type TopicNode } from "./api";
+import { EmptyState } from "./EmptyState";
+import { LoadingRows } from "./LoadingRows";
 import { PagesDialog } from "./materials/PagesDialog";
 
 /**
@@ -40,7 +42,7 @@ export function TopicPagesDialog({
             that doesn't belong: it stays unlinked.
           </DialogDescription>
         </DialogHeader>
-        {pages.isPending && <p className="text-muted text-sm">Loading…</p>}
+        {pages.isPending && <LoadingRows label="Loading pages…" rows={3} rowClassName="h-11" />}
         {pages.isError && (
           <p role="alert" className="text-danger text-sm">
             {pages.error.message}
@@ -52,21 +54,21 @@ export function TopicPagesDialog({
           </p>
         )}
         {pages.data?.length === 0 && (
-          <p className="text-muted text-sm">No pages are linked to this topic yet.</p>
+          <EmptyState icon={FileText}>No pages are linked to this topic yet.</EmptyState>
         )}
-        <div className="max-h-[60vh] space-y-4 overflow-y-auto">
+        <div className="-mx-1 max-h-[60vh] space-y-5 overflow-y-auto px-1">
           {pages.data?.map((material) => (
             <section key={material.material_id} aria-label={material.title}>
-              <h3 className="mb-1 text-sm font-semibold">{material.title}</h3>
-              <ul className="grid gap-1">
+              <h3 className="type-label text-muted mb-2 break-words">{material.title}</h3>
+              <ul className="surface-card divide-line divide-y overflow-hidden rounded-lg">
                 {material.pages.map((page) => (
                   <li
                     key={page.page_number}
-                    className="hover:bg-surface flex items-center gap-2 rounded-md px-2 py-1"
+                    className="hover:bg-subtle flex min-h-11 items-center gap-2 py-1 pr-1 pl-3 transition-colors"
                   >
                     <button
                       type="button"
-                      className="min-w-0 flex-1 text-left text-sm"
+                      className="min-w-0 flex-1 cursor-pointer rounded-sm py-1.5 text-left text-sm"
                       onClick={() =>
                         setReading({
                           id: material.material_id,
@@ -78,7 +80,7 @@ export function TopicPagesDialog({
                       <span className="tabular font-semibold">Page {page.page_number}</span>
                       {page.label && <span className="text-muted"> · {page.label}</span>}
                     </button>
-                    <span className="text-muted shrink-0 text-xs">
+                    <span className="text-muted tabular shrink-0 text-xs">
                       {page.method === "pages"
                         ? "Cited"
                         : `Similar (${(page.score ?? 0).toFixed(2)})`}

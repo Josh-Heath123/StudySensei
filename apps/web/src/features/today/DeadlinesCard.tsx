@@ -1,3 +1,4 @@
+import { CalendarClock } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 
@@ -38,7 +39,14 @@ export function DeadlinesCard() {
       </p>
     );
   } else if (!ready) {
-    body = <p className="text-muted text-sm">Loading…</p>;
+    body = (
+      <div aria-busy="true" className="grid gap-3">
+        <p className="sr-only">Loading…</p>
+        <div className="skeleton h-12" />
+        <div className="skeleton h-12" />
+        <div className="skeleton h-12" />
+      </div>
+    );
   } else if (modules.data.length === 0) {
     body = (
       <EmptyState
@@ -107,7 +115,7 @@ export function DeadlinesCard() {
   }
 
   return (
-    <Card className="mb-6">
+    <Card>
       <CardHeader>
         <CardTitle>Upcoming deadlines</CardTitle>
         <CardDescription>Assessments and open tasks across all your modules.</CardDescription>
@@ -126,10 +134,16 @@ export function DeadlinesCard() {
 
 function EmptyState({ title, text, action }: { title: string; text: string; action: string }) {
   return (
-    <div className="border-line rounded-lg border-2 p-6">
+    <div className="bg-subtle grid justify-items-start gap-1 rounded-lg p-6">
+      <span
+        aria-hidden
+        className="bg-accent-soft text-link mb-3 grid size-10 place-items-center rounded-md"
+      >
+        <CalendarClock className="size-5" />
+      </span>
       <p className="font-semibold">{title}</p>
-      <p className="text-muted mt-1 max-w-md">{text}</p>
-      <Button asChild variant="outline" className="mt-4">
+      <p className="text-muted max-w-md">{text}</p>
+      <Button asChild variant="outline" className="mt-3">
         <Link to="/modules">{action}</Link>
       </Button>
     </div>
@@ -146,7 +160,7 @@ function DeadlineRow({ item, onDone }: { item: Deadline; onDone: () => void }) {
           aria-label={`Done: ${item.title}`}
           checked={false}
           onChange={onDone}
-          className="accent-ink size-5 shrink-0 cursor-pointer"
+          className="accent-primary size-5 shrink-0 cursor-pointer"
         />
       ) : (
         <span aria-hidden className="size-5 shrink-0" />
@@ -154,7 +168,7 @@ function DeadlineRow({ item, onDone }: { item: Deadline; onDone: () => void }) {
       <div className="min-w-0 flex-1">
         <Link
           to={`/modules/${item.module.id}?tab=${tab}`}
-          className="block truncate font-semibold hover:underline"
+          className="hover:text-link block truncate font-semibold underline-offset-4 hover:underline"
         >
           {item.title}
         </Link>

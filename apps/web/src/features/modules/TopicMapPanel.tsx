@@ -43,10 +43,16 @@ export function TopicMapPanel({ moduleId, aiTopics }: { moduleId: string; aiTopi
     <div
       role="region"
       aria-label="AI topic map"
-      className="border-line bg-surface mb-4 rounded-md border p-3"
+      className="surface-card mb-4 rounded-xl p-4 sm:px-5"
     >
       <div className="flex flex-wrap items-center gap-3">
-        <p className="min-w-0 flex-1 text-sm" aria-live="polite">
+        <span
+          aria-hidden
+          className="bg-accent-soft text-link flex size-9 shrink-0 items-center justify-center rounded-md"
+        >
+          <Sparkles />
+        </span>
+        <p className="min-w-[12rem] flex-1 text-sm" aria-live="polite">
           {view.message}
         </p>
         <Button
@@ -70,15 +76,15 @@ export function TopicMapPanel({ moduleId, aiTopics }: { moduleId: string; aiTopi
       </div>
       {view.progress && (
         <progress
-          className="accent-ink mt-2 h-2 w-full"
+          className="bg-subtle [&::-webkit-progress-bar]:bg-subtle [&::-webkit-progress-value]:bg-primary [&::-moz-progress-bar]:bg-primary mt-3 h-2 w-full appearance-none overflow-hidden rounded-full border-0 [&::-webkit-progress-value]:transition-[width]"
           aria-label="Materials analysed"
           max={view.progress.total}
           value={view.progress.done}
         />
       )}
-      {view.detail && <p className="text-warning mt-2 text-sm">{view.detail}</p>}
+      {view.detail && <p className="text-warning mt-3 text-sm">{view.detail}</p>}
       {error && (
-        <p role="alert" className="text-danger mt-2 text-sm">
+        <p role="alert" className="text-danger mt-3 text-sm">
           {error}
         </p>
       )}

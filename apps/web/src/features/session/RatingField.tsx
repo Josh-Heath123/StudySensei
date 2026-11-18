@@ -28,8 +28,10 @@ export function RatingField({
           <label
             key={rating}
             className={cn(
-              "has-[:focus-visible]:outline-ink flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-md border-2 font-semibold tabular-nums has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2",
-              value === rating ? "border-ink bg-ink text-paper" : "border-line hover:border-ink",
+              "has-[:focus-visible]:outline-ring ease-soft flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-md border font-semibold tabular-nums transition-[background-color,border-color,color,transform] duration-[120ms] select-none active:scale-[0.98] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 motion-reduce:active:scale-100",
+              value === rating
+                ? "border-primary-edge bg-primary text-on-primary shadow-sm"
+                : "border-line-strong bg-surface text-fg hover:bg-subtle",
               invalid && value === null && "border-danger",
             )}
           >
