@@ -1,7 +1,17 @@
-import { Trash2, Upload, X } from "lucide-react";
+import {
+  CircleAlert,
+  CircleCheck,
+  Clock,
+  FileText,
+  RotateCw,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { useId, useRef, useState, type DragEvent } from "react";
 
 import { cn } from "@/lib/utils";
+import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { ConfirmDialog } from "@/ui/confirm-dialog";
 import { Input } from "@/ui/input";
@@ -33,7 +43,7 @@ import {
 } from "./kinds";
 import { MaterialSearch } from "./MaterialSearch";
 import { PagesDialog } from "./PagesDialog";
-import { pageDetails, statusText, topicStateText } from "./status";
+import { pageDetails, statusText, topicStateText, type StatusText } from "./status";
 
 type Staged = {
   key: string;
@@ -117,7 +127,10 @@ export function MaterialsTab({ moduleId }: { moduleId: string }) {
 
       {staged.length > 0 && (
         <div className="mt-6">
-          <ul aria-label="Files to upload" className="divide-line border-line divide-y border-y">
+          <ul
+            aria-label="Files to upload"
+            className="surface-card divide-line divide-y rounded-xl px-4 sm:px-5"
+          >
             {staged.map((item) => (
               <StagedRow
                 key={item.key}
@@ -138,19 +151,25 @@ export function MaterialsTab({ moduleId }: { moduleId: string }) {
       )}
 
       <div className="mt-8">
-        {materials.isPending && <p className="text-muted text-sm">Loading…</p>}
+        {materials.isPending && <ListSkeleton />}
         {materials.isError && (
           <p role="alert" className="text-danger text-sm">
             {materials.error.message}
           </p>
         )}
         {materials.isSuccess && rows.length === 0 && staged.length === 0 && (
-          <p className="text-muted border-line rounded-lg border-2 p-6">
-            No materials yet. Drop slides, notes or past papers above.
-          </p>
+          <div className="surface-card flex items-center gap-4 rounded-xl p-5 sm:p-6">
+            <span className="bg-accent-soft text-link grid size-11 shrink-0 place-items-center rounded-md">
+              <FileText aria-hidden className="size-5" />
+            </span>
+            <p className="text-muted">No materials yet. Drop slides, notes or past papers above.</p>
+          </div>
         )}
         {rows.length > 0 && (
-          <ul aria-label="Materials" className="divide-line border-line divide-y border-y">
+          <ul
+            aria-label="Materials"
+            className="surface-card divide-line divide-y rounded-xl px-4 sm:px-5"
+          >
             {rows.map((material) => (
               <MaterialRow
                 key={material.id}
@@ -193,12 +212,22 @@ function DropZone({
       onDragLeave={() => setOver(false)}
       onDrop={onDrop}
       className={cn(
-        "grid justify-items-start gap-3 rounded-lg border-2 border-dashed p-6",
-        over ? "border-ink bg-surface" : "border-line",
+        "grid justify-items-start gap-4 rounded-xl border-2 border-dashed p-5 transition-[background-color,border-color,box-shadow] sm:flex sm:items-center sm:p-6",
+        over
+          ? "border-ring bg-accent-soft ring-ring/30 ring-4"
+          : "border-line-strong bg-subtle hover:border-ring",
       )}
     >
-      <p>
-        <strong>Drop files here</strong>{" "}
+      <span
+        className={cn(
+          "text-link grid size-12 shrink-0 place-items-center rounded-lg",
+          over ? "bg-surface" : "bg-accent-soft",
+        )}
+      >
+        <Upload aria-hidden className="size-5" />
+      </span>
+      <p className="min-w-0 flex-1">
+        <strong className="font-semibold">Drop files here</strong>{" "}
         <span className="text-muted">
           or choose them. PDF, PPTX, DOCX, MD, TXT, PNG or JPG, up to 50 MB each.
         </span>
@@ -285,7 +314,7 @@ function StagedRow({
       <label className="flex items-center gap-2 text-sm">
         <input
           type="checkbox"
-          className="accent-ink size-5"
+          className="accent-primary size-5"
           checked={item.allowAi}
           disabled={disabled}
           onChange={(event) => onChange({ allowAi: event.target.checked })}
@@ -328,7 +357,7 @@ function MaterialRow({
   ];
 
   return (
-    <li className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3" aria-label={material.title}>
+    <li className="flex flex-wrap items-center gap-x-4 gap-y-2 py-4" aria-label={material.title}>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{material.title}</p>
         <p className="text-muted flex flex-wrap gap-x-3 text-xs">
@@ -336,16 +365,7 @@ function MaterialRow({
             <span key={detail}>{detail}</span>
           ))}
         </p>
-        <p
-          role="status"
-          className={cn(
-            "mt-1 text-xs font-semibold",
-            status.tone === "danger" && "text-danger",
-            status.tone === "muted" && "text-muted",
-          )}
-        >
-          {status.text}
-        </p>
+        <StatusChip material={material} status={status} />
         {topicLine && (
           <p
             className={cn(
@@ -366,7 +386,7 @@ function MaterialRow({
       <label className="flex items-center gap-2 text-sm">
         <input
           type="checkbox"
-          className="accent-ink size-5"
+          className="accent-primary size-5"
           checked={material.allow_ai}
           disabled={update.isPending}
           onChange={(event) =>
@@ -424,5 +444,47 @@ function MaterialRow({
         onConfirm={() => remove.mutateAsync(material.id)}
       />
     </li>
+  );
+}
+
+/** The processing state as a chip: its words say it, the colour and icon only echo them. */
+function StatusChip({ material, status }: { material: Material; status: StatusText }) {
+  const Icon =
+    status.tone === "danger"
+      ? CircleAlert
+      : status.tone === "ink"
+        ? CircleCheck
+        : material.retrying
+          ? RotateCw
+          : Clock;
+  const variant =
+    status.tone === "danger" ? "destructive" : status.tone === "ink" ? "success" : "secondary";
+  return (
+    <p className="mt-1.5">
+      <Badge role="status" variant={variant} className="justify-start text-left whitespace-normal">
+        <Icon aria-hidden className="size-3.5 shrink-0" />
+        {status.text}
+      </Badge>
+    </p>
+  );
+}
+
+/** Rows shaped like the materials list, while it loads. */
+function ListSkeleton() {
+  return (
+    <div aria-busy="true" className="surface-card divide-line divide-y rounded-xl px-4 sm:px-5">
+      <p className="sr-only">Loading…</p>
+      {[0, 1, 2].map((row) => (
+        <div key={row} aria-hidden className="flex items-center gap-4 py-4">
+          <div className="grid flex-1 gap-2">
+            <div className="skeleton h-4 w-2/5" />
+            <div className="skeleton h-3 w-3/5" />
+            <div className="skeleton h-5 w-20 rounded-sm" />
+          </div>
+          <div className="skeleton hidden h-9 w-16 sm:block" />
+          <div className="skeleton size-9" />
+        </div>
+      ))}
+    </div>
   );
 }

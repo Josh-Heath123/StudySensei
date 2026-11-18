@@ -16,7 +16,9 @@ const BUILT = new Set(["/", "/modules", "/settings"]);
 const placeholders: RouteObject[] = NAV_ITEMS.filter((item) => !BUILT.has(item.path)).map(
   (item) => ({
     path: item.path,
-    element: <PlaceholderPage title={item.label} description={item.comingIn} />,
+    element: (
+      <PlaceholderPage title={item.label} description={item.comingIn} detail={item.detail} />
+    ),
   }),
 );
 

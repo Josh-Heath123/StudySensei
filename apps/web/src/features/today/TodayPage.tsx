@@ -10,6 +10,11 @@ import { SystemStatusCard } from "./SystemStatusCard";
 const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "long" });
 const dayMonth = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long" });
 
+/**
+ * docs/DESIGN.md "Screens: Today": the editorial date, the "Next up" hero, then the
+ * calm, solid day and deadlines. Next up comes first in the DOM so it leads on small
+ * screens; from 1024 px it sits in the right column above the (quiet) system status.
+ */
 export function TodayPage() {
   const now = useNow();
   return (
@@ -20,13 +25,15 @@ export function TodayPage() {
         title={dayMonth.format(now)}
         aside={<CountdownTiles now={now} />}
       />
-      <div className="grid items-start gap-8 lg:grid-cols-[3fr_2fr]">
-        <div className="min-w-0">
+      <div className="grid items-start gap-6 lg:grid-cols-[3fr_2fr] lg:grid-rows-[auto_1fr] lg:gap-8">
+        <div className="min-w-0 lg:col-start-2 lg:row-start-1">
+          <NextUpCard />
+        </div>
+        <div className="grid min-w-0 gap-6 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:gap-8">
           <DayTimeline now={now} />
           <DeadlinesCard />
         </div>
-        <div className="grid min-w-0 gap-6">
-          <NextUpCard />
+        <div className="min-w-0 lg:col-start-2 lg:row-start-2">
           <SystemStatusCard />
         </div>
       </div>

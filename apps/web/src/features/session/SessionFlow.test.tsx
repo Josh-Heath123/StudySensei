@@ -72,7 +72,9 @@ test("start → pause → resume → break → end → reflect → summary", asy
   expect(timer()).toHaveTextContent("50:00");
   expect(eyebrow()).toHaveTextContent("Focus");
   expect(screen.getByText("The tutor arrives in Phase 3.")).toBeInTheDocument();
-  expect(screen.getByText(/Materials arrive in Phase 2/)).toBeInTheDocument();
+  expect(
+    screen.getByText(/Open this module's slides and notes, search them, and jump to any page/),
+  ).toBeInTheDocument();
 
   await pass(10 * MIN);
   expect(timer()).toHaveTextContent("40:00");

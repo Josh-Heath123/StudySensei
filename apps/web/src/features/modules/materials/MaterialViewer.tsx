@@ -66,7 +66,7 @@ export function MaterialViewer({
     <div className="grid min-w-0 gap-3">
       <PageNav page={page} total={total} onGo={go} />
       {material.content_type === undefined ? (
-        <p className="text-muted text-sm">Loading…</p>
+        <PageSkeleton label="Loading…" />
       ) : asText ? (
         <>
           {isPdf && (
@@ -84,7 +84,7 @@ export function MaterialViewer({
           onError={() => setDrawFailed(true)}
         />
       ) : (
-        <p className="text-muted text-sm">Loading the PDF…</p>
+        <PageSkeleton label="Loading the PDF…" />
       )}
     </div>
   );
@@ -121,7 +121,7 @@ function PageNav({
       </Button>
       {/* Keyed by page so the box shows the current page after any navigation. */}
       <JumpForm key={page} page={page} total={total} onGo={onGo} />
-      <span className="tabular text-sm" aria-live="polite">
+      <span className="tabular ml-auto text-sm font-medium" aria-live="polite">
         {total > 0 ? `Page ${page} of ${total}` : `Page ${page}`}
       </span>
     </nav>
@@ -156,9 +156,9 @@ function JumpForm({
         max={total || undefined}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="tabular w-20"
+        className="tabular min-h-9 w-20 py-1 text-sm"
       />
-      <Button type="submit" variant="ghost" size="sm">
+      <Button type="submit" variant="outline" size="sm">
         Go
       </Button>
     </form>
@@ -248,11 +248,11 @@ function PdfPage({
     <section aria-label={`Page ${page}`} aria-busy={drawing} className="min-w-0">
       <div
         ref={box}
-        className="border-line relative max-h-[70vh] overflow-y-auto rounded-md border-2 bg-white"
+        className="bg-surface border-line relative max-h-[70vh] overflow-y-auto rounded-lg border shadow-sm"
       >
         <canvas ref={canvas} role="img" aria-label={label} className="block" />
         {drawing && (
-          <p className="text-muted bg-paper/80 absolute top-2 left-2 rounded px-2 py-1 text-xs">
+          <p className="text-muted bg-surface border-line absolute top-3 left-3 rounded-sm border px-2 py-1 text-xs shadow-sm">
             Drawing page {page}…
           </p>
         )}
@@ -267,7 +267,7 @@ function PageText({ materialId, page }: { materialId: string; page: number }) {
 
   return (
     <section aria-label={`Page ${page} text`} className="min-w-0">
-      {text.isPending && <p className="text-muted text-sm">Loading…</p>}
+      {text.isPending && <PageSkeleton label="Loading…" />}
       {text.isError && (
         <p role="alert" className="text-danger text-sm">
           Couldn't load page {page}: {text.error.message}
@@ -275,18 +275,35 @@ function PageText({ materialId, page }: { materialId: string; page: number }) {
       )}
       {text.data &&
         (text.data.is_scanned && text.data.char_count === 0 ? (
-          <p className="text-muted text-sm">
+          <p className="bg-surface border-line text-muted rounded-lg border p-5 text-sm shadow-sm">
             No text on this page. It looks scanned or is a picture; a later step will read it from
             the image.
           </p>
         ) : (
           <>
-            <pre className="border-line max-h-[70vh] overflow-y-auto rounded-md border-2 p-4 font-sans text-sm whitespace-pre-wrap">
+            <pre className="bg-surface border-line text-fg max-h-[70vh] overflow-y-auto rounded-lg border p-5 font-sans text-sm leading-relaxed whitespace-pre-wrap shadow-sm sm:p-6">
               {text.data.text}
             </pre>
-            <p className="text-muted mt-1 text-xs">{text.data.char_count} characters</p>
+            <p className="text-muted tabular mt-2 text-xs">{text.data.char_count} characters</p>
           </>
         ))}
     </section>
+  );
+}
+
+/** A page-shaped placeholder on the solid page surface, while the page or the PDF loads. */
+function PageSkeleton({ label }: { label: string }) {
+  return (
+    <div
+      aria-busy="true"
+      className="bg-surface border-line grid gap-3 rounded-lg border p-5 shadow-sm sm:p-6"
+    >
+      <p className="sr-only">{label}</p>
+      <div aria-hidden className="skeleton h-5 w-1/2" />
+      <div aria-hidden className="skeleton h-3 w-full" />
+      <div aria-hidden className="skeleton h-3 w-11/12" />
+      <div aria-hidden className="skeleton h-3 w-4/5" />
+      <div aria-hidden className="skeleton h-3 w-2/3" />
+    </div>
   );
 }

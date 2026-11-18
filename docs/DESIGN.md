@@ -1,118 +1,170 @@
-# StudySensei design system v1: "Planner"
+# StudySensei design system v2: "Glass"
 
-Chosen 13 Nov 2026 from three directions (canvas: https://claude.ai/artifact/VRuYrxfbGF65SRyfiAfqyd, row B).
-Crisp black on white, bold headings, and each module's own colour used as a solid fill. The day is something you can see.
-This file is the spec. The tokens live in `apps/web/src/index.css` and the components in `apps/web/src/ui/`.
+Direction C, chosen by the owner on 18 Nov 2026 from a reference image ([decision 0012](decisions/0012-visual-direction-glass.md)).
+It replaces direction B "Planner" ([archived](archive/DESIGN-planner.md)). This file is the spec. The tokens live in
+`apps/web/src/index.css` (one source; components use the Tailwind names, never raw values), the components in
+`apps/web/src/ui/`, and `apps/web/src/lib/tokens.test.ts` checks every contrast claim below in both themes.
 
 ## Principles
 
-1. **Ink and paper first.** Almost everything is black (#111111) on white. Colour is rare and means something: a module's colour, or a status.
-2. **One loud action per screen.** The single most important action (Start session, Start now) uses the module-colour button. Everything else is ink or outline.
-3. **Time is drawn, not listed.** Show the day as a timeline, deadlines as countdowns and focus/break as a segmented bar. Readers should see the shape of time before they read a number.
-4. **Flat and square.** No shadows, gradients or glass. Corners are small (4–6 px). Hierarchy comes from borders.
-5. **Honest numbers.** Every metric carries a *Measured* or *Estimated* tag and its basis. Never use colour alone to carry meaning: overdue items say "Overdue".
+1. **Calm, solid surfaces on a soft canvas.** Anything to read sits on a solid surface. Whitespace and hierarchy do
+   the work that borders used to.
+2. **Glass only for what floats.** Navigation, dialogs, menus, toasts and floating toolbars are glass; content never is.
+3. **One primary action per screen,** in violet. Everything else is secondary (outline), quiet or ghost.
+4. **Violet acts, pink accents.** The signature gradient (pink → lilac → violet) marks the few expressive moments:
+   the Today hero, the session's progress ring and mist, the wordmark dot.
+5. **Honest numbers.** Every metric keeps its *Measured* or *Estimated* tag and its basis. Colour never carries meaning
+   alone: states always say what they are in words.
+
+## Themes
+
+Light and dark, set as `data-theme` on `<html>`. The Settings page's **Appearance** setting is System (the default),
+Light or Dark, stored in `localStorage` (`studysensei.appearance`; every access is wrapped in try/catch). A tiny inline
+script in `index.html` applies it before the first paint, so the page never flashes the wrong theme, and
+`src/lib/appearance.ts` keeps System following the operating system.
 
 ## Tokens
 
 ### Colour
 
-| Token | Value | Use |
-| --- | --- | --- |
-| `ink` | `#111111` | Text, primary buttons, strong borders, selected tabs |
-| `paper` | `#FFFFFF` | Page and card background |
-| `muted` | `#5B5B5B` | Secondary text (6.8:1 on paper) |
-| `line` | `#E8E8E8` | Dividers, timeline grid, secondary card borders |
-| `surface` | `#F0F0F0` | Quiet buttons, tracks of progress bars |
-| `danger` | `#C4161C` | Overdue, destructive actions (6.0:1 on paper) |
-| `warning` | `#9A5B00` | "Due soon" text (5.3:1 on paper) |
-| `success` | `#1E7B46` | Completed states (5.3:1 on paper) |
-| `focus` | `#111111` | Focus ring: 2 px outline, 2 px offset |
+The palette was sampled from the reference image (its hex labels were wrong): Cloudy White `#F0F0F0`, Galactic Violet
+`#5840FF`, Bubblegum Pink `#FE6BD4`, and the signature gradient `linear-gradient(135deg, #FE6BD4, #A77BF6, #5840FF)`.
 
-**Module colours.** These are the only saturated colours in the app. Each module picks one, and it's always used as a **fill behind ink text** (never as text on white), so every swatch must give at least 4.5:1 with `#111111`:
+| Token | Light | Dark | Use |
+| --- | --- | --- | --- |
+| `canvas` | `#F0F0F0` | `#0B0B12` | Page background |
+| `surface` | `#FFFFFF` | `#15151F` | Cards, lists, tables, forms |
+| `surface-2` / `subtle` | `#F7F7F8` | `#1C1C28` | Quiet fills, tracks, segmented-control track, hover |
+| `fg` | `#0B0B12` | `#F0F0F0` | Text |
+| `muted` | `#5E5E6B` | `#A3A3B5` | Secondary text |
+| `line` | `rgba(11,11,18,0.08)` | `rgba(255,255,255,0.08)` | Hairlines and dividers (decorative) |
+| `line-strong` | `#838394` | `#72728A` | Boundaries a control needs (inputs, outline buttons): 3:1 |
+| `primary` | `#5840FF` | `#5840FF` | The violet button (white text) |
+| `primary-hover` | `#4A33E0` | `#6A55FF` | Its hover |
+| `primary-edge` | `#5840FF` | `#8B7BFF` | The button's 1 px edge, so it keeps a 3:1 boundary on dark surfaces |
+| `link` / `ring` | `#5840FF` | `#8B7BFF` | Violet text and links; the focus ring |
+| `accent-soft` | `#ECE8FF` | `#24203F` | Selected nav item, soft violet chips, icon wells |
+| `danger` | `#C0183C` | `#FF7B8F` | Errors, destructive actions, "Overdue" |
+| `warning` | `#8A5200` | `#F0B44C` | "Due soon", resting AI |
+| `success` | `#137446` | `#4CD69B` | Done, connected |
+| `pink` | `#FE6BD4` | `#FE6BD4` | A fill and accent only: never text on light, always dark text on top |
+| `on-fill` | `#0B0B12` | `#0B0B12` | Text on module colours and on pink |
+| `scrim` | `rgba(11,11,18,0.35)` | `rgba(0,0,0,0.6)` | Behind dialogs |
 
-| Name | Value |
-| --- | --- |
-| Orange (default) | `#FF7A3D` |
-| Yellow | `#FFD23F` |
-| Mint | `#5EE0B0` |
-| Blue | `#8FB8FF` |
-| Lilac | `#C9A7FF` |
-| Pink | `#FF8FA3` |
-| Lime | `#B8E05E` |
-| Cyan | `#6ED3E8` |
+**Module colours** keep their eight swatches and their meaning: a fill behind dark text (`on-fill`, at least 4.5:1).
+They read on both canvases, so nothing was retuned and no migration was needed: Orange `#FF7A3D` (default), Yellow
+`#FFD23F`, Mint `#5EE0B0`, Blue `#8FB8FF`, Lilac `#C9A7FF`, Pink `#FF8FA3`, Lime `#B8E05E`, Cyan `#6ED3E8`.
 
-The current Modules form offers darker iOS-style colours (`#007AFF`, `#5856D6`, …), which fail with ink text. Replace the swatches with the list above. Add a migration that maps each existing module colour to the nearest new swatch, and update the custom-colour picker to reject colours below 4.5:1 against ink.
+### Contrast
+
+- Text: 4.5:1. UI boundaries and the focus ring: 3:1.
+- `fg`, `muted`, `link`, `danger`, `warning` and `success` pass on `canvas`, `surface` and `surface-2` in both themes;
+  white passes on `primary` and `primary-hover`; `fg` and `muted` pass on `accent-soft`; dark text passes on pink and
+  on every module colour.
+- Text never sits directly on the gradient (dark text fails at the violet end, white at the pink end). It sits on a
+  solid or glass layer instead.
+- `tokens.test.ts` computes all of this from the stylesheet, so it can't regress.
 
 ### Type
 
-Self-host the fonts with `@fontsource-variable/inter` and `@fontsource/space-grotesk` (weights 500 and 700). Make no calls to Google Fonts: it's faster, works offline and leaks nothing.
+Inter variable only (`@fontsource-variable/inter`, self-hosted). Tabular numerals for every time, countdown and count.
 
-| Role | Font | Size / line-height | Weight | Tracking |
-| --- | --- | --- | --- | --- |
-| Display (page date, hero) | Space Grotesk | 56 / 1.0 | 700 | −0.03em |
-| Timer numerals | Space Grotesk, tabular | 128 / 0.9 | 700 | −0.04em |
-| Countdown numerals | Space Grotesk | 40 / 1.0 | 700 | 0 |
-| H1 | Space Grotesk | 40 / 1.1 | 700 | −0.02em |
-| H2 (card hero) | Space Grotesk | 30 / 1.1 | 700 | −0.01em |
-| H3 (section) | Space Grotesk | 20 / 1.2 | 700 | 0 |
-| Body | Inter | 15 / 1.5 | 400 | 0 |
-| Body strong | Inter | 15 / 1.5 | 600 | 0 |
-| Small | Inter | 13 / 1.4 | 400 | 0 |
-| Label (eyebrow) | Inter, uppercase | 12 / 1.2 | 600 | 0.08em |
+| Role | Size / line height | Weight | Tracking |
+| --- | --- | --- | --- |
+| Display (`type-display`): Today's date, editorial moments | 44–64 / 1.0 (fluid) | 300 | −0.035em |
+| Timer (`type-timer`) | 88–168 / 0.95 (fluid), tabular | 200 | −0.04em |
+| Countdown (`type-countdown`) | 40 / 1.0, tabular | 300 | −0.03em |
+| H1 (`type-h1`) | 36 / 1.15 | 500 | −0.025em |
+| H2 (`type-h2`) | 24 / 1.25 | 600 | −0.015em |
+| H3 (`type-h3`) | 17 / 1.35 | 600 | −0.01em |
+| Body | 15 / 1.55 | 400 | 0 |
+| Small | 13 / 1.45 | 400 | 0 |
+| Label (`type-label`) | 12 / 1.3, uppercase | 600 | 0.06em |
 
-Use tabular numerals (`font-variant-numeric: tabular-nums`) for every time, date and count that updates.
+### Radius
 
-### Space, radius and borders
+Controls 10 (`rounded-md`; the segmented control 12, its segments 9). Chips 6 (`rounded-sm`). Cards 16–20
+(`rounded-lg`, `rounded-xl`). Dialogs and sheets 24 (`rounded-2xl`). Soft, not pills everywhere: only progress tracks
+and the wordmark dot are fully round.
 
-- **Spacing scale (px):** 4, 8, 12, 16, 20, 24, 32, 40, 56. Page padding is 40 on desktop and 20 below 640 px.
-- **Radius:** 4 for controls, chips and timeline blocks; 6 for cards. Nothing rounder, and no pills.
-- **Borders:**
-  - Primary containers (the tutor panel, the key card on a page): 2 px `ink`.
-  - Secondary cards: 2 px `line`.
-  - Dividers and grid lines: 1 px `line`.
-- **No shadows anywhere.**
+### Elevation
+
+Light: soft, layered shadows tinted `rgba(17,12,46,…)`: `shadow-sm` (cards), `shadow-md` (the key card, raised
+segments), `shadow-lg` (floating glass). Dark: barely any; depth comes from the surface steps (`canvas` → `surface` →
+`surface-2`) and a faint top highlight on cards.
 
 ### Motion
 
-150 ms ease-out on hover and press. The timer ring and progress fills animate their width only. Respect `prefers-reduced-motion`.
+Three durations, 120 / 200 / 320 ms, on one ease, `cubic-bezier(0.2, 0.8, 0.2, 1)` (`ease-soft`). Transitions,
+`tw-animate-css` and Radix `data-state` animations only; no animation library. Presses scale to 0.98. Under
+`prefers-reduced-motion` nothing moves: transforms are off and only (instant) opacity changes remain.
+
+## Glass
+
+**Where:** the sticky top navigation; dialogs and sheets; popovers, menus and selects; toasts; floating toolbars (the
+topic ReviewBar); the session screen's floating control bar.
+
+**Never:** data tables, forms, the topic tree, the materials list, the viewer's page area, the settings meters, or
+anything long to read.
+
+**Recipe** (`glass`, `glass-strong`, `glass-hero` utilities in `index.css`): a translucent tint, `backdrop-filter:
+blur(24px) saturate(160%)`, a 1 px border (light `rgba(255,255,255,0.7)`, dark `rgba(255,255,255,0.08)`), an inner
+hairline, a top highlight and a soft shadow.
+
+| Utility | Light tint | Dark tint | For |
+| --- | --- | --- | --- |
+| `glass` | `rgba(255,255,255,0.62)` | `rgba(24,24,36,0.55)` | Glass over a known, soft backdrop: the session bar over its mist |
+| `glass-hero` | `rgba(255,255,255,0.80)` | `rgba(24,24,36,0.78)` | Text over the signature gradient (Today's hero) |
+| `glass-strong` | `rgba(255,255,255,0.86)` | `rgba(24,24,36,0.86)` | Glass that can float over anything: navigation, dialogs, menus, toolbars, toasts |
+
+**Legibility:** every glass surface keeps 4.5:1 for `fg` and `muted` text against the worst case behind it. The base
+recipe passes over the session mist, but not over dark text or a bright module colour, so glass that can float over
+any content uses `glass-strong`; `tokens.test.ts` checks each against its worst case. Without `backdrop-filter`, or under
+`prefers-reduced-transparency`, glass falls back to the solid `surface`.
 
 ## Components
 
 | Component | Spec |
 | --- | --- |
-| **Button: primary** | `ink` background, `paper` text, 15/600, radius 4, padding 12×22, min-height 44 |
-| **Button: module** | Module-colour background, `ink` text. Only for the one main action on a screen |
-| **Button: outline** | `paper` background, 2 px `ink` border, `ink` text |
-| **Button: quiet** | `surface` background, `ink` text, 13/500, min-height 36. For suggestion chips like "Explain differently" |
-| **Button: on dark** | Transparent, 1 px `#737373` border, `paper` text. Used inside the ink "Next up" card |
-| **Top navigation** | Replaces the sidebar. The bar is at least 64 px tall with a 2 px `ink` bottom border. Left: the *StudySensei* wordmark (Space Grotesk 20/700). Then links (14 px, `muted`); the active link is `ink` 600 with a 3 px module-colour underline. Wraps on small screens |
-| **Page header** | Label eyebrow (e.g. FRIDAY), then the display title (e.g. 13 November). Optional countdown tiles on the right |
-| **Countdown tile** | Big number (Space Grotesk 40) + "days to Assignment 2" (13/600) + module and date (13, `muted`). The nearest deadline gets a 2 px `ink` border, others 2 px `line` |
-| **Next-up card** | `ink` background, `paper` text, radius 6, padding 28. Eyebrow (12/600, `#D4D4D4`), H2 title, one-line reason, then module button + on-dark button |
-| **Day timeline** | Hour rows 52 px tall with 1 px `line` top borders and time labels (12, `muted`, tabular). Blocks are module-colour fills, radius 4, with `ink` text "10:30 · Topic" and "Method · 50 min". Review blocks use a 2 px dashed `ink` outline instead of a fill. A NOW marker is a 2 px `ink` line with a small label |
-| **Segmented progress** | Focus segments `ink`, breaks `line`, the elapsed part filled with the module colour, labels underneath (12, `muted`) |
-| **Tabs** | Segmented and full-width inside a 2 px `ink` container. The selected tab is inverted (`ink` background, `paper` text), and dividers are 2 px `ink`. Use real `role="tab"` + `aria-selected` |
-| **Module badge** | Module-colour fill, `ink` text 13/600, radius 4, padding 4×10 |
-| **Citation chip** | 1 px `ink` border, 12/600, radius 3, padding 3×8, e.g. "S1 CH02 slides". It's a link to the source page |
-| **Card** | `paper` background, 2 px `line` border (or `ink` for the main one), radius 6, padding 20–24 |
-| **Tag: measured/estimated** | 12 px `muted` text, no fill |
-| **Form fields** | 15 px, 2 px `line` border, radius 4, min-height 44. Focus: 2 px `ink` border plus the focus ring. Every input has a real `<label>` (visually hidden is fine) |
-| **Empty state** | One sentence plus one action. No illustration |
+| **Button: primary** (`default`, also `module`) | `primary` fill, white text, 1 px `primary-edge`, `shadow-sm`, 15/600, radius 10, min-height 44. One per screen |
+| **Button: secondary** (`outline`, `onDark`) | `surface` fill, 1 px `line-strong` border, `fg` text; hover `subtle` |
+| **Button: quiet** | `subtle` fill, `fg` text, 13/500, min-height 36: suggestion chips |
+| **Button: ghost / link** | No fill; hover `subtle`. Links are `link` violet |
+| **Button: destructive** | `surface` fill, `danger` text and border; hover a faint danger tint |
+| **States** | Hover (fill steps), pressed (scale 0.98), focus-visible (2 px `ring` outline, 2 px offset), selected (`accent-soft` or a raised surface), disabled (45 % opacity), loading (skeletons), empty, error (`danger` text with `role="alert"`), success (`success` text) |
+| **Top navigation** | Sticky glass bar, radius 20, inset from the edges. Wordmark (17/600 with a gradient dot), then sections; the current one is an `accent-soft` pill. Below 640 px the sections scroll sideways under the wordmark |
+| **Page header** | Label eyebrow, then H1 (or Display on Today), optional description, actions or tiles on the right |
+| **Card** | Solid `surface`, 1 px `line`, `shadow-sm`, radius 20, padding 20–24. `key` adds `shadow-md` |
+| **Segmented control** (tabs) | `subtle` track, radius 12, padding 4; segments radius 9; the selected one is a raised `surface` with `fg` text; others `muted`. Real `role="tab"` + `aria-selected`; scrolls sideways when narrow |
+| **Form fields** | Solid `surface`, 1 px `line-strong`, radius 10, min-height 44, 15 px. Focus: `ring` border plus the focus ring. Every input has a real `<label>` |
+| **Dialog** | `glass-strong`, radius 24, padding 24, over the `scrim`; fades and scales from 0.97 in 200 ms |
+| **Badge / chip** | Radius 6, 12/600. Status chips are `surface` with status-coloured text and a faint border; neutral chips `subtle` + `muted` |
+| **Module badge** | Module-colour fill, `on-fill` text 12/600, radius 6 |
+| **Segmented progress** | Focus segments on an `accent-soft` track, breaks on `subtle`, the elapsed part filled with the gradient |
+| **Meters** | Solid track (`subtle`), violet fill, with the *Measured* / *Estimated* labels beside them |
+| **Skeleton** | `skeleton` utility: a `subtle` block that pulses (opacity only) |
+| **Empty state** | One icon in an `accent-soft` well, one sentence, at most one action |
+| **Icons** | lucide-react only, one stroke width (1.75, set globally) |
 
 ## Screens
 
-- **Today:** the page header with countdown tiles. Below it, the day timeline (about 60% width) and a right column: next-up card, reviews due, and the "this week" bars (Measured).
-- **Study session:** a header with ← Today, the module badge, the topic title, the camera status and End session (primary). A 6 px progress line under the header. Left: the eyebrow, the timer numerals, the segmented focus/break bar, Pause (primary) and Break now (outline), and materials links. Right: the tutor panel (2 px `ink` border, segmented tabs, answer with citation chips, quiet suggestion buttons, input row with push-to-talk).
-- **Modules and module detail:** the same header pattern. Assessments, Tasks and Topics as segmented tabs. Lists are rows with 1 px `line` dividers, and overdue text uses `danger` with the word "Overdue".
+- **Today** (the most expressive): an editorial date in Display type; "Next up" as the hero card, the gradient as its
+  background with its text on a `glass-hero` layer; countdown tiles, deadlines and the day timeline (module-colour
+  blocks) calm and solid; the system status card quiet.
+- **Session** (`/session`): a very large, light timer inside a progress ring with a gradient stroke; a faint ambient
+  gradient mist behind it in both themes; a floating `glass` control bar (pause, break, end); the reflection form solid
+  and calm; the away dialog in glass.
+- **Modules and module detail:** a clean header with the module's colour; tabs as a segmented control; solid, readable
+  lists and tables.
+- **Topics:** a solid tree; AI and review state shown subtly (a small violet dot and a quiet label); the ReviewBar a
+  floating glass toolbar; the merge and linked-pages dialogs in glass.
+- **Materials:** a refined upload area and status, skeleton loaders, a prominent search box, and the viewer's chrome
+  in glass with the page canvas on a solid surface.
+- **Settings:** AI providers in solid cards with violet usage meters (labels kept), and Appearance.
+- **Placeholders** (Plan, Practice, Insights): a designed empty state saying which phase each arrives in.
 
-## Not in v1
+## Responsive
 
-Dark mode (direction C can become it later), drag-and-drop on the timeline, and charts beyond the weekly bars.
-
-## Implementation notes (Tailwind v4 + shadcn)
-
-- Define the tokens with `@theme` in `index.css` (`--color-ink`, `--color-paper`, `--color-muted`, `--color-line`, `--color-surface`, `--color-danger`, `--color-warning`, `--color-success`, `--font-sans`, `--font-display`).
-- Map the shadcn variables: `--primary` = ink, `--primary-foreground` = paper, `--radius` = 4px, `--ring` = ink.
-- Pass the module colour to a page as a CSS variable (`--module`) set on its root, so components use `bg-[var(--module)]`.
-- Restyle the existing screens in the same PR: the shell (sidebar → top nav), Today, Modules, and module detail.
-- Keep the existing tests passing. Add a contrast unit test that checks every module swatch against ink.
+Desktop (1440), tablet (768) and mobile (375). Page padding 16 on mobile, 32 on tablet, 40 on desktop. Grids collapse
+to one column below 1024 px; the navigation scrolls sideways below 640 px; dialogs stay within the viewport and scroll
+inside.

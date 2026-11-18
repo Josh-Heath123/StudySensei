@@ -21,7 +21,7 @@ export function SessionSummary({ finished }: { finished: Finished }) {
 
   return (
     <div
-      className="mx-auto max-w-[720px] px-5 py-8 sm:px-10 sm:py-10"
+      className="mx-auto max-w-[720px] px-4 py-8 sm:px-8 sm:py-12"
       style={{ "--module": module.data?.colour } as CSSProperties}
     >
       <header className="mb-8">
@@ -33,7 +33,7 @@ export function SessionSummary({ finished }: { finished: Finished }) {
       </header>
       <dl className="mb-8 grid gap-4 sm:grid-cols-2">
         {stats.map((stat) => (
-          <div key={stat.label} className="border-line rounded-lg border-2 p-5">
+          <div key={stat.label} className="surface-card rounded-xl p-5 sm:p-6">
             <dt className="text-sm font-semibold">{stat.label}</dt>
             <dd className="type-countdown mt-2">{stat.value}</dd>
             <dd className="text-muted mt-2 text-xs">{basis}</dd>

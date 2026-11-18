@@ -17,6 +17,7 @@ import { AssessmentsTab } from "./assessments/AssessmentsTab";
 import { MaterialsTab } from "./materials/MaterialsTab";
 import { SessionsTab } from "./sessions/SessionsTab";
 import { TasksTab } from "./tasks/TasksTab";
+import { LoadingRows } from "./LoadingRows";
 import { TopicTree } from "./TopicTree";
 
 export function ModuleDetailPage() {
@@ -31,14 +32,20 @@ export function ModuleDetailPage() {
   const backLink = (
     <Link
       to="/modules"
-      className="text-muted hover:text-ink mb-6 inline-flex items-center gap-1 text-sm font-semibold"
+      className="text-muted hover:text-fg mb-6 inline-flex min-h-9 items-center gap-1.5 rounded-md text-sm font-semibold transition-colors"
     >
       <ArrowLeft className="size-4" aria-hidden /> All modules
     </Link>
   );
 
   if (module.isPending) {
-    return <p className="text-muted text-sm">Loading…</p>;
+    return (
+      <div className="grid gap-6">
+        {backLink}
+        <LoadingRows label="Loading module…" rows={1} rowClassName="h-20 max-w-xl" />
+        <div aria-hidden className="skeleton h-12 max-w-2xl" />
+      </div>
+    );
   }
   if (module.isError) {
     const missing = module.error instanceof ApiError && module.error.status === 404;
@@ -57,9 +64,11 @@ export function ModuleDetailPage() {
   return (
     <div style={{ "--module": data.colour } as CSSProperties}>
       {backLink}
+      {/* The module's colour as a thin accent above the header, not a heavy block. */}
+      <div aria-hidden className="mb-5 h-1 w-14 rounded-xs bg-[var(--module)]" />
       <PageHeader
         eyebrow={
-          <span className="flex items-center gap-3 normal-case">
+          <span className="flex flex-wrap items-center gap-3 normal-case">
             <ModuleBadge>{data.code}</ModuleBadge>
             {data.semester && <span className="type-label">{data.semester}</span>}
           </span>
@@ -71,7 +80,7 @@ export function ModuleDetailPage() {
             <Button variant="outline" onClick={() => setEditing(true)}>
               <Pencil aria-hidden /> Edit
             </Button>
-            <Button variant="outline" onClick={() => setDeleting(true)}>
+            <Button variant="destructive" onClick={() => setDeleting(true)}>
               <Trash2 aria-hidden /> Delete
             </Button>
           </>
@@ -132,7 +141,7 @@ function ModuleTabs({ moduleId }: { moduleId: string }) {
       onValueChange={(tab) => setParams({ tab }, { replace: true })}
       className="mt-2"
     >
-      <TabsList>
+      <TabsList className="sm:w-fit">
         {TABS.map(({ value, label }) => (
           <TabsTrigger key={value} value={value}>
             {label}
@@ -140,7 +149,7 @@ function ModuleTabs({ moduleId }: { moduleId: string }) {
         ))}
       </TabsList>
       {TABS.map(({ value, Panel }) => (
-        <TabsContent key={value} value={value} className="pt-6">
+        <TabsContent key={value} value={value} className="pt-8">
           <Panel moduleId={moduleId} />
         </TabsContent>
       ))}

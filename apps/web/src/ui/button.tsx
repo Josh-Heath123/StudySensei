@@ -4,26 +4,31 @@ import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-// docs/DESIGN.md "Button". One loud action per screen: `module` is reserved for it.
+// docs/DESIGN.md "Button". One primary (violet) action per screen; everything else is
+// secondary (outline), quiet or ghost. `module` and `onDark` are kept as names for their
+// call sites: the main action is violet, and nothing sits on an ink card any more.
+const primary =
+  "bg-primary text-on-primary border border-primary-edge shadow-sm hover:bg-primary-hover";
 const buttonVariants = cva(
-  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md font-semibold whitespace-nowrap transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md font-semibold whitespace-nowrap transition-[background-color,border-color,color,box-shadow,transform] duration-[120ms] ease-soft select-none active:scale-[0.98] motion-reduce:active:scale-100 disabled:pointer-events-none disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: "bg-ink text-paper hover:bg-ink/85",
-        module: "text-ink bg-[var(--module)] hover:brightness-95",
-        outline: "border-ink bg-paper text-ink hover:bg-surface border-2",
-        quiet: "bg-surface text-ink hover:bg-line font-medium",
-        onDark: "border-on-dark-line text-paper hover:bg-paper/10 border bg-transparent",
-        destructive: "bg-danger text-paper hover:bg-danger/90",
-        secondary: "bg-surface text-ink hover:bg-line",
-        ghost: "text-ink hover:bg-surface",
-        link: "text-ink underline-offset-4 hover:underline",
+        default: primary,
+        module: primary,
+        outline: "border-line-strong bg-surface text-fg hover:bg-subtle border",
+        quiet: "bg-subtle text-fg hover:bg-accent-soft font-medium",
+        onDark: "border-line-strong bg-surface text-fg hover:bg-subtle border",
+        destructive:
+          "border-danger/50 bg-surface text-danger hover:bg-[color-mix(in_srgb,var(--danger)_10%,var(--surface))] border",
+        secondary: "bg-subtle text-fg hover:bg-accent-soft",
+        ghost: "text-fg hover:bg-subtle",
+        link: "text-link underline-offset-4 hover:underline active:scale-100",
       },
       size: {
-        default: "min-h-11 px-[22px] py-3 text-base",
+        default: "min-h-11 px-5 py-2.5 text-base",
         sm: "min-h-9 px-3 py-1.5 text-sm",
-        lg: "min-h-12 px-7 py-3 text-base",
+        lg: "min-h-12 px-6 py-3 text-base",
         icon: "size-11",
         "icon-sm": "size-9",
       },

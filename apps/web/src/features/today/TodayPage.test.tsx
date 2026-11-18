@@ -206,9 +206,9 @@ test("the header shows the date and countdowns to the next real assessments", as
     expect.stringContaining("1day to Semester testCOS330"),
     expect.stringContaining("12days to Assignment 2COS301"),
   ]);
-  // The nearest deadline gets the ink border; overdue ones stay in the list instead.
-  expect(tiles[0]).toHaveClass("border-ink");
-  expect(tiles[1]).toHaveClass("border-line");
+  // The nearest deadline is marked; overdue ones stay in the list instead.
+  expect(tiles[0]).toHaveAttribute("data-nearest", "true");
+  expect(tiles[1]).toHaveAttribute("data-nearest", "false");
 });
 
 test("the day timeline and next-up card say the plan isn't built yet, with no made-up blocks", async () => {

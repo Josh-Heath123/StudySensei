@@ -43,7 +43,18 @@ export function PagesDialog({
           </DialogDescription>
         </DialogHeader>
         {(pages.isPending || (contentType === undefined && details.isPending)) && (
-          <p className="text-muted text-sm">Loading…</p>
+          <div aria-busy="true" className="grid gap-4 sm:grid-cols-[180px_minmax(0,1fr)]">
+            <p className="sr-only">Loading…</p>
+            <div aria-hidden className="hidden gap-1.5 sm:grid sm:content-start">
+              {[0, 1, 2, 3].map((n) => (
+                <div key={n} className="skeleton h-11" />
+              ))}
+            </div>
+            <div aria-hidden className="grid content-start gap-3">
+              <div className="skeleton h-9 w-64 max-w-full" />
+              <div className="skeleton h-[40vh] rounded-lg" />
+            </div>
+          </div>
         )}
         {(pages.isError || details.isError) && (
           <p role="alert" className="text-danger text-sm">
@@ -56,7 +67,10 @@ export function PagesDialog({
         {pages.data && contentType !== undefined && (!empty || isPdf) && (
           <div className={cn("grid gap-4", !empty && "sm:grid-cols-[180px_minmax(0,1fr)]")}>
             {!empty && (
-              <nav aria-label="Pages" className="max-h-[70vh] overflow-y-auto">
+              <nav
+                aria-label="Pages"
+                className="-mx-1 max-h-[30vh] overflow-y-auto px-1 py-1 sm:max-h-[70vh]"
+              >
                 <ol className="grid gap-1">
                   {pages.data.map((p) => (
                     <li key={p.page_number}>
@@ -65,13 +79,21 @@ export function PagesDialog({
                         aria-current={p.page_number === current ? "page" : undefined}
                         onClick={() => setChosen(p.page_number)}
                         className={cn(
-                          "w-full rounded-md px-2 py-1.5 text-left text-sm",
-                          p.page_number === current ? "bg-ink text-paper" : "hover:bg-surface",
+                          "w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm transition-colors",
+                          p.page_number === current
+                            ? "bg-accent-soft text-fg font-semibold"
+                            : "text-fg hover:bg-subtle",
                         )}
                       >
                         <span className="tabular font-semibold">Page {p.page_number}</span>
-                        {p.title && <span className="block truncate text-xs">{p.title}</span>}
-                        {p.is_scanned && <span className="block text-xs">Scanned</span>}
+                        {p.title && (
+                          <span className="text-muted block truncate text-xs font-normal">
+                            {p.title}
+                          </span>
+                        )}
+                        {p.is_scanned && (
+                          <span className="text-muted block text-xs font-normal">Scanned</span>
+                        )}
                       </button>
                     </li>
                   ))}
@@ -86,7 +108,7 @@ export function PagesDialog({
                 onPageChange={setChosen}
               />
               {summary?.is_scanned && (
-                <p className="text-muted mt-1 text-xs">
+                <p className="text-muted mt-2 text-xs">
                   Very little text on this page: it will also be read from its image later.
                 </p>
               )}

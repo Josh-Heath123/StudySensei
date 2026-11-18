@@ -11,7 +11,7 @@ const tileDate = new Intl.DateTimeFormat("en-GB", {
   month: "short",
 });
 
-/** docs/DESIGN.md "Countdown tile": days to the next assessments, from the real deadlines. */
+/** Days to the next assessments, from the real deadlines: calm, solid tiles. */
 export function CountdownTiles({ now }: { now: Date }) {
   const modules = useModules();
   const assessments = useUpcomingAssessments();
@@ -34,10 +34,13 @@ function CountdownTile({ tile, nearest }: { tile: Countdown; nearest: boolean })
       ? `due today: ${tile.title}`
       : `${tile.days === 1 ? "day" : "days"} to ${tile.title}`;
   return (
+    // The nearest deadline gets a violet hairline (an outline, so it doesn't fight the
+    // card's border and shadow) and the raised shadow.
     <li
+      data-nearest={nearest}
       className={cn(
-        "grid w-44 content-start gap-1.5 rounded-lg border-2 p-4",
-        nearest ? "border-ink" : "border-line",
+        "surface-card grid w-40 content-start gap-2 rounded-xl p-4 sm:w-44 sm:p-5",
+        nearest && "outline-primary-edge shadow-md outline-1 -outline-offset-1",
       )}
     >
       <span className="type-countdown">{tile.days}</span>

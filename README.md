@@ -21,7 +21,7 @@ Next: a tutor that answers with citations into your pages, and a planner that te
   <a href="docs/ROADMAP.md"><img alt="status: Phase 2 of 9 complete" src="https://img.shields.io/badge/status-Phase%202%20of%209%20complete-FF7A3D?labelColor=111111"></a>
 </p>
 
-![The Today page: countdowns to the next assessments, the day timeline and upcoming deadlines](docs/assets/screenshots/today.png)
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/today-dark.png" /><img src="docs/assets/screenshots/today-light.png" alt="The Today page: countdowns to the next assessments, the day timeline and upcoming deadlines" /></picture></p>
 
 ## What it does
 
@@ -36,12 +36,13 @@ Next: a tutor that answers with citations into your pages, and a planner that te
 
 ## Screenshots
 
-Taken from the running app by `npm run screenshots`, with synthetic demo data (an invented networks module).
+Taken from the running app by `npm run screenshots`, with synthetic demo data (an invented networks module), in
+light or dark to match your GitHub theme.
 
 | | |
 | --- | --- |
-| ![Today](docs/assets/screenshots/today.png) **Today:** countdowns and upcoming deadlines | ![A study session](docs/assets/screenshots/session.png) **Session:** the focus timer, 18 minutes in |
-| ![Topics](docs/assets/screenshots/topics.png) **Topics:** a topic's cited and similar pages | ![Viewer](docs/assets/screenshots/viewer.png) **Viewer:** a search for "slow start threshold", opened at the slide |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/today-dark.png" /><img src="docs/assets/screenshots/today-light.png" alt="Today" /></picture> **Today:** countdowns and upcoming deadlines | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/session-dark.png" /><img src="docs/assets/screenshots/session-light.png" alt="A study session" /></picture> **Session:** the focus timer, 18 minutes in |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/topics-dark.png" /><img src="docs/assets/screenshots/topics-light.png" alt="Topics" /></picture> **Topics:** a topic's cited and similar pages | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/viewer-dark.png" /><img src="docs/assets/screenshots/viewer-light.png" alt="Viewer" /></picture> **Viewer:** a search for "slow start threshold", opened at the slide |
 
 ## Engineering highlights
 
@@ -67,7 +68,7 @@ Taken from the running app by `npm run screenshots`, with synthetic demo data (a
 ## Architecture
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"lineColor": "#737373", "textColor": "#737373", "primaryTextColor": "#111111", "primaryBorderColor": "#111111", "clusterBkg": "transparent", "clusterBorder": "#737373", "titleColor": "#737373"}}}%%
+%%{init: {"theme": "base", "themeVariables": {"lineColor": "#8A8A99", "textColor": "#8A8A99", "primaryTextColor": "#0B0B12", "primaryBorderColor": "#8A8A99", "clusterBkg": "transparent", "clusterBorder": "#8A8A99", "titleColor": "#8A8A99"}}}%%
 flowchart LR
   subgraph browser["Browser"]
     app["React app"]
@@ -88,15 +89,15 @@ flowchart LR
   worker --> local
   worker --> llm
 
-  classDef ai fill:#C9A7FF,stroke:#111111,color:#111111,stroke-width:2px
-  classDef code fill:#5EE0B0,stroke:#111111,color:#111111,stroke-width:2px
-  classDef store fill:#FFFFFF,stroke:#111111,color:#111111,stroke-width:2px
+  classDef ai fill:#FE6BD4,stroke:#8A8A99,color:#0B0B12,stroke-width:1px
+  classDef code fill:#E4DEFF,stroke:#8A8A99,color:#0B0B12,stroke-width:1px
+  classDef store fill:#FFFFFF,stroke:#8A8A99,color:#0B0B12,stroke-width:1px
   class llm ai
   class app,engine,proxy,api,worker,local code
   class db store
 ```
 
-Lilac: AI proposes. Mint: ordinary code decides. White: storage.
+Pink: AI proposes. Pale violet: ordinary code decides. White: storage.
 
 | Layer | Technology |
 | --- | --- |
@@ -161,7 +162,7 @@ everything else, search included, runs without one.
 | [Documentation hub](docs/README.md) | Where to start, and every doc in reading order |
 | [Product](docs/PRODUCT.md) | What StudySensei is for and what it deliberately doesn't do |
 | [Architecture](docs/ARCHITECTURE.md) | The API contract, data model, AI client, search and CI |
-| [Design](docs/DESIGN.md) | The "Planner" design system |
+| [Design](docs/DESIGN.md) | The "Glass" design system: tokens, glass rules, light and dark |
 | [Decisions](docs/decisions/README.md) | The architecture decision records |
 | [Roadmap](docs/ROADMAP.md) and [Progress](docs/PROGRESS.md) | The plan, and the session log of what was done and measured |
 | [Evals](apps/api/evals/README.md) | Search, linking and topic-extraction evals with their results |

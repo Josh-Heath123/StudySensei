@@ -20,7 +20,7 @@ export function SessionPage() {
       return <p className="text-muted p-10 text-sm">Loading…</p>;
     case "none":
       return (
-        <div className="mx-auto max-w-[720px] px-5 py-10 sm:px-10">
+        <div className="mx-auto max-w-[720px] px-4 py-10 sm:px-8 sm:py-12">
           <h1 className="type-h1 mb-3">No session running</h1>
           <p className="text-muted mb-6">Start one from Today or from a module&apos;s page.</p>
           <Button asChild>

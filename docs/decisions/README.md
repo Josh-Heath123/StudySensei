@@ -16,3 +16,4 @@ after they're accepted (apart from redacting personal identifiers); a later reco
 | [0009](0009-topic-review.md) | Topic review: the student's edits win, and a merge Groq can take | Accepted; builds on 0006–0008 |
 | [0010](0010-merge-token-ratio.md) | The merge's token ratio is 2.5 characters, and an oversized merge is reported, not cut | Accepted; supersedes part of 0009 |
 | [0011](0011-large-merges-gemini-only.md) | Large topic-map merges are Gemini-only | Accepted; settles 0010's open question |
+| [0012](0012-visual-direction-glass.md) | Visual direction C "Glass" (light and dark, selective glass) | Accepted; supersedes the 13 Nov choice of direction B "Planner" |

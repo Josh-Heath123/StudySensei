@@ -207,3 +207,45 @@ test("the privacy note says what is and isn't sent", async () => {
     screen.getByText("Materials with Allow AI turned off are never sent."),
   ).toBeInTheDocument();
 });
+
+describe("appearance", () => {
+  afterEach(() => {
+    delete document.documentElement.dataset.theme;
+  });
+
+  test("defaults to System", async () => {
+    mockApi({ "GET /ai/status": () => aStatus() });
+    renderApp("/settings");
+
+    const group = await screen.findByRole("radiogroup", { name: "Appearance" });
+    expect(within(group).getByRole("radio", { name: "System" })).toBeChecked();
+    expect(within(group).getByRole("radio", { name: "Light" })).not.toBeChecked();
+    expect(within(group).getByRole("radio", { name: "Dark" })).not.toBeChecked();
+    expect(screen.getByText("System follows your device's light or dark setting.")).toBeVisible();
+  });
+
+  test("choosing Dark applies and stores it; choosing System forgets it", async () => {
+    mockApi({ "GET /ai/status": () => aStatus() });
+    renderApp("/settings");
+    const user = userEvent.setup();
+    const group = await screen.findByRole("radiogroup", { name: "Appearance" });
+
+    await user.click(within(group).getByRole("radio", { name: "Dark" }));
+    expect(within(group).getByRole("radio", { name: "Dark" })).toBeChecked();
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(localStorage.getItem("studysensei.appearance")).toBe("dark");
+
+    await user.click(within(group).getByRole("radio", { name: "System" }));
+    expect(within(group).getByRole("radio", { name: "System" })).toBeChecked();
+    expect(localStorage.getItem("studysensei.appearance")).toBeNull();
+  });
+
+  test("starts from the stored choice", async () => {
+    localStorage.setItem("studysensei.appearance", "light");
+    mockApi({ "GET /ai/status": () => aStatus() });
+    renderApp("/settings");
+
+    const group = await screen.findByRole("radiogroup", { name: "Appearance" });
+    expect(within(group).getByRole("radio", { name: "Light" })).toBeChecked();
+  });
+});

@@ -5,11 +5,14 @@ import { Button } from "@/ui/button";
 import { ConfirmDialog } from "@/ui/confirm-dialog";
 
 import { useDismissedTopics, useKeepAllTopics, useRestoreTopic, useTopicMap } from "./api";
+import { LoadingRows } from "./LoadingRows";
 import { reviewLine, reviewProgress } from "./topicReview";
 
 /**
  * Reviewing the AI's topics (decision 0009): the "Review" filter with its counter,
  * "Keep all remaining", the outcome line, and the dismissed topics with Restore.
+ * A floating glass toolbar (docs/DESIGN.md "Glass"): it sticks below the top navigation
+ * while the topics section scrolls, so the tree passes underneath it.
  */
 export function ReviewBar({
   moduleId,
@@ -31,8 +34,12 @@ export function ReviewBar({
   if (total === 0) return null;
 
   return (
-    <div role="region" aria-label="Topic review" className="mb-4 space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
+    <div
+      role="region"
+      aria-label="Topic review"
+      className="glass-strong sticky top-32 z-30 mb-4 grid gap-2 rounded-2xl px-3 py-2.5 sm:top-24 sm:px-4"
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Button
           size="sm"
           variant={filtering ? "default" : "outline"}
@@ -42,17 +49,22 @@ export function ReviewBar({
           <ListFilter aria-hidden />
           Review
         </Button>
-        <span className="text-sm" aria-live="polite">
+        <span className="tabular text-sm font-medium" aria-live="polite">
           {done} of {total} reviewed
         </span>
         {remaining > 0 && (
-          <Button size="sm" variant="ghost" onClick={() => setConfirmKeepAll(true)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="sm:ml-auto"
+            onClick={() => setConfirmKeepAll(true)}
+          >
             <CheckCheck aria-hidden />
             Keep all remaining
           </Button>
         )}
       </div>
-      {line && <p className="text-muted text-sm">{line}</p>}
+      {line && <p className="text-muted px-1 text-sm">{line}</p>}
       {(stats?.dismissed ?? 0) > 0 && <DismissedTopics moduleId={moduleId} />}
       <ConfirmDialog
         open={confirmKeepAll}
@@ -73,22 +85,34 @@ function DismissedTopics({ moduleId }: { moduleId: string }) {
 
   return (
     <details
-      className="border-line rounded-md border p-2 text-sm"
+      className="border-line border-t pt-2 text-sm"
       onToggle={(e) => setOpen(e.currentTarget.open)}
     >
-      <summary className="cursor-pointer">Dismissed topics</summary>
-      <p className="text-muted mt-1 text-xs">
+      <summary className="hover:bg-subtle min-h-9 cursor-pointer rounded-md px-1 py-2 font-medium transition-colors">
+        Dismissed topics
+      </summary>
+      <p className="text-muted mt-1 px-1 text-xs">
         Building the topic map again never adds these back. Restore one to bring it back.
       </p>
-      {dismissed.isPending && open && <p className="text-muted mt-1">Loading…</p>}
+      {dismissed.isPending && open && (
+        <LoadingRows
+          label="Loading dismissed topics…"
+          rows={2}
+          rowClassName="h-9"
+          className="mt-2"
+        />
+      )}
       {(dismissed.isError || restore.isError) && (
-        <p role="alert" className="text-danger mt-1">
+        <p role="alert" className="text-danger mt-1 px-1">
           {(dismissed.error ?? restore.error)?.message}
         </p>
       )}
-      <ul aria-label="Dismissed topics" className="mt-1 grid gap-1">
+      <ul
+        aria-label="Dismissed topics"
+        className="divide-line mt-1 grid max-h-48 divide-y overflow-y-auto"
+      >
         {dismissed.data?.map((item) => (
-          <li key={item.id} className="flex items-center gap-2">
+          <li key={item.id} className="flex items-center gap-2 py-1 pl-1">
             <span className="min-w-0 flex-1 truncate">{item.name}</span>
             <Button
               size="sm"

@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 
 import type { TopicNode } from "../api";
 import { findTopicName } from "../../session/topics";
+import { LoadingRows } from "../LoadingRows";
 import { useSessionDetail } from "./api";
 import { timelineRows } from "./history";
 
@@ -31,7 +32,7 @@ export function SessionDetailDialog({
           <DialogDescription>{topic}</DialogDescription>
         </DialogHeader>
 
-        {detail.isPending && <p className="text-muted text-sm">Loading…</p>}
+        {detail.isPending && <LoadingRows label="Loading session…" rows={3} rowClassName="h-10" />}
         {detail.isError && (
           <p role="alert" className="text-danger text-sm">
             {detail.error.message}
@@ -39,17 +40,17 @@ export function SessionDetailDialog({
         )}
         {session && (
           <div className="grid gap-6">
-            <p className="text-sm">
+            <p className="tabular text-sm font-medium">
               Active {formatDuration(session.active_seconds * 1000)} · Break{" "}
               {formatDuration(session.break_seconds * 1000)}{" "}
-              <span className="text-muted text-xs">
+              <span className="text-muted text-xs font-normal">
                 (Measured · from {session.events.length} timer events
                 {session.state !== "ended" && ", up to the last one"})
               </span>
             </p>
 
             <section aria-labelledby="reflection-heading">
-              <h3 id="reflection-heading" className="mb-2 text-sm font-semibold">
+              <h3 id="reflection-heading" className="type-label text-muted mb-2">
                 Reflection
               </h3>
               {session.focus_rating === null ? (
@@ -57,7 +58,7 @@ export function SessionDetailDialog({
                   {session.state === "ended" ? "No reflection was saved." : "Still in progress."}
                 </p>
               ) : (
-                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+                <dl className="bg-surface grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-lg p-4 text-sm">
                   <dt className="text-muted">Focus</dt>
                   <dd>{session.focus_rating}/5</dd>
                   <dt className="text-muted">Covered</dt>
@@ -77,12 +78,15 @@ export function SessionDetailDialog({
             </section>
 
             <section aria-labelledby="timeline-heading">
-              <h3 id="timeline-heading" className="mb-2 text-sm font-semibold">
+              <h3 id="timeline-heading" className="type-label text-muted mb-2">
                 Timeline
               </h3>
-              <ol aria-label="Timeline" className="divide-line border-line divide-y border-y">
+              <ol
+                aria-label="Timeline"
+                className="bg-surface divide-line divide-y overflow-hidden rounded-lg"
+              >
                 {timelineRows(session.events).map((row) => (
-                  <li key={row.id} className="flex gap-4 py-2 text-sm">
+                  <li key={row.id} className="flex gap-4 px-4 py-2 text-sm">
                     <time dateTime={row.at} className="text-muted tabular w-12 shrink-0">
                       {clock.format(new Date(row.at))}
                     </time>

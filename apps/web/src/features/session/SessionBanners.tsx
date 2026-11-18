@@ -11,7 +11,7 @@ function Banner({ children, action }: { children: ReactNode; action?: ReactNode 
   return (
     <div
       role="status"
-      className="border-line flex flex-wrap items-center justify-between gap-3 rounded-lg border-2 px-4 py-3"
+      className="surface-card flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3"
     >
       <p className="text-sm">{children}</p>
       {action}
