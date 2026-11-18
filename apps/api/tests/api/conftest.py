@@ -8,14 +8,20 @@ from pathlib import Path
 import pytest
 from fastapi import Request
 from httpx import ASGITransport, AsyncClient
+from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.client import LLMClient, set_llm_client
+from app.ai.usage import DbUsageStore
 from app.api.deps import get_current_user
+from app.core.config import Settings, get_settings
 from app.core.db import get_session
 from app.main import app
 from app.models import User
 from app.storage.local import LocalStorage, get_storage
 from tests.academics.conftest import Rows, make_rows
+from tests.ai.conftest import routes, shared_session
+from tests.fakes import FakeLLM
 
 # Only the test app reads this header; the real get_current_user ignores it.
 TEST_USER_HEADER = "X-Test-User"
@@ -80,3 +86,34 @@ def storage(tmp_path: Path) -> Iterator[LocalStorage]:
     app.dependency_overrides[get_storage] = lambda: store
     yield store
     app.dependency_overrides.pop(get_storage, None)
+
+
+# Fake keys: only the fake transport ever sees them.
+PING_GEMINI_KEY = "gemini-ping-test-key-0000"
+PING_GROQ_KEY = "groq-ping-test-key-0000"
+
+
+def ping_settings(*, keys: bool = True) -> Settings:
+    """Two providers, three short-named models; Flash's budget is two a day."""
+    return get_settings().model_copy(
+        update={
+            "gemini_api_key": SecretStr(PING_GEMINI_KEY) if keys else None,
+            "groq_api_key": SecretStr(PING_GROQ_KEY) if keys else None,
+            "ollama_model": None,
+            "ai_smart": routes("gemini/flash", "groq/oss-120b"),
+            "ai_bulk": routes("gemini/flash-lite", "groq/oss-120b"),
+            "ai_vision": routes("gemini/flash"),
+            "ai_long": routes("gemini/flash-lite"),
+            "ai_daily_budget": {"gemini/flash": 2, "gemini/flash-lite": 100},
+        }
+    )
+
+
+@pytest.fixture
+def ping_llm(session: AsyncSession) -> Iterator[FakeLLM]:
+    """The process's LLM client on a fake transport, logging usage into the test session."""
+    fake = FakeLLM()
+    usage = DbUsageStore(shared_session(session))
+    set_llm_client(LLMClient(ping_settings(), usage, transport=fake.transport))
+    yield fake
+    set_llm_client(None)
