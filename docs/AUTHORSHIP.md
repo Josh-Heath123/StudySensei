@@ -8,6 +8,8 @@ Recorded 18 Nov 2026.
 - Commit emails in the history (as of 18 Nov 2026):
   - `joshuaheath004@gmail.com` (personal): 187 commits;
   - `u23541475@tuks.co.za` (university address): 7 commits, from 19 to 26 Jan 2026.
+  - From 18 Nov 2026 (the S1 spike, PR #31 onwards): GitHub's private noreply address for the same account,
+    `209814038+Josh-Heath123@users.noreply.github.com`, after email privacy was turned on for the account.
 
 ## Origin
 
