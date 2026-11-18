@@ -8,6 +8,10 @@ on:
   push:
     branches: [main]
 
+# Least privilege: read the code; the changes job also lists the PR's files.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -17,6 +21,9 @@ jobs:
   # file runs everything.
   changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       code: ${{ steps.filter.outputs.code }}
     steps:
