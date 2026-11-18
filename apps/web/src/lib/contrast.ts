@@ -1,6 +1,7 @@
 /** WCAG 2 contrast checks for the colours in docs/DESIGN.md. */
 
-export const INK = "#111111";
+/** The dark text that sits on module colours and pink (the light theme's fg). */
+export const INK = "#0B0B12";
 export const PAPER = "#FFFFFF";
 /** WCAG AA for normal text. */
 export const MIN_CONTRAST = 4.5;
@@ -28,7 +29,7 @@ export function contrastRatio(a: string, b: string): number {
   return (light + 0.05) / (dark + 0.05);
 }
 
-/** Module colours are fills behind ink text, so they must reach 4.5:1 against ink. */
+/** Module colours are fills behind dark text, so they must reach 4.5:1 against it. */
 export function readableOnInk(hex: string): boolean {
   return contrastRatio(hex, INK) >= MIN_CONTRAST;
 }

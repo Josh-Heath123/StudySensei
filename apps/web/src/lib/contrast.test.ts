@@ -9,7 +9,7 @@ describe("contrastRatio", () => {
   });
 
   it("doesn't care about order or case", () => {
-    expect(contrastRatio(INK, PAPER)).toBe(contrastRatio("#ffffff", "#111111"));
+    expect(contrastRatio(INK, PAPER)).toBe(contrastRatio("#ffffff", "#0b0b12"));
   });
 
   it("rejects anything that isn't #RRGGBB", () => {
@@ -19,7 +19,7 @@ describe("contrastRatio", () => {
 
 describe("module swatches (docs/DESIGN.md)", () => {
   it.each(MODULE_SWATCHES.map((s) => [s.name, s.value]))(
-    "%s %s reaches 4.5:1 behind ink text",
+    "%s %s reaches 4.5:1 behind dark text",
     (_name, value) => {
       expect(contrastRatio(value, INK)).toBeGreaterThanOrEqual(MIN_CONTRAST);
       expect(readableOnInk(value)).toBe(true);
@@ -33,18 +33,7 @@ describe("module swatches (docs/DESIGN.md)", () => {
   });
 });
 
-describe("token contrast claims in docs/DESIGN.md", () => {
-  it.each([
-    ["muted", "#5B5B5B", 6.8],
-    ["danger", "#C4161C", 6.0],
-    ["warning", "#9A5B00", 5.3],
-    ["success", "#1E7B46", 5.3],
-  ])("%s %s is at least %s:1 on paper", (_name, value, claimed) => {
-    const ratio = contrastRatio(value, PAPER);
-    expect(ratio).toBeGreaterThanOrEqual(MIN_CONTRAST);
-    expect(ratio).toBeGreaterThanOrEqual(claimed - 0.05);
-  });
-});
+// Token contrast, in both themes, is checked against the stylesheet in tokens.test.ts.
 
 describe("formatRatio", () => {
   it("rounds down so a failing colour never looks like it passes", () => {

@@ -2,79 +2,152 @@
 @import "tw-animate-css";
 
 /*
- * Design system v1, "Planner" (docs/DESIGN.md). Ink on paper; colour is rare and
- * means something (a module's colour or a status). Flat and square: no shadows.
+ * Design system v2, direction C "Glass" (docs/DESIGN.md, decision 0012). Calm solid
+ * surfaces on a soft canvas; glass only for things that float (navigation, dialogs,
+ * menus, toolbars, the session's control bar); violet for action, pink as an accent.
+ *
+ * Every colour is a variable below, set per theme on <html data-theme="light|dark">
+ * (index.html sets it before the first paint). Components use the Tailwind names
+ * mapped in `@theme inline`, never raw values. src/lib/tokens.test.ts checks the
+ * contrast of every text and control pair in both themes.
  */
 
-@theme {
-  /* Colour */
-  --color-ink: #111111;
-  --color-paper: #ffffff;
-  --color-muted: #5b5b5b; /* secondary TEXT (6.8:1 on paper), not a background */
-  --color-line: #e8e8e8;
-  --color-surface: #f0f0f0;
-  --color-danger: #c4161c;
-  --color-warning: #9a5b00;
-  --color-success: #1e7b46;
-  --color-on-dark-muted: #d4d4d4; /* eyebrows inside the ink card */
-  --color-on-dark-line: #737373; /* outline of buttons inside the ink card */
-
-  /* Type */
-  --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
-  --font-display: "Space Grotesk", "Inter Variable", system-ui, sans-serif;
-  --text-xs: 12px;
-  --text-xs--line-height: 1.2;
-  --text-sm: 13px;
-  --text-sm--line-height: 1.4;
-  --text-base: 15px;
-  --text-base--line-height: 1.5;
-
-  /* Shape: 3 for citation chips, 4 for controls, 6 for cards. Nothing rounder. */
-  --radius-xs: 3px;
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 6px;
-  --radius-xl: 6px;
-  --radius-2xl: 6px;
-
-  /* No shadows anywhere. */
-  --shadow-*: initial;
-  --inset-shadow-*: initial;
-  --drop-shadow-*: initial;
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+  --canvas: #f0f0f0;
+  --surface: #ffffff;
+  --surface-2: #f7f7f8;
+  --subtle: #f7f7f8;
+  --fg: #0b0b12;
+  --muted: #5e5e6b;
+  --line: rgba(11, 11, 18, 0.08);
+  /* Boundaries a control needs to be seen by (inputs, outlines): 3:1 on surfaces. */
+  --line-strong: #838394;
+  --primary: #5840ff;
+  --primary-hover: #4a33e0;
+  /* The violet button's 1px edge: a 3:1 boundary on every surface. */
+  --primary-edge: #5840ff;
+  --on-primary: #ffffff;
+  --link: #5840ff;
+  --ring: #5840ff;
+  --danger: #c0183c;
+  --warning: #8a5200;
+  --success: #137446;
+  --pink: #fe6bd4;
+  --violet: #5840ff;
+  --accent-soft: #ece8ff;
+  --scrim: rgba(11, 11, 18, 0.35);
+  /* Glass (docs/DESIGN.md "Glass"): the recipe tint, and a stronger one for glass that
+     can float over anything; both keep 4.5:1 for fg and muted text in the worst case. */
+  --glass: rgba(255, 255, 255, 0.62);
+  --glass-hero: rgba(255, 255, 255, 0.8);
+  --glass-strong: rgba(255, 255, 255, 0.86);
+  --glass-border: rgba(255, 255, 255, 0.7);
+  --glass-hairline: rgba(11, 11, 18, 0.06);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --mist-a: rgba(254, 107, 212, 0.22);
+  --mist-b: rgba(88, 64, 255, 0.2);
+  --elev-1: 0 1px 2px rgba(17, 12, 46, 0.06), 0 1px 1px rgba(17, 12, 46, 0.04);
+  --elev-2: 0 4px 12px rgba(17, 12, 46, 0.07), 0 1px 3px rgba(17, 12, 46, 0.05);
+  --elev-3: 0 18px 48px rgba(17, 12, 46, 0.14), 0 4px 12px rgba(17, 12, 46, 0.06);
+  --top-highlight: inset 0 0 0 0 transparent;
 }
 
-/* shadcn components read these names; they all point at the tokens above. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #0b0b12;
+  --surface: #15151f;
+  --surface-2: #1c1c28;
+  --subtle: #1c1c28;
+  --fg: #f0f0f0;
+  --muted: #a3a3b5;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: #72728a;
+  --primary: #5840ff;
+  --primary-hover: #6a55ff;
+  --primary-edge: #8b7bff;
+  --on-primary: #ffffff;
+  --link: #8b7bff;
+  --ring: #8b7bff;
+  --danger: #ff7b8f;
+  --warning: #f0b44c;
+  --success: #4cd69b;
+  --pink: #fe6bd4;
+  --violet: #5840ff;
+  --accent-soft: #24203f;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --glass: rgba(24, 24, 36, 0.55);
+  --glass-hero: rgba(24, 24, 36, 0.78);
+  --glass-strong: rgba(24, 24, 36, 0.86);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-hairline: rgba(255, 255, 255, 0.04);
+  --glass-highlight: rgba(255, 255, 255, 0.06);
+  --mist-a: rgba(254, 107, 212, 0.16);
+  --mist-b: rgba(88, 64, 255, 0.24);
+  /* Depth in dark mode comes from surface steps and a faint top highlight. */
+  --elev-1: 0 0 0 0 transparent;
+  --elev-2: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --elev-3: 0 12px 32px rgba(0, 0, 0, 0.4);
+  --top-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
 :root {
-  --radius: 4px;
-  --background: var(--color-paper);
-  --foreground: var(--color-ink);
-  --card: var(--color-paper);
-  --card-foreground: var(--color-ink);
-  --popover: var(--color-paper);
-  --popover-foreground: var(--color-ink);
-  --primary: var(--color-ink);
-  --primary-foreground: var(--color-paper);
-  --secondary: var(--color-surface);
-  --secondary-foreground: var(--color-ink);
-  --accent: var(--color-surface);
-  --accent-foreground: var(--color-ink);
-  --muted-foreground: var(--color-muted);
-  --destructive: var(--color-danger);
-  --border: var(--color-line);
-  --input: var(--color-line);
-  --ring: var(--color-ink);
+  /* The signature gradient, the same in both themes. */
+  --gradient: linear-gradient(135deg, #fe6bd4 0%, #a77bf6 50%, #5840ff 100%);
   /* A page sets this to its module's colour; components use bg-[var(--module)]. */
   --module: #ff7a3d;
+  /* Text on module colours and on pink: always dark, in both themes. */
+  --on-fill: #0b0b12;
+
+  /* shadcn components read these names; they all point at the tokens above. */
+  --radius: 10px;
+  --background: var(--canvas);
+  --foreground: var(--fg);
+  --card: var(--surface);
+  --card-foreground: var(--fg);
+  --popover: var(--surface);
+  --popover-foreground: var(--fg);
+  --primary-foreground: var(--on-primary);
+  --secondary: var(--subtle);
+  --secondary-foreground: var(--fg);
+  --accent: var(--subtle);
+  --accent-foreground: var(--fg);
+  --muted-foreground: var(--muted);
+  --destructive: var(--danger);
+  --border: var(--line);
+  --input: var(--line-strong);
 }
 
 @theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-subtle: var(--subtle);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-edge: var(--primary-edge);
+  --color-on-primary: var(--on-primary);
+  --color-link: var(--link);
+  --color-ring: var(--ring);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-pink: var(--pink);
+  --color-on-fill: var(--on-fill);
+  --color-violet: var(--violet);
+  --color-accent-soft: var(--accent-soft);
+  --color-scrim: var(--scrim);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -84,58 +157,155 @@
   --color-destructive: var(--destructive);
   --color-border: var(--border);
   --color-input: var(--input);
-  --color-ring: var(--ring);
+
+  --shadow-sm: var(--elev-1);
+  --shadow-md: var(--elev-2);
+  --shadow-lg: var(--elev-3);
 }
 
-/* Type styles from the spec's type table. */
+@theme {
+  --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
+  --text-xs: 12px;
+  --text-xs--line-height: 1.3;
+  --text-sm: 13px;
+  --text-sm--line-height: 1.45;
+  --text-base: 15px;
+  --text-base--line-height: 1.55;
+
+  /* Shape: controls 10–12, cards 16–20, dialogs and sheets 24. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+
+  /* Motion: 120 / 200 / 320 ms on one soft ease-out. */
+  --ease-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --default-transition-duration: 200ms;
+  --default-transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-shimmer: shimmer 1.6s var(--ease-soft) infinite;
+
+  @keyframes shimmer {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+}
+
+/* Type styles (docs/DESIGN.md "Type"): Inter only. */
 @utility type-display {
-  font-family: var(--font-display);
-  font-size: 56px;
+  font-size: clamp(44px, 5.2vw, 64px);
   line-height: 1;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-weight: 300;
+  letter-spacing: -0.035em;
 }
 @utility type-timer {
-  font-family: var(--font-display);
-  font-size: 128px;
-  line-height: 0.9;
-  font-weight: 700;
+  font-size: clamp(88px, 15vw, 168px);
+  line-height: 0.95;
+  font-weight: 200;
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
 }
 @utility type-countdown {
-  font-family: var(--font-display);
   font-size: 40px;
   line-height: 1;
-  font-weight: 700;
+  font-weight: 300;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
 }
 @utility type-h1 {
-  font-family: var(--font-display);
-  font-size: 40px;
-  line-height: 1.1;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 36px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: -0.025em;
 }
 @utility type-h2 {
-  font-family: var(--font-display);
-  font-size: 30px;
-  line-height: 1.1;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: 24px;
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.015em;
 }
 @utility type-h3 {
-  font-family: var(--font-display);
-  font-size: 20px;
-  line-height: 1.2;
-  font-weight: 700;
+  font-size: 17px;
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 @utility type-label {
   font-size: 12px;
-  line-height: 1.2;
+  line-height: 1.3;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+/* A solid card: the default container for anything to read. */
+@utility surface-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--elev-1), var(--top-highlight);
+}
+
+/*
+ * Glass (docs/DESIGN.md "Glass"): only for floating chrome. `glass` is the recipe tint,
+ * for glass over a known backdrop (the session bar over its mist); `glass-strong` is for
+ * glass that can float over anything (navigation, dialogs, menus, toolbars, toasts).
+ * Without backdrop-filter, or when the user asks for less transparency, it's solid.
+ */
+@utility glass {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    inset 0 0 0 1px var(--glass-hairline),
+    inset 0 1px 0 var(--glass-highlight),
+    var(--elev-3);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+}
+@utility glass-hero {
+  background: var(--glass-hero);
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+}
+@utility glass-strong {
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    inset 0 0 0 1px var(--glass-hairline),
+    inset 0 1px 0 var(--glass-highlight),
+    var(--elev-3);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass,
+  .glass-hero,
+  .glass-strong {
+    background: var(--surface);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-hero,
+  .glass-strong {
+    background: var(--surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Loading placeholders: a soft pulse, not a spinner. */
+@utility skeleton {
+  background: var(--subtle);
+  border-radius: var(--radius-md);
+  animation: var(--animate-shimmer);
 }
 
 @layer base {
@@ -144,12 +314,14 @@
   }
   html {
     -webkit-text-size-adjust: 100%;
+    background: var(--canvas);
   }
   body {
-    @apply bg-paper text-ink font-sans text-base antialiased;
+    @apply bg-canvas text-fg font-sans text-base antialiased;
+    font-feature-settings: "cv11", "ss01";
   }
   :focus-visible {
-    outline: 2px solid var(--color-ink);
+    outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
   a,
@@ -158,13 +330,20 @@
   select,
   textarea,
   [role="tab"] {
-    transition-duration: 150ms;
-    transition-timing-function: ease-out;
+    transition-duration: 120ms;
+    transition-timing-function: var(--ease-soft);
+  }
+  svg.lucide {
+    stroke-width: 1.75;
   }
   time,
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+  ::selection {
+    background: color-mix(in srgb, var(--violet) 22%, transparent);
+  }
+  /* Reduced motion: no movement, only (instant) opacity. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -172,6 +351,15 @@
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    [data-state] {
+      --tw-enter-translate-x: 0 !important;
+      --tw-enter-translate-y: 0 !important;
+      --tw-enter-scale: 1 !important;
+      --tw-exit-translate-x: 0 !important;
+      --tw-exit-translate-y: 0 !important;
+      --tw-exit-scale: 1 !important;
     }
   }
 }

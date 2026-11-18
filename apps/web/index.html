@@ -4,7 +4,24 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <title>StudySensei</title>
+    <script>
+      // Appearance before the first paint (the same rules as src/lib/appearance.ts):
+      // the stored choice, else the system's. Storage can throw in private windows.
+      (function () {
+        var choice = "system";
+        try {
+          choice = localStorage.getItem("studysensei.appearance") || "system";
+        } catch (e) {}
+        var dark =
+          choice === "dark" ||
+          (choice !== "light" &&
+            !!window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

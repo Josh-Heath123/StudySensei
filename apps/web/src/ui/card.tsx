@@ -2,7 +2,7 @@ import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-/** A card: paper with a 2 px `line` border, or `ink` for the one key card on a page. */
+/** A solid card (docs/DESIGN.md "Card"); `key` lifts the one card a page centres on. */
 function Card({
   className,
   variant = "default",
@@ -12,8 +12,8 @@ function Card({
     <div
       data-slot="card"
       className={cn(
-        "bg-paper text-ink flex flex-col gap-4 rounded-lg border-2 py-5 sm:py-6",
-        variant === "key" ? "border-ink" : "border-line",
+        "surface-card text-fg flex flex-col gap-4 rounded-xl py-5 sm:py-6",
+        variant === "key" && "shadow-md",
         className,
       )}
       {...props}

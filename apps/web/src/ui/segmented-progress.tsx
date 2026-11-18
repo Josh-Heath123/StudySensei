@@ -12,8 +12,8 @@ type Segment = {
 };
 
 /**
- * docs/DESIGN.md "Segmented progress": focus segments `ink`, breaks `line`, the
- * elapsed part filled with the module colour, labels underneath.
+ * docs/DESIGN.md "Segmented progress": focus segments on a soft violet track, breaks on
+ * the subtle track, the elapsed part filled with the signature gradient, labels underneath.
  */
 function SegmentedProgress({
   segments,
@@ -28,12 +28,12 @@ function SegmentedProgress({
             key={i}
             style={{ flexGrow: segment.minutes, flexBasis: 0 }}
             className={cn(
-              "relative h-3 overflow-hidden rounded-md",
-              segment.kind === "focus" ? "bg-ink" : "bg-line",
+              "relative h-2 overflow-hidden rounded-full",
+              segment.kind === "focus" ? "bg-accent-soft" : "bg-subtle",
             )}
           >
             <div
-              className="absolute inset-y-0 left-0 bg-[var(--module)] transition-[width] duration-150 ease-out"
+              className="ease-soft absolute inset-y-0 left-0 bg-[image:var(--gradient)] bg-[length:100cqw_100%] transition-[width] duration-200"
               style={{ width: `${Math.round(segment.filled * 1000) / 10}%` }}
             />
           </div>
