@@ -46,7 +46,7 @@ export function TasksTab({ moduleId }: { moduleId: string }) {
   }
 
   return (
-    <section aria-labelledby="tasks-heading" className="max-w-3xl">
+    <section aria-labelledby="tasks-heading">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
           <h2 id="tasks-heading" className="type-h2 mb-1">

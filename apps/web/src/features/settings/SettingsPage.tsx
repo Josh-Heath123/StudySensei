@@ -27,7 +27,8 @@ export function SettingsPage() {
   return (
     <>
       <PageHeader title="Settings" />
-      <section aria-labelledby="ai-providers" className="grid gap-6">
+      <AppearanceSection />
+      <section aria-labelledby="ai-providers" className="mt-12 grid gap-6">
         <div>
           <h2 id="ai-providers" className="type-h2">
             AI providers
@@ -56,7 +57,6 @@ export function SettingsPage() {
           </div>
         )}
       </section>
-      <AppearanceSection />
     </>
   );
 }
@@ -96,7 +96,7 @@ function AppearanceSection() {
   }
 
   return (
-    <section aria-labelledby="appearance" className="mt-12 grid gap-6">
+    <section aria-labelledby="appearance" className="grid gap-6">
       <h2 id="appearance" className="type-h2">
         Appearance
       </h2>

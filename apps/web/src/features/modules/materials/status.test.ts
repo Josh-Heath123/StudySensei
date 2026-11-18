@@ -35,15 +35,20 @@ test("says how far processing has got", () => {
   ).toEqual({ text: "Failed: The PDF is password-protected.", tone: "danger" });
 });
 
-test("ready, with how many pages will need the vision step", () => {
+test("ready says just that; the scanned count is on the details line, once", () => {
   const ready = { status: "ready" as const, page_count: 12 };
-  expect(statusText(material({ ...ready, scanned_page_count: 0 })).text).toBe("Ready");
-  expect(statusText(material({ ...ready, scanned_page_count: 4 })).text).toBe(
-    "Ready · 4 of 12 pages scanned",
-  );
-  expect(statusText(material({ status: "ready", page_count: 1, scanned_page_count: 1 })).text).toBe(
-    "Ready · 1 of 1 page scanned",
-  );
+  expect(statusText(material({ ...ready, scanned_page_count: 0 }))).toEqual({
+    text: "Ready",
+    tone: "ink",
+  });
+  expect(statusText(material({ ...ready, scanned_page_count: 4 }))).toEqual({
+    text: "Ready",
+    tone: "ink",
+  });
+  expect(pageDetails(material({ ...ready, scanned_page_count: 4 }))).toEqual([
+    "12 pages",
+    "4 scanned",
+  ]);
 });
 
 test("page details appear once pages are known", () => {

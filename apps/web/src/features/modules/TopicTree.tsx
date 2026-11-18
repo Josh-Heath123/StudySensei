@@ -10,13 +10,21 @@ import {
   Plus,
   Trash2,
   X,
+  type LucideIcon,
 } from "lucide-react";
-import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { Fragment, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { ConfirmDialog } from "@/ui/confirm-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  MoreButton,
+} from "@/ui/dropdown-menu";
 import { Input } from "@/ui/input";
 
 import {
@@ -112,7 +120,7 @@ export function TopicTree({ moduleId }: { moduleId: string }) {
   const shown = filtering ? unreviewedOnly(tree.data ?? []) : (tree.data ?? []);
 
   return (
-    <section aria-labelledby="topics-heading" className="max-w-3xl">
+    <section aria-labelledby="topics-heading">
       <h2 id="topics-heading" className="type-h2 mb-2">
         Topics
       </h2>
@@ -225,6 +233,20 @@ function TopicList({
   );
 }
 
+type RowAction = {
+  key: string;
+  /** The visible menu label; the inline button's name is `${label}: ${topic}`. */
+  label: string;
+  menuLabel?: string;
+  icon: LucideIcon;
+  onSelect: () => void;
+  disabled?: boolean;
+  title?: string;
+  destructive?: boolean;
+  /** It opens an input that takes focus, so from the menu it waits until the menu has closed. */
+  movesFocus?: boolean;
+};
+
 function TopicItem({
   node,
   index,
@@ -240,6 +262,8 @@ function TopicItem({
 }) {
   const [renaming, setRenaming] = useState(false);
   const [adding, setAdding] = useState(false);
+  // A menu action that opens an input runs once the menu has closed and let go of focus.
+  const afterClose = useRef<(() => void) | null>(null);
 
   const moves = [
     { action: "up", label: "Move up", icon: ArrowUp },
@@ -247,6 +271,72 @@ function TopicItem({
     { action: "outdent", label: "Outdent", icon: ArrowLeft },
     { action: "indent", label: "Indent", icon: ArrowRight },
   ] as const;
+
+  const moveActions: RowAction[] = moves.map(({ action, label, icon }) => {
+    const target = moveTarget(action, siblings, index, parent);
+    return {
+      key: action,
+      label,
+      icon,
+      disabled: !target || actions.busy || actions.filtering,
+      onSelect: () => target && actions.move(node, target).catch(() => {}),
+    };
+  });
+  const editActions: RowAction[] = [
+    {
+      key: "rename",
+      label: "Rename",
+      icon: Pencil,
+      movesFocus: true,
+      onSelect: () => setRenaming(true),
+    },
+    {
+      key: "add",
+      label: "Add subtopic to",
+      menuLabel: "Add subtopic",
+      icon: Plus,
+      movesFocus: true,
+      onSelect: () => setAdding(true),
+    },
+  ];
+  const reviewActions: RowAction[] =
+    node.source === "ai"
+      ? [
+          {
+            key: "keep",
+            label: "Keep",
+            icon: Check,
+            title: "Keep it as it is",
+            disabled: actions.busy,
+            onSelect: () => actions.keep(node),
+          },
+          {
+            key: "merge",
+            label: "Merge into",
+            menuLabel: "Merge into…",
+            icon: GitMerge,
+            title: "Merge into another topic",
+            onSelect: () => actions.askMerge(node),
+          },
+          {
+            key: "dismiss",
+            label: "Dismiss",
+            icon: X,
+            title: "Dismiss: remove it and never add it again",
+            disabled: actions.busy,
+            onSelect: () => actions.dismiss(node),
+          },
+        ]
+      : [
+          {
+            key: "delete",
+            label: "Delete",
+            icon: Trash2,
+            destructive: true,
+            onSelect: () => actions.askDelete(node),
+          },
+        ];
+  const rowActions = [...moveActions, ...editActions, ...reviewActions];
 
   return (
     <li className="py-0.5">
@@ -267,7 +357,11 @@ function TopicItem({
           <button
             type="button"
             onClick={() => actions.showPages(node)}
-            className="min-w-[8rem] flex-1 cursor-pointer truncate rounded-sm py-1.5 text-left text-sm font-medium"
+            className={cn(
+              "min-w-[8rem] flex-1 cursor-pointer truncate rounded-sm py-1.5 text-left text-base",
+              // Chapters (top level) carry the weight; subtopics read as body text.
+              parent ? "font-normal" : "font-semibold",
+            )}
             title="Show its linked pages"
           >
             {node.name}
@@ -276,7 +370,7 @@ function TopicItem({
         {!renaming && (
           <span className="flex shrink-0 items-center gap-2">
             {node.linked_pages > 0 && (
-              <span className="text-muted tabular text-xs">
+              <span className="text-muted tabular text-sm">
                 {node.linked_pages} {node.linked_pages === 1 ? "page" : "pages"}
               </span>
             )}
@@ -288,81 +382,56 @@ function TopicItem({
           </span>
         )}
 
-        <div className="ml-auto flex shrink-0 flex-wrap items-center opacity-60 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-          {moves.map(({ action, label, icon: Icon }) => {
-            const target = moveTarget(action, siblings, index, parent);
-            return (
-              <Button
-                key={action}
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`${label}: ${node.name}`}
-                disabled={!target || actions.busy || actions.filtering}
-                onClick={() => target && actions.move(node, target).catch(() => {})}
-              >
-                <Icon aria-hidden />
-              </Button>
-            );
-          })}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Rename: ${node.name}`}
-            onClick={() => setRenaming(true)}
-          >
-            <Pencil aria-hidden />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Add subtopic to: ${node.name}`}
-            onClick={() => setAdding(true)}
-          >
-            <Plus aria-hidden />
-          </Button>
-          {node.source === "ai" ? (
-            <>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`Keep: ${node.name}`}
-                title="Keep it as it is"
-                disabled={actions.busy}
-                onClick={() => actions.keep(node)}
-              >
-                <Check aria-hidden />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`Merge into: ${node.name}`}
-                title="Merge into another topic"
-                onClick={() => actions.askMerge(node)}
-              >
-                <GitMerge aria-hidden />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`Dismiss: ${node.name}`}
-                title="Dismiss: remove it and never add it again"
-                disabled={actions.busy}
-                onClick={() => actions.dismiss(node)}
-              >
-                <X aria-hidden />
-              </Button>
-            </>
-          ) : (
+        {/* Mouse and keyboard: the icons appear on hover, or once one of them has focus (they
+            stay in the tab order). Touch has no hover, so it gets a single "…" menu instead. */}
+        <div className="ml-auto flex shrink-0 flex-wrap items-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:hidden">
+          {rowActions.map(({ key, label, icon: Icon, onSelect, disabled, title }) => (
             <Button
+              key={key}
               variant="ghost"
               size="icon-sm"
-              aria-label={`Delete: ${node.name}`}
-              onClick={() => actions.askDelete(node)}
+              aria-label={`${label}: ${node.name}`}
+              title={title}
+              disabled={disabled}
+              onClick={onSelect}
             >
-              <Trash2 aria-hidden />
+              <Icon aria-hidden />
             </Button>
-          )}
+          ))}
         </div>
+        <DropdownMenu>
+          <MoreButton
+            label={`Actions for ${node.name}`}
+            className="ml-auto hidden pointer-coarse:inline-flex"
+          />
+          <DropdownMenuContent
+            onCloseAutoFocus={(event) => {
+              const run = afterClose.current;
+              afterClose.current = null;
+              if (run) {
+                event.preventDefault();
+                run();
+              }
+            }}
+          >
+            {rowActions.map((action, i) => (
+              <Fragment key={action.key}>
+                {(i === moveActions.length || action.destructive) && <DropdownMenuSeparator />}
+                <DropdownMenuItem
+                  destructive={action.destructive}
+                  disabled={action.disabled}
+                  onSelect={() => {
+                    if (action.movesFocus) afterClose.current = action.onSelect;
+                    else action.onSelect();
+                  }}
+                >
+                  <action.icon aria-hidden />
+                  {action.menuLabel ?? action.label}
+                </DropdownMenuItem>
+              </Fragment>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {node.children.length > 0 && (

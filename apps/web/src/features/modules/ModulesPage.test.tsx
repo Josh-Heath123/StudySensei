@@ -109,7 +109,8 @@ test("edits a module from its page", async () => {
   renderApp("/modules/m1");
   const user = userEvent.setup();
 
-  await user.click(await screen.findByRole("button", { name: /Edit/ }));
+  await user.click(await screen.findByRole("button", { name: "Module actions" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
   const name = within(await screen.findByRole("dialog")).getByLabelText("Name");
   await user.clear(name);
   await user.type(name, "Architecture & Design");
@@ -132,7 +133,8 @@ test("deletes a module after confirming, then returns to the list", async () => 
   renderApp("/modules/m1");
   const user = userEvent.setup();
 
-  await user.click(await screen.findByRole("button", { name: /Delete/ }));
+  await user.click(await screen.findByRole("button", { name: "Module actions" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
   const confirm = await screen.findByRole("dialog", { name: "Delete COS330?" });
   expect(confirm).toHaveTextContent("also deletes all of its topics");
   await user.click(within(confirm).getByRole("button", { name: "Delete module" }));

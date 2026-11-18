@@ -6,12 +6,13 @@ import { Input } from "@/ui/input";
 
 import { useSearch, type Material, type SearchResult } from "./api";
 import { PagesDialog } from "./PagesDialog";
+import { groupByPage, plainSnippet } from "./searchResults";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /**
- * A plain search box over the module's indexed materials. Each result opens the page
- * text at its page. Until something is indexed, it says so instead of searching.
+ * A plain search box over the module's indexed materials. Each result names the material
+ * and page it opens, once per page however many hits fall there. Until something is indexed, it says so instead of searching.
  */
 export function MaterialSearch({
   moduleId,
@@ -100,7 +101,7 @@ export function MaterialSearch({
           aria-label={`Results for “${search.data.query}”`}
           className="surface-card divide-line mt-4 divide-y overflow-hidden rounded-xl"
         >
-          {search.data.results.map((result) => (
+          {groupByPage(search.data.results).map(({ best: result, matches }) => (
             <li key={result.chunk_id}>
               <button
                 type="button"
@@ -108,7 +109,13 @@ export function MaterialSearch({
                 className="hover:bg-subtle focus-visible:bg-subtle w-full px-4 py-3.5 text-left transition-colors focus-visible:-outline-offset-2 sm:px-5"
               >
                 <p className="text-sm">
-                  {result.snippet.map((part, index) =>
+                  <strong className="tabular font-semibold">
+                    {`${result.material_title} · page ${result.page_number}`}
+                  </strong>
+                  {result.page_title && <span className="text-muted"> · {result.page_title}</span>}
+                </p>
+                <p className="mt-1 line-clamp-3 text-sm">
+                  {plainSnippet(result.snippet).map((part, index) =>
                     part.highlight ? (
                       <mark
                         key={index}
@@ -121,11 +128,9 @@ export function MaterialSearch({
                     ),
                   )}
                 </p>
-                <p className="text-muted mt-1 text-xs">
-                  <span>{result.original_filename}</span>
-                  <span className="tabular"> · Page {result.page_number}</span>
-                  {result.page_title && <span> · {result.page_title}</span>}
-                </p>
+                {matches > 1 && (
+                  <p className="text-muted mt-1 text-xs">{matches} matches on this page</p>
+                )}
               </button>
             </li>
           ))}

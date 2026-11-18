@@ -119,9 +119,11 @@ test("uploads each file as multipart with its kind, title and AI flag, then foll
 
     list[0] = aMaterial({ ...list[0], status: "ready", page_count: 12, scanned_page_count: 4 });
     await act(() => vi.advanceTimersByTimeAsync(2000));
-    expect(within(uploaded).getByRole("status")).toHaveTextContent("Ready · 4 of 12 pages scanned");
-    expect(uploaded).toHaveTextContent("12 pages");
-    expect(uploaded).toHaveTextContent("4 scanned");
+    expect(within(uploaded).getByRole("status")).toHaveTextContent(/^Ready$/);
+    expect(within(uploaded).getByText("12 pages")).toBeInTheDocument();
+    // The scanned count is said once, on the details line.
+    expect(within(uploaded).getAllByText(/scanned/)).toHaveLength(1);
+    expect(within(uploaded).getByText("4 scanned")).toBeInTheDocument();
 
     // Nothing in flight: no more polling.
     const before = calls.length;

@@ -109,7 +109,7 @@ export function MaterialsTab({ moduleId }: { moduleId: string }) {
   const rows = materials.data ?? [];
 
   return (
-    <section aria-labelledby="materials-heading" className="max-w-3xl">
+    <section aria-labelledby="materials-heading">
       <h2 id="materials-heading" className="type-h3 mb-4">
         Materials
       </h2>
@@ -349,8 +349,8 @@ function MaterialRow({
   const [deleting, setDeleting] = useState(false);
   const [viewing, setViewing] = useState(false);
   const status = statusText(material);
+  // One muted line of file facts; the kind sits by the title, the state in the chip.
   const details = [
-    KIND_LABELS[material.kind],
     material.original_filename,
     formatSize(material.size_bytes),
     ...pageDetails(material),
@@ -358,9 +358,12 @@ function MaterialRow({
 
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-2 py-4" aria-label={material.title}>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{material.title}</p>
-        <p className="text-muted flex flex-wrap gap-x-3 text-xs">
+      <div className="min-w-0 flex-1 max-sm:basis-full">
+        <p className="flex min-w-0 items-baseline gap-2">
+          <span className="text-sm font-medium break-words sm:truncate">{material.title}</span>
+          <span className="text-muted shrink-0 text-xs">{KIND_LABELS[material.kind]}</span>
+        </p>
+        <p className="text-muted mt-0.5 flex flex-wrap gap-x-3 text-xs">
           {details.map((detail) => (
             <span key={detail}>{detail}</span>
           ))}
