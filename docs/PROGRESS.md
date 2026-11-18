@@ -2,6 +2,55 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-18: Glass polish, and the e2e failure on main
+
+- **CI on main was red** (run 44321451301: the e2e job's "a PDF opens from a search result" failed after #33 merged,
+  though it passed on the PR; seen once locally before #33 too).
+  - **Root cause:** a race in the viewer, not in the test. `PdfPage` kept "drawing" as state that it only set to true
+    in an effect, after React had committed the new page. For one commit after turning from page 3 to page 1, the page
+    region read "Page 1, aria-busy false" with page 3's stale state. The test's wait for `aria-busy="false"` passed at
+    once, the effect then started drawing (which clears the canvas), and the canvas check read a blank canvas.
+  - A second window: when a drawn page grew tall enough to need the box's scrollbar, the box narrowed and the page was
+    redrawn.
+  - **Fix:** busy is derived from what was last drawn completely (page, zoom and size), so a new page is busy from its
+    first commit. Fit page has a fixed-height box that never scrolls; Fit width reserves its scrollbar space.
+  - A regression test reads the region in every commit (a React Profiler) and fails on the old component.
+  - No sleeps or retries.
+- **CI:** checkout v7, setup-node v7, cache v5, upload-artifact v7, setup-uv v10 (all Node 24); every job pinned to
+  `ubuntu-24.04`. "CI passed" is still the only required check.
+- **Polish:**
+  - **Badges:** violet with an ink label. The CI badge keeps shields.io's status colour, so failures still show red.
+  - **Search results:** led by "title · page N", with the snippet clamped below. Markdown is stripped for display, one
+    result per page shows "N matches on this page", and the API is unchanged.
+  - **Viewer:** Fit page (the default, no scrollbars) and Fit width.
+  - **Topic tree:** chapter rows are bolder than subtopic rows. Row actions show on hover or focus, and sit in a "…"
+    menu on touch screens.
+  - **Module header:** Edit and Delete moved into a "…" menu.
+  - **Layout:** one 1120 px container for every page.
+  - **Today:** "Next up" now says "Start a session on any module."; "Your day" is a compact empty state instead of an
+    empty hour grid.
+  - **Phones:** a glass bottom tab bar under 640 px, with the wordmark staying at the top.
+  - **Materials rows:** each fact said once.
+  - **Settings:** Appearance first.
+  - **Navigation glass:** stronger (`glass-nav`, 0.92 / 0.94 tint and 36 px blur; checked in `tokens.test.ts`).
+  - **Session:** one centred column, with a small card for Materials and the tutor note.
+- **Tests changed** (only where markup or copy changed):
+  - module Edit and Delete are opened from the menu;
+  - search hits are asserted by title and page, in the unit test and in two e2e lines;
+  - the ready chip says "Ready", and the scanned count appears once;
+  - Today asserts no hour grid and the new Next-up line.
+- **New tests:** the viewer race, Fit page / Fit width, Markdown stripping and grouping (11), one result per page, and
+  the topic "…" menu.
+- **Repeat run:** `npm run e2e -- --repeat-each=10`: **30 of 30 passed** (3 tests × 10). Getting there exposed two
+  problems with the tests themselves, now fixed with no sleeps or retries:
+  - **Fixed module codes:** a repeat reuses the database, so each run's module code now gets a suffix
+    (`uniqueCode`, e.g. `MAT101-R3`).
+  - **Paused clock too early:** the session spec paused its fake clock before opening the start dialog. The app's data
+    layer delivers results through timers, so switching to this run's module (when an earlier run's module was the
+    default) never showed its topics. The clock now runs until the dialog is filled, then pauses before Start.
+  - Also, the first search of a run waits for its own result (the API loads the embedding model on first use) instead
+    of the default 5 s.
+
 ## 2026-11-18: Visual direction C "Glass" (decision 0012)
 
 - **Done:**

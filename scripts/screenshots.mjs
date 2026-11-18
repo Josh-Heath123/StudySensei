@@ -45,7 +45,9 @@ function stopAll() {
   for (const child of children.splice(0)) {
     if (child.pid === undefined) continue;
     if (process.platform === "win32") {
-      spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+      spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+        stdio: "ignore",
+      });
     } else {
       try {
         process.kill(-child.pid, "SIGTERM");
@@ -68,7 +70,8 @@ function start(name, cmd, cwd, extra = {}) {
   child.stdout.on("data", (chunk) => (output += chunk));
   child.stderr.on("data", (chunk) => (output += chunk));
   child.on("exit", (code) => {
-    if (code && children.includes(child)) console.error(`${name} exited (${code}):\n${output}`);
+    if (code && children.includes(child))
+      console.error(`${name} exited (${code}):\n${output}`);
   });
   children.push(child);
 }
@@ -106,7 +109,9 @@ async function frame(browser, png, file, theme) {
       `border-radius:16px;overflow:hidden;background:${canvas};width:${width}px;height:${height}px">` +
       `<img src="${src}" style="display:block;width:100%;height:100%"></div></body>`,
   );
-  await page.locator("#f").screenshot({ path: path.join(outDir, file), omitBackground: true });
+  await page
+    .locator("#f")
+    .screenshot({ path: path.join(outDir, file), omitBackground: true });
   await page.close();
   const kb = Math.round(statSync(path.join(outDir, file)).size / 1024);
   console.log(`  ${file}: ${kb} KB`);
@@ -148,7 +153,9 @@ async function main() {
     .toString()
     .trim();
   if (exists !== "1") {
-    run(`docker compose exec -T db psql -U studysensei -d studysensei -c "CREATE DATABASE ${DB}"`);
+    run(
+      `docker compose exec -T db psql -U studysensei -d studysensei -c "CREATE DATABASE ${DB}"`,
+    );
   }
   rmSync(STORAGE_DIR, { recursive: true, force: true });
   run("uv run --directory apps/api alembic downgrade base");
@@ -157,14 +164,25 @@ async function main() {
   run(`uv run --directory apps/api python -m scripts.demo_seed --now ${NOW}`);
 
   console.log("Starting the API and the web app on their own ports…");
-  start("API", `uv run uvicorn app.main:app --port ${API_PORT}`, path.join(root, "apps", "api"));
-  start("web", `npx vite --port ${WEB_PORT} --strictPort`, path.join(root, "apps", "web"), {
-    API_PROXY_TARGET: `http://localhost:${API_PORT}`,
-  });
+  start(
+    "API",
+    `uv run uvicorn app.main:app --port ${API_PORT}`,
+    path.join(root, "apps", "api"),
+  );
+  start(
+    "web",
+    `npx vite --port ${WEB_PORT} --strictPort`,
+    path.join(root, "apps", "web"),
+    {
+      API_PROXY_TARGET: `http://localhost:${API_PORT}`,
+    },
+  );
   await waitFor(`http://localhost:${API_PORT}/health`, "The API");
   await waitFor(`http://localhost:${WEB_PORT}`, "The web app");
 
-  const modules = await (await fetch(`http://localhost:${API_PORT}/modules`)).json();
+  const modules = await (
+    await fetch(`http://localhost:${API_PORT}/modules`)
+  ).json();
   const module = modules.find((item) => item.code === "NET201");
   if (!module) throw new Error("The demo module NET201 wasn't seeded");
 
@@ -184,30 +202,57 @@ async function main() {
       await page.getByLabel("Database: Connected").waitFor();
       await settle(page);
       // The whole page, so the deadlines under the day timeline are in it too.
-      await frame(browser, await page.screenshot({ fullPage: true }), `today-${theme}.png`, theme);
+      await frame(
+        browser,
+        await page.screenshot({ fullPage: true }),
+        `today-${theme}.png`,
+        theme,
+      );
 
       await page.goto(`/modules/${module.id}?tab=topics`);
-      await page.getByRole("button", { name: /Slow start and ssthresh/ }).first().click();
+      await page
+        .getByRole("button", { name: /Slow start and ssthresh/ })
+        .first()
+        .click();
       const pages = page.getByRole("dialog");
       await pages.waitFor();
-      await pages.getByText(/Week 6 slides/).first().waitFor();
+      await pages
+        .getByText(/Week 6 slides/)
+        .first()
+        .waitFor();
       await settle(page);
-      await frame(browser, await page.screenshot(), `topics-${theme}.png`, theme);
+      await frame(
+        browser,
+        await page.screenshot(),
+        `topics-${theme}.png`,
+        theme,
+      );
       await page.keyboard.press("Escape");
 
       await page.goto(`/modules/${module.id}?tab=materials`);
-      await page.getByRole("searchbox", { name: "Search materials" }).fill("slow start threshold");
+      await page
+        .getByRole("searchbox", { name: "Search materials" })
+        .fill("slow start threshold");
       await page.getByRole("button", { name: "Search", exact: true }).click();
-      const results = page.getByRole("list", { name: "Results for “slow start threshold”" });
+      const results = page.getByRole("list", {
+        name: "Results for “slow start threshold”",
+      });
       const hit = results.getByRole("button").first();
       await hit.waitFor();
-      console.log(`  first search result: ${(await hit.innerText()).split("\n")[0]}`);
+      console.log(
+        `  first search result: ${(await hit.innerText()).split("\n")[0]}`,
+      );
       await hit.click();
       const viewer = page.getByRole("dialog", { name: "Week 6 slides" });
       await viewer.getByText(/Page \d+ of 6/).waitFor();
       await viewer.locator("canvas").first().waitFor();
       await settle(page, 2000); // pdf.js draws the page
-      await frame(browser, await page.screenshot(), `viewer-${theme}.png`, theme);
+      await frame(
+        browser,
+        await page.screenshot(),
+        `viewer-${theme}.png`,
+        theme,
+      );
       await ctx.close();
 
       // A running session: a paused clock, so the timer shows exactly 18 minutes in. Only one
@@ -218,8 +263,13 @@ async function main() {
       await sessionPage.clock.pauseAt(fixed + 1000);
       if (theme === "light") {
         await sessionPage.goto("/");
-        await sessionPage.getByRole("button", { name: "Start session" }).first().click();
-        const dialog = sessionPage.getByRole("dialog", { name: "Start a study session" });
+        await sessionPage
+          .getByRole("button", { name: "Start session" })
+          .first()
+          .click();
+        const dialog = sessionPage.getByRole("dialog", {
+          name: "Start a study session",
+        });
         await dialog.getByLabel("Module").selectOption(module.id);
         await dialog
           .getByLabel("Topic (optional)")
@@ -230,14 +280,23 @@ async function main() {
       }
       await sessionPage.getByRole("timer").waitFor();
       await sessionPage.clock.runFor(18 * 60 * 1000);
-      await sessionPage.getByRole("timer").filter({ hasText: "32:00" }).waitFor();
+      await sessionPage
+        .getByRole("timer")
+        .filter({ hasText: "32:00" })
+        .waitFor();
       await settle(sessionPage, 400);
-      await frame(browser, await sessionPage.screenshot(), `session-${theme}.png`, theme);
+      await frame(
+        browser,
+        await sessionPage.screenshot(),
+        `session-${theme}.png`,
+        theme,
+      );
       await sessionCtx.close();
     }
 
     const qa = process.argv.indexOf("--qa");
-    if (qa !== -1) await review(browser, process.argv[qa + 1], module.id, fixed);
+    if (qa !== -1)
+      await review(browser, process.argv[qa + 1], module.id, fixed);
   } finally {
     await browser.close();
   }
@@ -278,14 +337,25 @@ async function review(browser, dir, moduleId, fixed) {
       }
       // The main dialogs.
       await page.goto(`/modules/${moduleId}?tab=topics`);
-      await page.getByRole("button", { name: /Slow start and ssthresh/ }).first().click();
-      await page.getByRole("dialog").getByText(/Week 6 slides/).first().waitFor();
+      await page
+        .getByRole("button", { name: /Slow start and ssthresh/ })
+        .first()
+        .click();
+      await page
+        .getByRole("dialog")
+        .getByText(/Week 6 slides/)
+        .first()
+        .waitFor();
       await settle(page);
       await shoot("dialog-linked-pages");
       await page.keyboard.press("Escape");
       await page.goto(`/modules/${moduleId}?tab=materials`);
       await page.getByRole("button", { name: "View Week 6 slides" }).click();
-      await page.getByRole("dialog", { name: "Week 6 slides" }).locator("canvas").first().waitFor();
+      await page
+        .getByRole("dialog", { name: "Week 6 slides" })
+        .locator("canvas")
+        .first()
+        .waitFor();
       await settle(page, 1500);
       await shoot("dialog-viewer");
       await page.keyboard.press("Escape");
@@ -296,6 +366,69 @@ async function review(browser, dir, moduleId, fixed) {
       await shoot("dialog-new-module");
       await ctx.close();
     }
+  }
+  // Interactions a page-by-page capture can't show: a hovered topic row, the menus, the
+  // navigation over scrolled content, and the search results.
+  for (const theme of ["light", "dark"]) {
+    const ctx = await context(browser, theme, { width: 1440, height: 900 }, 1);
+    const page = await ctx.newPage();
+    await page.clock.setFixedTime(later);
+    const shoot = async (name, full = false) => {
+      const file = path.join(dir, `${name}-${theme}-1440.png`);
+      await page.screenshot({ path: file, fullPage: full });
+      shots.push(file);
+    };
+    await page.goto(`/modules/${moduleId}?tab=topics`);
+    await page.getByText("Flow control").first().hover();
+    await settle(page, 400);
+    await shoot("topic-row-hover");
+    await page.mouse.wheel(0, 500);
+    await settle(page, 400);
+    await shoot("nav-over-tree");
+    await page.goto(`/modules/${moduleId}`);
+    await page.getByRole("button", { name: "Module actions" }).click();
+    await settle(page, 400);
+    await shoot("module-menu");
+    await page.keyboard.press("Escape");
+    await page.goto(`/modules/${moduleId}?tab=materials`);
+    await page
+      .getByRole("searchbox", { name: "Search materials" })
+      .fill("inference congestion window");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.getByRole("list", { name: /Results for/ }).waitFor();
+    await settle(page, 400);
+    await shoot("search-results", true);
+    await page.mouse.wheel(0, 400);
+    await settle(page, 400);
+    await shoot("nav-over-results");
+    await ctx.close();
+
+    // A phone with touch: the topic row's "…" menu (pointer: coarse) and the bottom tab bar.
+    const phone = await browser.newContext({
+      baseURL: `http://localhost:${WEB_PORT}`,
+      viewport: { width: 375, height: 812 },
+      deviceScaleFactor: 1,
+      isMobile: true,
+      hasTouch: true,
+      locale: "en-GB",
+      timezoneId: TIMEZONE,
+      colorScheme: theme,
+    });
+    await phone.addInitScript(
+      (value) => localStorage.setItem("studysensei.appearance", value),
+      theme,
+    );
+    const mobile = await phone.newPage();
+    await mobile.clock.setFixedTime(later);
+    await mobile.goto(`/modules/${moduleId}?tab=topics`);
+    await mobile
+      .getByRole("button", { name: "Actions for Flow control" })
+      .click();
+    await settle(mobile, 400);
+    const file = path.join(dir, `topic-touch-menu-${theme}-375.png`);
+    await mobile.screenshot({ path: file });
+    shots.push(file);
+    await phone.close();
   }
   console.log(`QA: ${shots.length} screenshots in ${dir}`);
 }
