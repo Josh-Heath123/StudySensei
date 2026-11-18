@@ -33,13 +33,13 @@ visibility and the browser's name and version, never images.
 
 ## Modes
 
-| Mode | Technique | Expectation to test |
-| --- | --- | --- |
-| a | Main thread, `requestVideoFrameCallback` on a `<video>` | Hidden tabs may stop rendering video, so callbacks may stop |
-| b | Main thread, `setInterval` at 100 ms | Background timers are throttled (to about once a second, or less after a while) |
-| c | A Web Worker fed by `MediaStreamTrackProcessor`, with the track transferred to the worker | Frames arrive from the camera, not from rendering or timers |
-| d | Mode c plus a Document Picture-in-Picture window with a preview and the countdown | Keeps something of the page visible on top |
-| e | Mode c plus a Web Lock held for the run | See the risk below |
+| Mode | Technique                                                                                 | Expectation to test                                                             |
+| ---- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| a    | Main thread, `requestVideoFrameCallback` on a `<video>`                                   | Hidden tabs may stop rendering video, so callbacks may stop                     |
+| b    | Main thread, `setInterval` at 100 ms                                                      | Background timers are throttled (to about once a second, or less after a while) |
+| c    | A Web Worker fed by `MediaStreamTrackProcessor`, with the track transferred to the worker | Frames arrive from the camera, not from rendering or timers                     |
+| d    | Mode c plus a Document Picture-in-Picture window with a preview and the countdown         | Keeps something of the page visible on top                                      |
+| e    | Mode c plus a Web Lock held for the run                                                   | See the risk below                                                              |
 
 Mode c records whether the track itself was transferred to the worker (`frameSource: "worker, transferred track"`) or,
 where that isn't supported, the processor's stream (`"worker, transferred stream"`).
