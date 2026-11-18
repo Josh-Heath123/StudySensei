@@ -1,0 +1,121 @@
+# COS330's reviewed topic tree: the reference for evals/topic_extraction.
+# Topic names and parent names only (no course text). Exported read-only from the dev
+# database with `python -m evals.topic_extraction cos330 --export`.
+module: COS330
+topics:
+- name: Ch1 Overview
+  parent: null
+- name: Computer Security Concepts and Terminology
+  parent: Ch1 Overview
+- name: Threats, Vulnerabilities, and Attacks
+  parent: Ch1 Overview
+- name: Security Requirements and Standards
+  parent: Ch1 Overview
+- name: Attack Surfaces and Security Design Principles
+  parent: Ch1 Overview
+- name: Ch2 Cryptographic tools
+  parent: null
+- name: Symmetric Encryption and Block Ciphers
+  parent: Ch2 Cryptographic tools
+- name: Message Authentication and Hash Functions
+  parent: Ch2 Cryptographic tools
+- name: Public-Key Asymmetric Encryption
+  parent: Ch2 Cryptographic tools
+- name: Digital Signatures and Key Management
+  parent: Ch2 Cryptographic tools
+- name: Random Numbers and Stored Data Encryption
+  parent: Ch2 Cryptographic tools
+- name: Double Transposition Cipher Practice
+  parent: Ch2 Cryptographic tools
+- name: Ch3 User authentication
+  parent: null
+- name: Authentication Models and Factors
+  parent: Ch3 User authentication
+- name: Password-Based Authentication
+  parent: Ch3 User authentication
+- name: Token-Based and Biometric Authentication
+  parent: Ch3 User authentication
+- name: Remote Authentication and Case Studies
+  parent: Ch3 User authentication
+- name: Ch4 Access Control
+  parent: null
+- name: Access Control Policies and Models
+  parent: Ch4 Access Control
+- name: Subjects, Objects, and Access Matrices
+  parent: Ch4 Access Control
+- name: UNIX File Access Control
+  parent: Ch4 Access Control
+- name: Identity, Credential, and Access Management
+  parent: Ch4 Access Control
+- name: Ch5 Database and Data Center Security
+  parent: null
+- name: Relational Databases and SQL
+  parent: Ch5 Database and Data Center Security
+- name: SQL Injection Attacks and Countermeasures
+  parent: Ch5 Database and Data Center Security
+- name: Database Access Control and Encryption
+  parent: Ch5 Database and Data Center Security
+- name: Inference and Inference Detection
+  parent: Ch5 Database and Data Center Security
+- name: Data Center Security
+  parent: Ch5 Database and Data Center Security
+- name: Ch6 Malicious Software
+  parent: null
+- name: Malware Terminology and Classification
+  parent: Ch6 Malicious Software
+- name: Viruses, Worms, and Web Propagation
+  parent: Ch6 Malicious Software
+- name: Payloads, Backdoors, and Rootkits
+  parent: Ch6 Malicious Software
+- name: Countermeasures and Detection
+  parent: Ch6 Malicious Software
+- name: Ch7 Denial-of-Service
+  parent: null
+- name: DoS Techniques and Flooding Attacks
+  parent: Ch7 Denial-of-Service
+- name: Distributed Denial-of-Service and Application-Layer Attacks
+  parent: Ch7 Denial-of-Service
+- name: DoS Defense and Incident Response
+  parent: Ch7 Denial-of-Service
+- name: Ch8 Intrusion Detection
+  parent: null
+- name: Intruder Classes and Attack Behavior
+  parent: Ch8 Intrusion Detection
+- name: Intrusion Detection Systems Architecture
+  parent: Ch8 Intrusion Detection
+- name: Host-Based and Network-Based IDS
+  parent: Ch8 Intrusion Detection
+- name: Honeypots and Data Exchange Formats
+  parent: Ch8 Intrusion Detection
+- name: Ch9 Firewalls and Intrusion Prevention Systems
+  parent: null
+- name: Firewall Characteristics and Topologies
+  parent: Ch9 Firewalls and Intrusion Prevention Systems
+- name: Types of Firewalls
+  parent: Ch9 Firewalls and Intrusion Prevention Systems
+- name: Intrusion Prevention Systems and UTM
+  parent: Ch9 Firewalls and Intrusion Prevention Systems
+- name: Ch10 Buffer Overflows
+  parent: null
+- name: Buffer Overflow Basics and Stack Smashing
+  parent: Ch10 Buffer Overflows
+- name: Unsafe Functions and Shellcode
+  parent: Ch10 Buffer Overflows
+- name: Compile-Time and Run-Time Defenses
+  parent: Ch10 Buffer Overflows
+- name: Other Overflow Attacks
+  parent: Ch10 Buffer Overflows
+- name: Ch11 Software Security
+  parent: null
+- name: OS Interaction and Output Handling
+  parent: Ch11 Software Security
+- name: Defensive Programming and Input Handling
+  parent: Ch11 Software Security
+- name: Writing Safe Program Code
+  parent: Ch11 Software Security
+- name: Ch13 Cloud Computing and IoT Security
+  parent: null
+- name: Cloud Computing Models and Security
+  parent: Ch13 Cloud Computing and IoT Security
+- name: Internet of Things Security and Privacy
+  parent: Ch13 Cloud Computing and IoT Security
