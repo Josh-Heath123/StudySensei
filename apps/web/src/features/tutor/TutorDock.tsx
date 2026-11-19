@@ -8,6 +8,7 @@ import { Sheet, SheetContent } from "@/ui/sheet";
 import { panelOpenAtStart, rememberPanelOpen } from "./storage";
 import { TutorPanel } from "./TutorPanel";
 import { useTutor } from "./useTutor";
+import { useVoice } from "./useVoice";
 
 /**
  * Where the tutor lives in the session (docs/DESIGN.md "Screens: Session"):
@@ -32,6 +33,8 @@ export const TutorDock = memo(function TutorDock({
   const [open, setOpen] = useState(panelOpenAtStart);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [justOpened, setJustOpened] = useState(false);
+  // Holding Space talks only while the panel (or the sheet) is showing.
+  const voice = useVoice(tutor, { spaceToTalk: desktop ? open : sheetOpen });
 
   function toggle(next: boolean) {
     setOpen(next);
@@ -59,7 +62,7 @@ export const TutorDock = memo(function TutorDock({
             description="Ask about this topic. Answers come from your own material."
             className="h-[88dvh]"
           >
-            <TutorPanel tutor={tutor} autoFocus />
+            <TutorPanel tutor={tutor} voice={voice} autoFocus />
           </SheetContent>
         </Sheet>
       </>
@@ -98,7 +101,7 @@ export const TutorDock = memo(function TutorDock({
           <PanelRightClose aria-hidden />
         </Button>
       </div>
-      <TutorPanel tutor={tutor} autoFocus={justOpened} />
+      <TutorPanel tutor={tutor} voice={voice} autoFocus={justOpened} />
     </aside>
   );
 });

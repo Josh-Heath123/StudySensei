@@ -41,3 +41,22 @@ export function rememberPanelOpen(open: boolean): void {
     // Private mode: the panel opens next time, which is harmless.
   }
 }
+
+// Whether answers to typed questions are read aloud (off unless the student turned it on).
+const READ_ALOUD_KEY = "studysensei.tutor.read-aloud";
+
+export function readAloudAtStart(): boolean {
+  try {
+    return localStorage.getItem(READ_ALOUD_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function rememberReadAloud(on: boolean): void {
+  try {
+    localStorage.setItem(READ_ALOUD_KEY, on ? "1" : "0");
+  } catch {
+    // Private mode: it's off again next time, which is the default anyway.
+  }
+}
