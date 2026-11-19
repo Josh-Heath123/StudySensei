@@ -23,6 +23,8 @@ AI_OUTCOMES = (
     "overloaded",
     "refused",
     "too_large",
+    # The student stopped a streamed answer (closed the tutor or the page) part-way.
+    "stopped",
 )
 
 

@@ -7,6 +7,7 @@ from app.models.jobs import Job
 from app.models.materials import Chunk, Material, MaterialPage
 from app.models.sessions import SessionEvent, SessionTopicRating, StudySession
 from app.models.topic_maps import ChunkTopic, TopicPage, TopicProposal, TopicReview, TopicUnlink
+from app.models.tutor import Conversation, Message, MessageSource
 from app.models.user import User
 
 __all__ = [
@@ -16,9 +17,12 @@ __all__ = [
     "Base",
     "Chunk",
     "ChunkTopic",
+    "Conversation",
     "Job",
     "Material",
     "MaterialPage",
+    "Message",
+    "MessageSource",
     "Module",
     "SessionEvent",
     "SessionTopicRating",
