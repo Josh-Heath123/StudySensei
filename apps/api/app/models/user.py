@@ -1,4 +1,4 @@
-from sqlalchemy import String
+from sqlalchemy import CheckConstraint, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import TimestampedBase
@@ -6,6 +6,16 @@ from app.models.base import TimestampedBase
 
 class User(TimestampedBase):
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint(
+            "daily_study_cap_minutes BETWEEN 15 AND 1440", name="ck_users_daily_study_cap"
+        ),
+    )
 
     email: Mapped[str] = mapped_column(String(320), unique=True)
     display_name: Mapped[str] = mapped_column(String(100))
+    # Planning (migration 0021). An IANA name, checked against zoneinfo by the schema.
+    timezone: Mapped[str] = mapped_column(
+        String(64), default="Africa/Johannesburg", server_default="Africa/Johannesburg"
+    )
+    daily_study_cap_minutes: Mapped[int] = mapped_column(Integer, default=180, server_default="180")

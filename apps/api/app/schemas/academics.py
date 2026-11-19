@@ -157,6 +157,19 @@ class TopicOut(BaseModel):
     description: str | None
     position: int
     source: Literal["user", "ai"]
+    # Self-rated starting confidence, 1 to 5; null is not rated.
+    confidence: int | None = None
+
+
+class WorkloadOut(BaseModel):
+    """How long a topic takes: the student's figure, or an estimate from its pages."""
+
+    # Null when there's neither the student's figure nor a linked page to estimate from.
+    minutes: int | None
+    # "yours": the student's figure; "estimated": from the linked pages (decision 0016).
+    source: Literal["yours", "estimated", "none"]
+    slide_pages: int
+    text_pages: int
 
 
 class TopicNodeOut(TopicOut):
@@ -164,6 +177,7 @@ class TopicNodeOut(TopicOut):
 
     # Distinct material pages linked to this topic (by cited page or by meaning).
     linked_pages: int = 0
+    workload: WorkloadOut
     children: list["TopicNodeOut"]
 
 

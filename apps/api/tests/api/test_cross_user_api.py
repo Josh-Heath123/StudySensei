@@ -1,5 +1,5 @@
-"""Over HTTP, Bob can't reach Alice's modules, topics, assessments, tasks, sessions, materials
-or tutor conversations.
+"""Over HTTP, Bob can't reach Alice's modules, topics, assessments, tasks, sessions, materials,
+tutor conversations or planning (availability rules and exceptions, topic workload).
 
 Every request Bob makes with one of Alice's IDs must get exactly the response
 a random, non-existent ID gets, so he can't even tell her rows exist. Afterwards
@@ -7,6 +7,7 @@ Alice's data must be unchanged.
 """
 
 import uuid
+from datetime import date
 from typing import Any
 
 import pytest
@@ -14,7 +15,16 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AIUsage, Conversation, Material, Message, TopicReview, User
+from app.models import (
+    AIUsage,
+    AvailabilityException,
+    AvailabilityRule,
+    Conversation,
+    Material,
+    Message,
+    TopicReview,
+    User,
+)
 from app.storage.local import LocalStorage
 from tests.academics.conftest import Rows
 from tests.fakes import FakeLLM, ok
@@ -133,6 +143,12 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
             "first_sentence_ms": 1,
         },
     ),
+    # Planning
+    ("PATCH", "/availability/rules/{rule}", {"start": "06:00"}),
+    ("DELETE", "/availability/rules/{rule}", None),
+    ("PATCH", "/availability/exceptions/{exception}", {"unavailable": True}),
+    ("DELETE", "/availability/exceptions/{exception}", None),
+    ("PATCH", "/topics/{topic}/planning", {"confidence": 1, "estimated_minutes": 5}),
 ]
 
 
@@ -225,6 +241,24 @@ async def conversations(session: AsyncSession, alice: Rows, bob: Rows) -> dict[s
 _MESSAGES: dict[uuid.UUID, uuid.UUID] = {}
 
 
+@pytest.fixture
+async def availability(
+    session: AsyncSession, alice: Rows, bob: Rows
+) -> dict[str, tuple[AvailabilityRule, AvailabilityException]]:
+    """A Monday 18:00-20:00 rule and an unavailable date each, on the same days (so the
+    unique date and the overlap rule are per user too)."""
+    made = {}
+    for name, rows in (("alice", alice), ("bob", bob)):
+        rule = AvailabilityRule(user_id=rows.user.id, weekday=0, start_minute=1080, end_minute=1200)
+        exception = AvailabilityException(
+            user_id=rows.user.id, date=date(2026, 11, 23), unavailable=True, windows=[]
+        )
+        session.add_all([rule, exception])
+        made[name] = (rule, exception)
+    await session.commit()
+    return made
+
+
 def message_of(conversation: Conversation) -> uuid.UUID:
     """The quiz message the fixture put in the conversation (looked up once, then kept)."""
     return _MESSAGES[conversation.id]
@@ -246,6 +280,7 @@ def ids_of(
     materials: dict[str, Material],
     dismissed: dict[str, TopicReview],
     conversations: dict[str, Conversation],
+    availability: dict[str, tuple[AvailabilityRule, AvailabilityException]],
 ) -> tuple[dict[str, str], dict[str, str]]:
     """(Alice's real IDs, the same keys with random IDs). Bob's own IDs are in both."""
     mine = {
@@ -268,6 +303,8 @@ def ids_of(
         "dismissed": str(dismissed["alice"].id),
         "conversation": str(conversations["alice"].id),
         "message": str(message_of(conversations["alice"])),
+        "rule": str(availability["alice"][0].id),
+        "exception": str(availability["alice"][1].id),
     }
     missing = {key: str(uuid.uuid4()) for key in hers}
     return {**hers, **mine}, {**missing, **mine}
@@ -285,6 +322,9 @@ async def snapshot(api: AsyncClient, rows: Rows, conversation: Conversation) -> 
         (await api.get(f"/sessions/{rows.study_session.id}")).json(),
         (await api.get("/sessions/active")).json(),
         (await api.get(f"/modules/{rows.module.id}/materials")).json(),
+        (await api.get("/availability/rules")).json(),
+        (await api.get("/availability/exceptions")).json(),
+        (await api.get("/planning/settings")).json(),
     )
 
 
@@ -297,6 +337,7 @@ async def test_bob_gets_the_same_404_as_for_a_missing_id(
     materials: dict[str, Material],
     dismissed: dict[str, TopicReview],
     conversations: dict[str, Conversation],
+    availability: dict[str, tuple[AvailabilityRule, AvailabilityException]],
     method: str,
     path: str,
     body: dict[str, Any] | None,
@@ -308,7 +349,7 @@ async def test_bob_gets_the_same_404_as_for_a_missing_id(
         )
 
     before = await snapshots()
-    hers, missing = ids_of(alice, bob, materials, dismissed, conversations)
+    hers, missing = ids_of(alice, bob, materials, dismissed, conversations, availability)
 
     attempt = await bob_api.request(method, fill(path, hers), json=fill(body, hers))
     baseline = await bob_api.request(method, fill(path, missing), json=fill(body, missing))
@@ -339,6 +380,29 @@ async def test_cross_module_lists_hold_only_your_own_rows(
 
     assert his == {str(bob.assessment.id)} or his == {str(bob.task.id)}
     assert hers == {str(alice.assessment.id)} or hers == {str(alice.task.id)}
+
+
+async def test_planning_is_per_user(
+    alice_api: AsyncClient,
+    bob_api: AsyncClient,
+    availability: dict[str, tuple[AvailabilityRule, AvailabilityException]],
+) -> None:
+    # Bob's own rule and exception only, though Alice has hers on the same day and date.
+    rules = (await bob_api.get("/availability/rules")).json()
+    exceptions = (await bob_api.get("/availability/exceptions")).json()
+    assert [r["id"] for r in rules] == [str(availability["bob"][0].id)]
+    assert [e["id"] for e in exceptions] == [str(availability["bob"][1].id)]
+    # His settings change only his.
+    await bob_api.patch("/planning/settings", json={"timezone": "Europe/London"})
+    assert (await alice_api.get("/planning/settings")).json()["timezone"] == "Africa/Johannesburg"
+    # His expanded week: his Monday rule, her unavailable date isn't his business.
+    week = await bob_api.get("/availability", params={"from": "2026-11-16", "to": "2026-11-23"})
+    days = week.json()["days"]
+    assert days[0]["free_minutes"] == 120
+    assert days[7]["source"] == "unavailable"
+    await alice_api.delete(f"/availability/exceptions/{availability['alice'][1].id}")
+    again = await bob_api.get("/availability", params={"from": "2026-11-23", "to": "2026-11-23"})
+    assert again.json()["days"][0]["source"] == "unavailable"
 
 
 async def test_lists_never_include_the_other_users_modules(
