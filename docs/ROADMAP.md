@@ -107,7 +107,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 **Objective:** decide what to study next and explain why.
 **Depends on:** Phases 1 and 2.
 
-- [ ] Availability models (`availability_rules`, `availability_exceptions`), workload and starting confidence per topic
+- [x] Availability models (`availability_rules`, `availability_exceptions`), workload and starting confidence per topic
 - [ ] `services/planning/plan()` as a pure function. **Property tests first:**
   - no overlaps
   - stays within availability
