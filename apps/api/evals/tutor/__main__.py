@@ -102,10 +102,43 @@ class Question:
 
 def questions_of(config: dict[str, Any]) -> list[Question]:
     found = load_config(config["search_queries"])["queries"] + config["questions"]
+    extra = {int(n): pages for n, pages in (config.get("extra_pages") or {}).items()}
     return [
-        Question(n, q["query"], q["topic"], [(p["material"], int(p["page"])) for p in q["pages"]])
+        Question(
+            n,
+            q["query"],
+            q["topic"],
+            [(p["material"], int(p["page"])) for p in [*q["pages"], *extra.get(n, [])]],
+        )
         for n, q in enumerate(found, start=1)
     ]
+
+
+def rescore(name: str, results: Path) -> int:
+    """Score a run again with the config's current answer key: no AI calls. The sources and
+    cited pages are in the results; "doesn't cover" needs the answer text, so it's kept."""
+    questions = {q.number: q for q in questions_of(load_config(f"tutor/{name}.yaml"))}
+    data = json.loads(results.read_text(encoding="utf-8"))
+    for record in data["questions"]:
+        acceptable = set(questions[record["number"]].pages)
+        sources: list[Page] = [(s["material"], int(s["page"])) for s in record["sources"]]
+        cited: list[Page] = [(p["material"], int(p["page"])) for p in record["cited_pages"]]
+        record["acceptable_pages"] = [{"material": m, "page": p} for m, p in sorted(acceptable)]
+        record["acceptable_in_sources"] = len(acceptable & set(sources))
+        record["cites_acceptable"] = bool(acceptable & set(cited))
+        record["coverage"] = coverage(cited, sources, acceptable)
+    data["rescored"] = {
+        "from": results.name,
+        "at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "why": "the answer key widened after the #39 review (evals/tutor/cos330.yaml)",
+        "before": data["totals"],
+    }
+    data["totals"] = totals(data["questions"])
+    out = results.with_name(f"{results.stem}-rescored.json")
+    out.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    print(f"Before: {json.dumps(data['rescored']['before'])}")
+    print(f"After:  {json.dumps(data['totals'])}\nWrote {out}")
+    return 0
 
 
 def prompt_id() -> str:
@@ -376,7 +409,15 @@ if __name__ == "__main__":
     parser.add_argument("name", nargs="?", default="cos330")
     parser.add_argument("--label", help="added to the results file name, e.g. run2")
     parser.add_argument("--review", type=Path, help="write answers and quizzes here (not in git)")
+    parser.add_argument(
+        "--rescore",
+        type=Path,
+        metavar="RESULTS",
+        help="score a results file again with the current answer key (no AI calls)",
+    )
     args = parser.parse_args()
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
+    if args.rescore:
+        sys.exit(rescore(args.name, args.rescore))
     sys.exit(asyncio.run(main(args.name, args.label, args.review)))

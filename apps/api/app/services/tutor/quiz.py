@@ -55,6 +55,9 @@ course sources. The sources are below, each inside a <material> tag with an id f
   are plausible but wrong by the sources. Check every wrong option against the sources: if
   the sources say it's also true, replace it.
 - "correct" is the index of the correct option, from 0 to 3.
+- Ask only questions whose answer a source states explicitly. Don't ask which option is
+  "more common", "best", "most important" or the like unless a source says so in those
+  words, and don't ask about anything the sources only imply.
 - Base every question only on the sources. In "sources", list the ids it relies on, like
   ["S1"] or ["S2", "S4"]. Use only the ids you were given.
 - "explanation" is one sentence saying why the correct option is right, citing its source

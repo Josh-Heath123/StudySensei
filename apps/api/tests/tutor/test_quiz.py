@@ -79,6 +79,15 @@ def test_a_malformed_question_is_rejected(broken: dict[str, Any]) -> None:
         Quiz.model_validate({"questions": [{**question(1), **broken}]})
 
 
+def test_the_prompt_asks_only_what_a_source_states() -> None:
+    """After the #39 check: questions on what the slides don't say ("more common")."""
+    from app.services.tutor.quiz import QUIZ_SYSTEM
+
+    assert "whose answer a source states explicitly" in QUIZ_SYSTEM
+    assert '"more common"' in QUIZ_SYSTEM
+    assert "the sources say it's also true, replace it" in QUIZ_SYSTEM
+
+
 def test_grading_is_deterministic_code() -> None:
     quiz = Quiz.model_validate(
         {"questions": [question(1, correct=1), question(2, correct=3), question(3, correct=0)]}
