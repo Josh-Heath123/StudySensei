@@ -86,7 +86,7 @@ Notes:
 
 - **py-rust-stemmers:** Reviewed 18 Nov 2026: 0.1.8 (via fastembed) has no licence metadata, but its wheel ships an MIT LICENSE (qdrant).
 
-## npm packages (209)
+## npm packages (225)
 
 | Package | Version | Licence |
 | --- | --- | --- |
@@ -192,7 +192,6 @@ Notes:
 | clsx | 2.1.1 | MIT |
 | comma-separated-tokens | 2.0.3 | MIT |
 | commander | 15.1.0 | MIT |
-| commander | 8.3.0 | MIT |
 | cookie | 1.1.1 | MIT |
 | csstype | 3.2.3 | MIT |
 | debug | 4.4.3 | MIT |
@@ -201,6 +200,7 @@ Notes:
 | detect-node-es | 1.1.0 | MIT |
 | devlop | 1.1.0 | MIT |
 | entities | 9.0.0 | BSD-2-Clause |
+| escape-string-regexp | 5.0.0 | MIT |
 | estree-util-is-identifier-name | 3.0.0 | MIT |
 | extend | 3.0.2 | MIT |
 | get-nonce | 1.0.1 | MIT |
@@ -220,11 +220,18 @@ Notes:
 | is-decimal | 2.0.1 | MIT |
 | is-hexadecimal | 2.0.1 | MIT |
 | is-plain-obj | 4.1.0 | MIT |
-| katex | 0.16.47 | MIT |
 | katex | 0.19.1 | MIT |
 | longest-streak | 3.1.0 | MIT |
 | lucide-react | 1.72.0 | ISC |
+| markdown-table | 3.1.0 | MIT |
+| mdast-util-find-and-replace | 3.0.4 | MIT |
 | mdast-util-from-markdown | 2.1.0 | MIT |
+| mdast-util-gfm | 3.1.0 | MIT |
+| mdast-util-gfm-autolink-literal | 2.1.0 | MIT |
+| mdast-util-gfm-footnote | 2.1.0 | MIT |
+| mdast-util-gfm-strikethrough | 2.0.1 | MIT |
+| mdast-util-gfm-table | 2.0.1 | MIT |
+| mdast-util-gfm-task-list-item | 2.0.1 | MIT |
 | mdast-util-math | 3.0.0 | MIT |
 | mdast-util-mdx-expression | 2.0.1 | MIT |
 | mdast-util-mdx-jsx | 3.2.1 | MIT |
@@ -235,6 +242,13 @@ Notes:
 | mdast-util-to-string | 4.0.0 | MIT |
 | micromark | 4.0.3 | MIT |
 | micromark-core-commonmark | 2.0.4 | MIT |
+| micromark-extension-gfm | 3.0.0 | MIT |
+| micromark-extension-gfm-autolink-literal | 2.1.0 | MIT |
+| micromark-extension-gfm-footnote | 2.1.0 | MIT |
+| micromark-extension-gfm-strikethrough | 2.1.0 | MIT |
+| micromark-extension-gfm-table | 2.1.2 | MIT |
+| micromark-extension-gfm-tagfilter | 2.0.0 | MIT |
+| micromark-extension-gfm-task-list-item | 2.1.0 | MIT |
 | micromark-extension-math | 3.1.0 | MIT |
 | micromark-factory-destination | 2.0.1 | MIT |
 | micromark-factory-label | 2.0.1 | MIT |
@@ -272,9 +286,11 @@ Notes:
 | react-router | 7.18.5 | MIT |
 | react-style-singleton | 2.2.3 | MIT |
 | rehype-katex | 7.0.1 | MIT |
+| remark-gfm | 4.0.1 | MIT |
 | remark-math | 6.0.0 | MIT |
 | remark-parse | 11.0.0 | MIT |
 | remark-rehype | 11.1.2 | MIT |
+| remark-stringify | 11.0.0 | MIT |
 | scheduler | 0.28.0 | MIT |
 | set-cookie-parser | 2.7.3 | MIT |
 | space-separated-tokens | 2.0.2 | MIT |
