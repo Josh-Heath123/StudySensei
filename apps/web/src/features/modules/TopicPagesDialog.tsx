@@ -4,10 +4,12 @@ import { useState } from "react";
 import { Button } from "@/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/ui/dialog";
 
-import { useTopicPages, useUnlinkPage, type TopicNode } from "./api";
+import { useTopicPages, useTopicTree, useUnlinkPage, type TopicNode } from "./api";
 import { EmptyState } from "./EmptyState";
 import { LoadingRows } from "./LoadingRows";
 import { PagesDialog } from "./materials/PagesDialog";
+import { findTopic } from "./planningText";
+import { TopicPlanning } from "./TopicPlanning";
 
 /**
  * The pages linked to a topic, by material (decision 0009): how each was linked, a way
@@ -24,6 +26,9 @@ export function TopicPagesDialog({
 }) {
   const pages = useTopicPages(topic.id);
   const unlink = useUnlinkPage(moduleId, topic.id);
+  // The live node (it changes as confidence or workload is saved).
+  const tree = useTopicTree(moduleId);
+  const node = tree.data ? findTopic(tree.data, topic.id) : null;
   const [reading, setReading] = useState<{ id: string; title: string; page: number } | null>(null);
 
   if (reading) {
@@ -36,12 +41,15 @@ export function TopicPagesDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Pages for “{topic.name}”</DialogTitle>
+          <DialogTitle>{topic.name}</DialogTitle>
           <DialogDescription>
-            Cited pages are where the AI found the topic; similar pages read like it. Unlink a page
-            that doesn't belong: it stays unlinked.
+            Your starting confidence and how long it takes, then its pages. Cited pages are where
+            the AI found the topic; similar pages read like it. Unlink a page that doesn't belong:
+            it stays unlinked.
           </DialogDescription>
         </DialogHeader>
+        {node && <TopicPlanning moduleId={moduleId} topic={node} />}
+        <h3 className="type-h3 mt-1">Pages</h3>
         {pages.isPending && <LoadingRows label="Loading pages…" rows={3} rowClassName="h-11" />}
         {pages.isError && (
           <p role="alert" className="text-danger text-sm">

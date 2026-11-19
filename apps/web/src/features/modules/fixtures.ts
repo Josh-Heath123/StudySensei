@@ -33,6 +33,8 @@ export function aTopic(
     position: 0,
     source: "user",
     linked_pages: 0,
+    confidence: null,
+    workload: { minutes: null, source: "none", slide_pages: 0, text_pages: 0 },
     children: children.map((child, i) => ({ ...child, parent_id: id, position: i })),
     ...overrides,
   };

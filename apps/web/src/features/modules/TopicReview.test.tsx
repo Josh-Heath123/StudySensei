@@ -154,7 +154,7 @@ test("clicking a topic lists its linked pages; a wrong one can be unlinked", asy
 
   await user.click(await screen.findByRole("button", { name: "Queues" }));
 
-  const dialog = await screen.findByRole("dialog", { name: "Pages for “Queues”" });
+  const dialog = await screen.findByRole("dialog", { name: "Queues" });
   const material = within(dialog).getByRole("region", { name: "Week 1 Security" });
   expect(material).toHaveTextContent("Page 1 · Passwords");
   expect(material).toHaveTextContent("Cited");
@@ -193,7 +193,7 @@ test("a linked page opens in the page-text view", async () => {
   });
 
   await user.click(await screen.findByRole("button", { name: "Queues" }));
-  const dialog = await screen.findByRole("dialog", { name: "Pages for “Queues”" });
+  const dialog = await screen.findByRole("dialog", { name: "Queues" });
   await user.click(within(dialog).getByRole("button", { name: /Page 3/ }));
 
   expect(await screen.findByText("Text of page 3")).toBeInTheDocument();
