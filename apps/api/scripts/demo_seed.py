@@ -12,7 +12,7 @@ and linked to the chunks the way the app does it (cited pages plus local similar
 
 It also opens a study session 18 minutes before ``now``, with one tutor exchange about it: a
 question and a stored answer written for the demo (no AI call), citing the demo's own pages,
-so the session screenshot shows the tutor panel.
+then a "Quiz me" on it, so the session and quiz screenshots show the tutor panel.
 """
 
 import argparse
@@ -42,6 +42,7 @@ from app.models import (
 from app.schemas.academics import AssessmentCreate, ModuleCreate, TaskCreate, TopicCreate
 from app.schemas.materials import MaterialKind
 from app.schemas.sessions import EventBatch, ReflectionIn, SessionStart
+from app.schemas.tutor import Quiz
 from app.services.academics import assessments, modules, tasks, topics
 from app.services.materials import upload_material
 from app.services.search.embedding import get_embedder
@@ -188,6 +189,48 @@ TUTOR_SOURCES = [
     ("S4", "Week 6 slides", 5, False),
     ("S5", "Week 6 slides", 6, False),
 ]
+
+# "Quiz me" on that answer: original questions on the demo's own slides (no AI call).
+TUTOR_QUIZ = {
+    "questions": [
+        {
+            "prompt": "In slow start, how does cwnd grow?",
+            "options": [
+                "By one segment per round trip",
+                "It doubles every round trip",
+                "It halves after every ACK",
+                "It stays fixed until a loss",
+            ],
+            "correct": 1,
+            "explanation": "Each ACK adds one segment, so cwnd doubles every round trip [S1].",
+            "sources": ["S1"],
+        },
+        {
+            "prompt": "What happens to ssthresh after a loss?",
+            "options": [
+                "It is set to half the window in flight",
+                "It doubles",
+                "It is reset to one segment",
+                "It is left unchanged",
+            ],
+            "correct": 0,
+            "explanation": "After a loss ssthresh is set to half the window in flight [S2].",
+            "sources": ["S2"],
+        },
+        {
+            "prompt": "Above ssthresh, how much does cwnd grow per round trip?",
+            "options": [
+                "It doubles",
+                "About one segment",
+                "Half a window",
+                "Nothing until the next loss",
+            ],
+            "correct": 1,
+            "explanation": "Above it cwnd grows by about one segment per round trip [S2].",
+            "sources": ["S2"],
+        },
+    ]
+}
 
 # (topic, description, children: (name, description, cited pages as (material, page)))
 TREE = [
@@ -526,10 +569,49 @@ async def seed(now: datetime) -> None:
             for label, material, page, cited in TUTOR_SOURCES
         ]
         db.add(answer)
+        db.add(
+            Message(
+                user_id=uid,
+                conversation_id=conversation.id,
+                position=2,
+                role="user",
+                mode="quiz",
+                text="Quiz me",
+                status="complete",
+            )
+        )
+        quiz = Message(
+            user_id=uid,
+            conversation_id=conversation.id,
+            position=3,
+            role="assistant",
+            mode="quiz",
+            text="Quiz: 3 questions.",
+            status="complete",
+            model="groq/openai/gpt-oss-120b",
+            total_ms=2400,
+            quiz=Quiz.model_validate(TUTOR_QUIZ).model_dump(mode="json"),
+            quiz_answers=[None, None, None],
+        )
+        quiz.sources = [
+            MessageSource(
+                user_id=uid,
+                label=label,
+                rank=int(label[1:]),
+                material_id=materials[material],
+                material_title=material,
+                page_number=page,
+                page_title=page_titles.get((materials[material], page)),
+                cited=label in ("S1", "S2"),
+            )
+            for label, material, page, _ in TUTOR_SOURCES
+        ]
+        db.add(quiz)
         await db.commit()
     print(
         f"Demo seeded: NET201, {len(files)} materials ({ran} jobs), {len(week)} sessions "
-        f"and one open, {len(topic_ids)} topics, {links} chunk links, one tutor exchange."
+        f"and one open, {len(topic_ids)} topics, {links} chunk links, "
+        "one tutor exchange and a quiz."
     )
     await get_engine().dispose()
 
