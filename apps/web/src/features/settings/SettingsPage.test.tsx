@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { fakeStudyTime } from "@/test/fakeStudyTime";
 import { mockApi } from "@/test/mockApi";
 import { renderApp } from "@/test/render";
 
@@ -70,7 +71,7 @@ function aResult(changes: Partial<AiPingResult>): AiPingResult {
 }
 
 test("says which providers have a key without showing one, and how to add one", async () => {
-  mockApi({ "GET /ai/status": () => aStatus() });
+  mockApi({ ...fakeStudyTime().routes, "GET /ai/status": () => aStatus() });
   renderApp("/settings");
 
   expect(await screen.findByLabelText("Gemini: Key set")).toBeInTheDocument();
@@ -81,7 +82,7 @@ test("says which providers have a key without showing one, and how to add one", 
 });
 
 test("lists each role's models in order with what uses it", async () => {
-  mockApi({ "GET /ai/status": () => aStatus() });
+  mockApi({ ...fakeStudyTime().routes, "GET /ai/status": () => aStatus() });
   renderApp("/settings");
 
   const smart = await screen.findByRole("list", { name: "smart models" });
@@ -97,7 +98,7 @@ test("lists each role's models in order with what uses it", async () => {
 });
 
 test("meters today's usage: the count measured, the budget estimated, the reset local", async () => {
-  mockApi({ "GET /ai/status": () => aStatus(18) });
+  mockApi({ ...fakeStudyTime().routes, "GET /ai/status": () => aStatus(18) });
   renderApp("/settings");
 
   const meter = await screen.findByRole("meter", {
@@ -119,6 +120,7 @@ test("tests the keys: one request per model, disabled while running, then refetc
   let release!: () => void;
   const done = new Promise<void>((resolve) => (release = resolve));
   const { calls } = mockApi({
+    ...fakeStudyTime().routes,
     "GET /ai/status": () => aStatus(),
     "POST /ai/ping": async () => {
       await done;
@@ -162,6 +164,7 @@ test("tests the keys: one request per model, disabled while running, then refetc
 
 test("shows a skipped model's reset time and a model missing from the provider's list", async () => {
   mockApi({
+    ...fakeStudyTime().routes,
     "GET /ai/status": () => aStatus(18),
     "POST /ai/ping": () => ({
       results: [
@@ -184,6 +187,7 @@ test("shows a skipped model's reset time and a model missing from the provider's
 
 test("with no provider set up, the test button is disabled", async () => {
   mockApi({
+    ...fakeStudyTime().routes,
     "GET /ai/status": () => ({
       ...aStatus(),
       available: false,
@@ -199,7 +203,7 @@ test("with no provider set up, the test button is disabled", async () => {
 });
 
 test("the privacy note says what is and isn't sent", async () => {
-  mockApi({ "GET /ai/status": () => aStatus() });
+  mockApi({ ...fakeStudyTime().routes, "GET /ai/status": () => aStatus() });
   renderApp("/settings");
 
   expect(await screen.findByText(/may use prompts to improve their models/)).toBeInTheDocument();
@@ -214,7 +218,7 @@ describe("appearance", () => {
   });
 
   test("defaults to System", async () => {
-    mockApi({ "GET /ai/status": () => aStatus() });
+    mockApi({ ...fakeStudyTime().routes, "GET /ai/status": () => aStatus() });
     renderApp("/settings");
 
     const group = await screen.findByRole("radiogroup", { name: "Appearance" });
@@ -225,7 +229,7 @@ describe("appearance", () => {
   });
 
   test("choosing Dark applies and stores it; choosing System forgets it", async () => {
-    mockApi({ "GET /ai/status": () => aStatus() });
+    mockApi({ ...fakeStudyTime().routes, "GET /ai/status": () => aStatus() });
     renderApp("/settings");
     const user = userEvent.setup();
     const group = await screen.findByRole("radiogroup", { name: "Appearance" });
@@ -242,7 +246,7 @@ describe("appearance", () => {
 
   test("starts from the stored choice", async () => {
     localStorage.setItem("studysensei.appearance", "light");
-    mockApi({ "GET /ai/status": () => aStatus() });
+    mockApi({ ...fakeStudyTime().routes, "GET /ai/status": () => aStatus() });
     renderApp("/settings");
 
     const group = await screen.findByRole("radiogroup", { name: "Appearance" });

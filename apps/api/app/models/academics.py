@@ -18,6 +18,7 @@ from sqlalchemy import (
     Index,
     Integer,
     Numeric,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -66,6 +67,8 @@ class Topic(TimestampedBase):
         UniqueConstraint("id", "module_id", name="uq_topics_id_module"),
         CheckConstraint("parent_id IS NULL OR parent_id <> id", name="ck_topics_not_own_parent"),
         CheckConstraint(_in("source", TOPIC_SOURCES), name="ck_topics_source"),
+        CheckConstraint("confidence BETWEEN 1 AND 5", name="ck_topics_confidence"),
+        CheckConstraint("estimated_minutes BETWEEN 5 AND 6000", name="ck_topics_estimated_minutes"),
         Index("ix_topics_module_parent", "module_id", "parent_id"),
     )
 
@@ -76,6 +79,11 @@ class Topic(TimestampedBase):
     description: Mapped[str | None] = mapped_column(Text)
     position: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     source: Mapped[str] = mapped_column(String(10), default="user", server_default="user")
+    # Planning (migration 0021). The student's own workload figure: null means use the
+    # estimate from the topic's pages (computed, never stored; services/planning/workload.py).
+    estimated_minutes: Mapped[int | None] = mapped_column(Integer)
+    # Starting confidence, 1 to 5, self-reported (never inferred by AI); null is not rated.
+    confidence: Mapped[int | None] = mapped_column(SmallInteger)
 
 
 class Assessment(TimestampedBase):

@@ -5,18 +5,36 @@ from fastapi import APIRouter, status
 from app.api.deps import CurrentUser
 from app.core.db import SessionDep
 from app.models import Topic
-from app.schemas.academics import TopicCreate, TopicMove, TopicNodeOut, TopicOut, TopicUpdate
+from app.schemas.academics import (
+    TopicCreate,
+    TopicMove,
+    TopicNodeOut,
+    TopicOut,
+    TopicUpdate,
+    WorkloadOut,
+)
 from app.services.academics import topics
+from app.services.planning.store import topic_workloads
+from app.services.planning.workload import Workload
 from app.services.topic_maps.linking import linked_page_counts
 
 router = APIRouter(tags=["topics"])
 
 
-def _to_out(node: topics.TopicNode, pages: dict[uuid.UUID, int]) -> TopicNodeOut:
+def _to_out(
+    node: topics.TopicNode, pages: dict[uuid.UUID, int], loads: dict[uuid.UUID, Workload]
+) -> TopicNodeOut:
+    load = loads[node.topic.id]
     return TopicNodeOut(
         **TopicOut.model_validate(node.topic).model_dump(),
         linked_pages=pages.get(node.topic.id, 0),
-        children=[_to_out(child, pages) for child in node.children],
+        workload=WorkloadOut(
+            minutes=load.minutes,
+            source=load.source,
+            slide_pages=load.slide_pages,
+            text_pages=load.text_pages,
+        ),
+        children=[_to_out(child, pages, loads) for child in node.children],
     )
 
 
@@ -25,10 +43,12 @@ async def get_topic_tree(
     module_id: uuid.UUID, session: SessionDep, user: CurrentUser
 ) -> list[TopicNodeOut]:
     """The module's topics as a nested tree, siblings in position order, each with the
-    number of material pages linked to it."""
+    number of material pages linked to it, its confidence and its workload (the student's
+    figure, or estimated from its slides and text pages)."""
     flat = await topics.list_topics(session, module_id, user_id=user.id)
     pages = await linked_page_counts(session, module_id, user_id=user.id)
-    return [_to_out(root, pages) for root in topics.build_tree(flat)]
+    loads = await topic_workloads(session, module_id, flat, user_id=user.id)
+    return [_to_out(root, pages, loads) for root in topics.build_tree(flat)]
 
 
 @router.post(

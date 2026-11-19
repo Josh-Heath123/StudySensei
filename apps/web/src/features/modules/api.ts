@@ -106,6 +106,19 @@ export function useRenameTopic(moduleId: string) {
   );
 }
 
+/** A topic's confidence (1-5, or null for not rated) and the student's own workload in
+ * minutes (null goes back to the estimate). */
+export function useTopicPlanning(moduleId: string, topicId: string) {
+  return useTopicMutation(moduleId, (body: components["schemas"]["TopicPlanningUpdate"]) =>
+    unwrap(
+      api.PATCH("/topics/{topic_id}/planning", {
+        params: { path: { topic_id: topicId } },
+        body,
+      }),
+    ),
+  );
+}
+
 export function useMoveTopic(moduleId: string) {
   return useTopicMutation(moduleId, (args: { topicId: string } & TopicMove) =>
     unwrap(

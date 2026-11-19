@@ -12,6 +12,7 @@ from app.api import (
     health,
     materials,
     modules,
+    planning,
     search,
     sessions,
     tasks,
@@ -63,6 +64,7 @@ def create_app() -> FastAPI:
     app.include_router(materials.router)
     app.include_router(search.router)
     app.include_router(tutor.router)
+    app.include_router(planning.router)
     app.include_router(ai.router)
     return app
 

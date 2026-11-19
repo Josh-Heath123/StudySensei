@@ -74,7 +74,8 @@ export interface paths {
     /**
      * Get Topic Tree
      * @description The module's topics as a nested tree, siblings in position order, each with the
-     *     number of material pages linked to it.
+     *     number of material pages linked to it, its confidence and its workload (the student's
+     *     figure, or estimated from its slides and text pages).
      */
     get: operations["get_topic_tree_modules__module_id__topics_get"];
     put?: never;
@@ -970,6 +971,159 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/planning/settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Planning Settings
+     * @description The timezone availability is written in, and the most study time a day.
+     */
+    get: operations["get_planning_settings_planning_settings_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Planning Settings
+     * @description Change the timezone (IANA) or the daily cap (15 to 1,440 minutes).
+     */
+    patch: operations["update_planning_settings_planning_settings_patch"];
+    trace?: never;
+  };
+  "/availability/rules": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Rules
+     * @description Weekly windows, by weekday (0 is Monday) then start.
+     */
+    get: operations["list_rules_availability_rules_get"];
+    put?: never;
+    /**
+     * Create Rule
+     * @description A weekly window, "HH:MM" to "HH:MM" local time ("24:00" ends at midnight). 409 if
+     *     it overlaps another window that weekday.
+     */
+    post: operations["create_rule_availability_rules_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/availability/rules/{rule_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete Rule */
+    delete: operations["delete_rule_availability_rules__rule_id__delete"];
+    options?: never;
+    head?: never;
+    /** Update Rule */
+    patch: operations["update_rule_availability_rules__rule_id__patch"];
+    trace?: never;
+  };
+  "/availability/exceptions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Exceptions
+     * @description Exceptions by date, optionally from and to a local date (inclusive).
+     */
+    get: operations["list_exceptions_availability_exceptions_get"];
+    put?: never;
+    /**
+     * Create Exception
+     * @description One date that doesn't follow the rules: ``unavailable``, or its own ``windows``.
+     *     409 if that date already has one.
+     */
+    post: operations["create_exception_availability_exceptions_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/availability/exceptions/{exception_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete Exception */
+    delete: operations["delete_exception_availability_exceptions__exception_id__delete"];
+    options?: never;
+    head?: never;
+    /** Update Exception */
+    patch: operations["update_exception_availability_exceptions__exception_id__patch"];
+    trace?: never;
+  };
+  "/availability": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Availability
+     * @description Each local date from ``from`` to ``to`` (inclusive, at most 62 days): its free
+     *     intervals in UTC (exceptions over rules, DST-safe), free minutes, and the minutes
+     *     available after the daily cap.
+     */
+    get: operations["get_availability_availability_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/topics/{topic_id}/planning": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Topic Planning
+     * @description Set the topic's confidence (1 to 5, self-rated) or its workload in minutes (the
+     *     student's own figure). Null clears either: "not rated", or back to the estimate.
+     */
+    patch: operations["update_topic_planning_topics__topic_id__planning_patch"];
+    trace?: never;
+  };
   "/ai/status": {
     parameters: {
       query?: never;
@@ -1169,6 +1323,42 @@ export interface components {
       /** Topic Ids */
       topic_ids?: string[] | null;
     };
+    /** AvailabilityDayOut */
+    AvailabilityDayOut: {
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** Weekday */
+      weekday: number;
+      /**
+       * Source
+       * @enum {string}
+       */
+      source: "rules" | "exception" | "unavailable";
+      /** Intervals */
+      intervals: components["schemas"]["IntervalOut"][];
+      /** Free Minutes */
+      free_minutes: number;
+      /** Available Minutes */
+      available_minutes: number;
+    };
+    /** AvailabilityOut */
+    AvailabilityOut: {
+      /** Timezone */
+      timezone: string;
+      /** Daily Study Cap Minutes */
+      daily_study_cap_minutes: number;
+      /** Days */
+      days: components["schemas"]["AvailabilityDayOut"][];
+      /** Total Free Minutes */
+      total_free_minutes: number;
+      /** Total Available Minutes */
+      total_available_minutes: number;
+      /** Weekly Minutes From Rules */
+      weekly_minutes_from_rules: number;
+    };
     /** Body_upload_material_modules__module_id__materials_post */
     Body_upload_material_modules__module_id__materials_post: {
       /**
@@ -1352,6 +1542,56 @@ export interface components {
        */
       occurred_at: string;
     };
+    /** ExceptionCreate */
+    ExceptionCreate: {
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /**
+       * Unavailable
+       * @default false
+       */
+      unavailable: boolean;
+      /** Windows */
+      windows?: components["schemas"]["WindowIn"][];
+      /** Note */
+      note?: string | null;
+    };
+    /** ExceptionOut */
+    ExceptionOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** Unavailable */
+      unavailable: boolean;
+      /** Windows */
+      windows: components["schemas"]["WindowOut"][];
+      /** Note */
+      note: string | null;
+    };
+    /**
+     * ExceptionUpdate
+     * @description ``unavailable`` and ``windows`` are checked together once merged with what's stored.
+     */
+    ExceptionUpdate: {
+      /** Date */
+      date?: string | null;
+      /** Unavailable */
+      unavailable?: boolean | null;
+      /** Windows */
+      windows?: components["schemas"]["WindowIn"][] | null;
+      /** Note */
+      note?: string | null;
+    };
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
@@ -1376,6 +1616,21 @@ export interface components {
       database: "ok" | "error";
       /** Database Error */
       database_error?: string | null;
+    };
+    /** IntervalOut */
+    IntervalOut: {
+      /**
+       * Start
+       * Format: date-time
+       */
+      start: string;
+      /**
+       * End
+       * Format: date-time
+       */
+      end: string;
+      /** Minutes */
+      minutes: number;
     };
     /** KeptCount */
     KeptCount: {
@@ -1702,6 +1957,20 @@ export interface components {
       /** Is Scanned */
       is_scanned: boolean;
     };
+    /** PlanningSettingsOut */
+    PlanningSettingsOut: {
+      /** Timezone */
+      timezone: string;
+      /** Daily Study Cap Minutes */
+      daily_study_cap_minutes: number;
+    };
+    /** PlanningSettingsUpdate */
+    PlanningSettingsUpdate: {
+      /** Timezone */
+      timezone?: string | null;
+      /** Daily Study Cap Minutes */
+      daily_study_cap_minutes?: number | null;
+    };
     /**
      * Quiz
      * @description What the model is asked for (3 questions); up to 6 are accepted, then filtered.
@@ -1742,6 +2011,44 @@ export interface components {
       covered_notes?: string | null;
       /** Topic Ratings */
       topic_ratings?: components["schemas"]["TopicRatingIn"][];
+    };
+    /** RuleCreate */
+    RuleCreate: {
+      /** Start */
+      start: string;
+      /** End */
+      end: string;
+      /**
+       * Weekday
+       * @description 0 is Monday, 6 is Sunday
+       */
+      weekday: number;
+    };
+    /** RuleOut */
+    RuleOut: {
+      /** Start */
+      start: string;
+      /** End */
+      end: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Weekday */
+      weekday: number;
+    };
+    /**
+     * RuleUpdate
+     * @description Any of the three; the window is checked again once merged with what's stored.
+     */
+    RuleUpdate: {
+      /** Weekday */
+      weekday?: number | null;
+      /** Start */
+      start?: string | null;
+      /** End */
+      end?: string | null;
     };
     /** SearchOut */
     SearchOut: {
@@ -2114,11 +2421,14 @@ export interface components {
        * @enum {string}
        */
       source: "user" | "ai";
+      /** Confidence */
+      confidence?: number | null;
       /**
        * Linked Pages
        * @default 0
        */
       linked_pages: number;
+      workload: components["schemas"]["WorkloadOut"];
       /** Children */
       children: components["schemas"]["TopicNodeOut"][];
     };
@@ -2147,6 +2457,26 @@ export interface components {
        * @enum {string}
        */
       source: "user" | "ai";
+      /** Confidence */
+      confidence?: number | null;
+    };
+    /** TopicPlanningOut */
+    TopicPlanningOut: {
+      /**
+       * Topic Id
+       * Format: uuid
+       */
+      topic_id: string;
+      /** Confidence */
+      confidence: number | null;
+      workload: components["schemas"]["WorkloadOut"];
+    };
+    /** TopicPlanningUpdate */
+    TopicPlanningUpdate: {
+      /** Estimated Minutes */
+      estimated_minutes?: number | null;
+      /** Confidence */
+      confidence?: number | null;
     };
     /** TopicRatingIn */
     TopicRatingIn: {
@@ -2220,6 +2550,37 @@ export interface components {
       first_token_ms: number;
       /** First Sentence Ms */
       first_sentence_ms: number;
+    };
+    /** WindowIn */
+    WindowIn: {
+      /** Start */
+      start: string;
+      /** End */
+      end: string;
+    };
+    /** WindowOut */
+    WindowOut: {
+      /** Start */
+      start: string;
+      /** End */
+      end: string;
+    };
+    /**
+     * WorkloadOut
+     * @description How long a topic takes: the student's figure, or an estimate from its pages.
+     */
+    WorkloadOut: {
+      /** Minutes */
+      minutes: number | null;
+      /**
+       * Source
+       * @enum {string}
+       */
+      source: "yours" | "estimated" | "none";
+      /** Slide Pages */
+      slide_pages: number;
+      /** Text Pages */
+      text_pages: number;
     };
   };
   responses: never;
@@ -4171,6 +4532,372 @@ export interface operations {
         };
         content: {
           "text/event-stream": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_planning_settings_planning_settings_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PlanningSettingsOut"];
+        };
+      };
+    };
+  };
+  update_planning_settings_planning_settings_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PlanningSettingsUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PlanningSettingsOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_rules_availability_rules_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RuleOut"][];
+        };
+      };
+    };
+  };
+  create_rule_availability_rules_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RuleCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RuleOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_rule_availability_rules__rule_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        rule_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_rule_availability_rules__rule_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        rule_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RuleUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RuleOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_exceptions_availability_exceptions_get: {
+    parameters: {
+      query?: {
+        from?: string | null;
+        to?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExceptionOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_exception_availability_exceptions_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExceptionCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExceptionOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_exception_availability_exceptions__exception_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        exception_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_exception_availability_exceptions__exception_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        exception_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExceptionUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExceptionOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_availability_availability_get: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AvailabilityOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_topic_planning_topics__topic_id__planning_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        topic_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TopicPlanningUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TopicPlanningOut"];
         };
       };
       /** @description Validation Error */

@@ -151,6 +151,8 @@ any content uses `glass-strong`; `tokens.test.ts` checks each against its worst 
 | **Bottom sheet** (`ui/sheet.tsx`) | `glass-strong`, pinned to the bottom, radius 24 on the top corners, up to 88 % of the viewport, safe-area padding; slides up in 320 ms (fades only under reduced motion) |
 | **Viewer page** | A solid surface. **Fit page** (the default) fits the whole page into the visible area with no scrollbars; **Fit width** fits the width and scrolls down, with its scrollbar space reserved so the width never changes while drawing |
 | **Topic tree rows** | Chapters 15/600, subtopics 15/400, page counts muted. Row actions appear on hover and focus-within (still in the tab order); on touch screens they're behind one "…" menu |
+| **Weekly editor** (Settings → Study time) | A solid card; one row per weekday (the day 15/600 with its total muted under it, then its windows as two native time inputs with "to" between and a ghost remove button); "Add a window" a quiet button. Errors under the day in `danger`. No dragging yet |
+| **Confidence control** | The segmented-control look (`subtle` track, radius 12, raised selected segment) as a radio group: "–" (not rated) and 1-5, each with its meaning as the title and in the accessible name; the chosen meaning in a muted line below |
 | **Icons** | lucide-react only, one stroke width (1.75, set globally) |
 
 ## Screens
@@ -166,10 +168,12 @@ any content uses `glass-strong`; `tokens.test.ts` checks each against its worst 
 - **Modules and module detail:** a clean header with the module's colour, Start session as the one primary action and
   Edit and Delete in a "…" menu; tabs as a segmented control; solid, readable lists and tables.
 - **Topics:** a solid tree; AI and review state shown subtly (a small violet dot and a quiet label); the ReviewBar a
-  floating glass toolbar; the merge and linked-pages dialogs in glass.
+  floating glass toolbar; the merge and linked-pages dialogs in glass. A topic's workload and confidence show in its
+  row only on hover or focus; they're edited in its detail dialog, on a solid card above its pages.
 - **Materials:** a refined upload area and status, skeleton loaders, a prominent search box, and the viewer's chrome
   in glass with the page canvas on a solid surface.
-- **Settings:** Appearance first, then AI providers in solid cards with violet usage meters (labels kept).
+- **Settings:** Appearance first, then Study time (a one-line summary of the week, the weekly editor beside Limits
+  and Exceptions cards), then AI providers in solid cards with violet usage meters (labels kept).
 - **Placeholders** (Plan, Practice, Insights): a designed empty state saying which phase each arrives in.
 
 ## Layout and responsive

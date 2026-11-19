@@ -13,6 +13,7 @@ import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card";
 
+import { StudyTimeSection } from "./StudyTimeSection";
 import { formatReset, plural, PROVIDER_NAMES, ROLE_ORDER, ROLE_USES } from "./aiSettings";
 import {
   type AiModelStatus,
@@ -28,6 +29,7 @@ export function SettingsPage() {
     <>
       <PageHeader title="Settings" />
       <AppearanceSection />
+      <StudyTimeSection />
       <section aria-labelledby="ai-providers" className="mt-12 grid gap-6">
         <div>
           <h2 id="ai-providers" className="type-h2">

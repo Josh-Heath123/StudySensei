@@ -236,7 +236,7 @@
           "topics"
         ],
         "summary": "Get Topic Tree",
-        "description": "The module's topics as a nested tree, siblings in position order, each with the\nnumber of material pages linked to it.",
+        "description": "The module's topics as a nested tree, siblings in position order, each with the\nnumber of material pages linked to it, its confidence and its workload (the student's\nfigure, or estimated from its slides and text pages).",
         "operationId": "get_topic_tree_modules__module_id__topics_get",
         "parameters": [
           {
@@ -2931,6 +2931,528 @@
         }
       }
     },
+    "/planning/settings": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Get Planning Settings",
+        "description": "The timezone availability is written in, and the most study time a day.",
+        "operationId": "get_planning_settings_planning_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanningSettingsOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Update Planning Settings",
+        "description": "Change the timezone (IANA) or the daily cap (15 to 1,440 minutes).",
+        "operationId": "update_planning_settings_planning_settings_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanningSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanningSettingsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/availability/rules": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "List Rules",
+        "description": "Weekly windows, by weekday (0 is Monday) then start.",
+        "operationId": "list_rules_availability_rules_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RuleOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Rules Availability Rules Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Create Rule",
+        "description": "A weekly window, \"HH:MM\" to \"HH:MM\" local time (\"24:00\" ends at midnight). 409 if\nit overlaps another window that weekday.",
+        "operationId": "create_rule_availability_rules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/availability/rules/{rule_id}": {
+      "patch": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Update Rule",
+        "operationId": "update_rule_availability_rules__rule_id__patch",
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Rule Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Delete Rule",
+        "operationId": "delete_rule_availability_rules__rule_id__delete",
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Rule Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/availability/exceptions": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "List Exceptions",
+        "description": "Exceptions by date, optionally from and to a local date (inclusive).",
+        "operationId": "list_exceptions_availability_exceptions_get",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExceptionOut"
+                  },
+                  "title": "Response List Exceptions Availability Exceptions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Create Exception",
+        "description": "One date that doesn't follow the rules: ``unavailable``, or its own ``windows``.\n409 if that date already has one.",
+        "operationId": "create_exception_availability_exceptions_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExceptionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExceptionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/availability/exceptions/{exception_id}": {
+      "patch": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Update Exception",
+        "operationId": "update_exception_availability_exceptions__exception_id__patch",
+        "parameters": [
+          {
+            "name": "exception_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Exception Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExceptionUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExceptionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Delete Exception",
+        "operationId": "delete_exception_availability_exceptions__exception_id__delete",
+        "parameters": [
+          {
+            "name": "exception_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Exception Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/availability": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Get Availability",
+        "description": "Each local date from ``from`` to ``to`` (inclusive, at most 62 days): its free\nintervals in UTC (exceptions over rules, DST-safe), free minutes, and the minutes\navailable after the daily cap.",
+        "operationId": "get_availability_availability_get",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvailabilityOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/topics/{topic_id}/planning": {
+      "patch": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Update Topic Planning",
+        "description": "Set the topic's confidence (1 to 5, self-rated) or its workload in minutes (the\nstudent's own figure). Null clears either: \"not rated\", or back to the estimate.",
+        "operationId": "update_topic_planning_topics__topic_id__planning_patch",
+        "parameters": [
+          {
+            "name": "topic_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Topic Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopicPlanningUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicPlanningOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ai/status": {
       "get": {
         "tags": [
@@ -3505,6 +4027,94 @@
         "type": "object",
         "title": "AssessmentUpdate"
       },
+      "AvailabilityDayOut": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "weekday": {
+            "type": "integer",
+            "title": "Weekday"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "rules",
+              "exception",
+              "unavailable"
+            ],
+            "title": "Source"
+          },
+          "intervals": {
+            "items": {
+              "$ref": "#/components/schemas/IntervalOut"
+            },
+            "type": "array",
+            "title": "Intervals"
+          },
+          "free_minutes": {
+            "type": "integer",
+            "title": "Free Minutes"
+          },
+          "available_minutes": {
+            "type": "integer",
+            "title": "Available Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "weekday",
+          "source",
+          "intervals",
+          "free_minutes",
+          "available_minutes"
+        ],
+        "title": "AvailabilityDayOut"
+      },
+      "AvailabilityOut": {
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "daily_study_cap_minutes": {
+            "type": "integer",
+            "title": "Daily Study Cap Minutes"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/AvailabilityDayOut"
+            },
+            "type": "array",
+            "title": "Days"
+          },
+          "total_free_minutes": {
+            "type": "integer",
+            "title": "Total Free Minutes"
+          },
+          "total_available_minutes": {
+            "type": "integer",
+            "title": "Total Available Minutes"
+          },
+          "weekly_minutes_from_rules": {
+            "type": "integer",
+            "title": "Weekly Minutes From Rules"
+          }
+        },
+        "type": "object",
+        "required": [
+          "timezone",
+          "daily_study_cap_minutes",
+          "days",
+          "total_free_minutes",
+          "total_available_minutes",
+          "weekly_minutes_from_rules"
+        ],
+        "title": "AvailabilityOut"
+      },
       "Body_upload_material_modules__module_id__materials_post": {
         "properties": {
           "file": {
@@ -3883,6 +4493,149 @@
         ],
         "title": "EventOut"
       },
+      "ExceptionCreate": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "unavailable": {
+            "type": "boolean",
+            "title": "Unavailable",
+            "default": false
+          },
+          "windows": {
+            "items": {
+              "$ref": "#/components/schemas/WindowIn"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Windows"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "date"
+        ],
+        "title": "ExceptionCreate"
+      },
+      "ExceptionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "unavailable": {
+            "type": "boolean",
+            "title": "Unavailable"
+          },
+          "windows": {
+            "items": {
+              "$ref": "#/components/schemas/WindowOut"
+            },
+            "type": "array",
+            "title": "Windows"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "date",
+          "unavailable",
+          "windows",
+          "note"
+        ],
+        "title": "ExceptionOut"
+      },
+      "ExceptionUpdate": {
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "unavailable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable"
+          },
+          "windows": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/WindowIn"
+                },
+                "type": "array",
+                "maxItems": 12
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Windows"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ExceptionUpdate",
+        "description": "``unavailable`` and ``windows`` are checked together once merged with what's stored."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -3938,6 +4691,31 @@
           "database"
         ],
         "title": "HealthResponse"
+      },
+      "IntervalOut": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "minutes"
+        ],
+        "title": "IntervalOut"
       },
       "KeptCount": {
         "properties": {
@@ -4779,6 +5557,55 @@
         "title": "PageSummary",
         "description": "A page in the list (no text): for choosing one to open."
       },
+      "PlanningSettingsOut": {
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "daily_study_cap_minutes": {
+            "type": "integer",
+            "title": "Daily Study Cap Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "timezone",
+          "daily_study_cap_minutes"
+        ],
+        "title": "PlanningSettingsOut"
+      },
+      "PlanningSettingsUpdate": {
+        "properties": {
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          },
+          "daily_study_cap_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1440.0,
+                "minimum": 15.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Study Cap Minutes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PlanningSettingsUpdate"
+      },
       "Quiz": {
         "properties": {
           "questions": {
@@ -4913,6 +5740,106 @@
           "focus_rating"
         ],
         "title": "ReflectionIn"
+      },
+      "RuleCreate": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "title": "End"
+          },
+          "weekday": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 0.0,
+            "title": "Weekday",
+            "description": "0 is Monday, 6 is Sunday"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "weekday"
+        ],
+        "title": "RuleCreate"
+      },
+      "RuleOut": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "title": "End"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "weekday": {
+            "type": "integer",
+            "title": "Weekday"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "id",
+          "weekday"
+        ],
+        "title": "RuleOut"
+      },
+      "RuleUpdate": {
+        "properties": {
+          "weekday": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 6.0,
+                "minimum": 0.0,
+                "description": "0 is Monday, 6 is Sunday"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekday"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RuleUpdate",
+        "description": "Any of the three; the window is checked again once merged with what's stored."
       },
       "SearchOut": {
         "properties": {
@@ -5939,10 +6866,24 @@
             ],
             "title": "Source"
           },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
           "linked_pages": {
             "type": "integer",
             "title": "Linked Pages",
             "default": 0
+          },
+          "workload": {
+            "$ref": "#/components/schemas/WorkloadOut"
           },
           "children": {
             "items": {
@@ -5961,6 +6902,7 @@
           "description",
           "position",
           "source",
+          "workload",
           "children"
         ],
         "title": "TopicNodeOut",
@@ -6016,6 +6958,17 @@
               "ai"
             ],
             "title": "Source"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
           }
         },
         "type": "object",
@@ -6029,6 +6982,69 @@
           "source"
         ],
         "title": "TopicOut"
+      },
+      "TopicPlanningOut": {
+        "properties": {
+          "topic_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Topic Id"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "workload": {
+            "$ref": "#/components/schemas/WorkloadOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "topic_id",
+          "confidence",
+          "workload"
+        ],
+        "title": "TopicPlanningOut"
+      },
+      "TopicPlanningUpdate": {
+        "properties": {
+          "estimated_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 6000.0,
+                "minimum": 5.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Minutes"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 5.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TopicPlanningUpdate"
       },
       "TopicRatingIn": {
         "properties": {
@@ -6213,6 +7229,84 @@
         ],
         "title": "VoiceTimingIn",
         "description": "Measured in the browser for a question asked by voice, in ms from releasing\npush-to-talk: the final transcript, the first answer token, the first full sentence,\nand the first spoken word (``voice_latency_ms``, the Phase 3 target is under 2,500)."
+      },
+      "WindowIn": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "title": "End"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "WindowIn"
+      },
+      "WindowOut": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "title": "End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "WindowOut"
+      },
+      "WorkloadOut": {
+        "properties": {
+          "minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "yours",
+              "estimated",
+              "none"
+            ],
+            "title": "Source"
+          },
+          "slide_pages": {
+            "type": "integer",
+            "title": "Slide Pages"
+          },
+          "text_pages": {
+            "type": "integer",
+            "title": "Text Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "minutes",
+          "source",
+          "slide_pages",
+          "text_pages"
+        ],
+        "title": "WorkloadOut",
+        "description": "How long a topic takes: the student's figure, or an estimate from its pages."
       }
     }
   }

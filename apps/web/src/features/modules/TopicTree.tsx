@@ -45,6 +45,7 @@ import { TopicPagesDialog } from "./TopicPagesDialog";
 import { EmptyState } from "./EmptyState";
 import { LoadingRows } from "./LoadingRows";
 import { aiDescendants, unreviewedOnly } from "./topicReview";
+import { confidenceText, workloadShort } from "./planningText";
 import { moveTarget } from "./treeMoves";
 
 function countAi(nodes: TopicNode[]): number {
@@ -127,7 +128,8 @@ export function TopicTree({ moduleId }: { moduleId: string }) {
       <p className="text-muted mb-6 max-w-2xl text-sm">
         Build the module's topic tree. Use the arrows to reorder, indent and outdent. Topics marked
         AI were suggested from your materials: keep, rename, merge or dismiss each one, and it
-        becomes yours. Click a topic to see its pages.
+        becomes yours. Click a topic to rate your confidence, set how long it takes, and see its
+        pages.
       </p>
 
       <TopicMapPanel moduleId={moduleId} aiTopics={countAi(tree.data ?? [])} />
@@ -362,13 +364,20 @@ function TopicItem({
               // Chapters (top level) carry the weight; subtopics read as body text.
               parent ? "font-normal" : "font-semibold",
             )}
-            title="Show its linked pages"
+            title="Show its confidence, workload and pages"
           >
             {node.name}
           </button>
         )}
         {!renaming && (
           <span className="flex shrink-0 items-center gap-2">
+            {/* Planning details show on hover or focus (and in the topic's detail), so the
+                tree stays readable. */}
+            <span className="text-muted tabular hidden text-sm group-focus-within:inline group-hover:inline pointer-coarse:hidden">
+              {[workloadShort(node.workload), confidenceText(node.confidence)]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
             {node.linked_pages > 0 && (
               <span className="text-muted tabular text-sm">
                 {node.linked_pages} {node.linked_pages === 1 ? "page" : "pages"}

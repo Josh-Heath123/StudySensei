@@ -2,6 +2,32 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-20: Phase 4, task 1 (availability, workload and starting confidence)
+
+- **Data** (migration 0021):
+  - `users.timezone` (IANA, default Africa/Johannesburg) and `daily_study_cap_minutes` (180).
+  - `availability_rules`: weekly windows in local minutes, never across midnight. Overlaps are refused by an
+    exclusion constraint (`btree_gist`).
+  - `availability_exceptions`: one per date, unavailable or its own windows, with a note.
+  - `topics.estimated_minutes` (the student's figure) and `confidence` (1-5, self-rated).
+- **Pure helpers** (`services/planning/`):
+  - `expand()` gives UTC intervals per local date, exceptions over rules, DST-safe. It's tested in Europe/London:
+    00:30-03:00 is 1 h 30 in spring and 3 h 30 in autumn.
+  - The daily cap limits what's available, not the intervals.
+  - The workload estimate is 3 min a slide and 6 a page of text (ADR 0016), computed, never stored, and labelled.
+- **API:**
+  - CRUD for rules and exceptions, `GET /availability?from=&to=`, `GET/PATCH /planning/settings` and
+    `PATCH /topics/{id}/planning`.
+  - The topic tree carries confidence and workload.
+  - Every endpoint has a cross-user case.
+- **UI:**
+  - Settings → Study time: a weekly editor, the cap and timezone, exceptions, and "≈ 4 h a week available (from
+    your rules) · ≈ 1 h in the next 7 days".
+  - Topics: confidence and workload in the topic's detail; the row shows them on hover or focus.
+- **Tests:** 31 pure, 32 API (plus the cross-user cases), Vitest for the Study time and topic flows, and
+  `e2e/study-time.spec.ts` (two windows, an exception, and the week's total changes).
+- **Next:** task 2, the pure `plan()` with property tests. It must handle topics with no workload estimate.
+
 ## 2026-11-19: Phase 3, task 5 (voice: on-device STT, local TTS, push-to-talk, latency), and two fixes from the review of #39
 
 - **Fixes:**
