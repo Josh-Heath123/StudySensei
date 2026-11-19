@@ -2,6 +2,39 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-18: Phase 3, task 1 (tutor retrieval and prompt templates)
+
+- **Done:**
+  - `app/services/tutor/retrieval.py` `retrieve`: the module's hybrid search (all fused candidates), then a topic
+    boost, `allow_ai` only (through `chunks_for_prompt`, which now also returns the page title), one source per page,
+    at most 8, a token budget that drops the lowest-ranked first, and labels S1–S8 in rank order. No provider calls.
+  - `app/services/tutor/prompts.py`: the system prompt, `<material id="S1" title="…" page="…">` blocks (a `<material`
+    inside a passage is escaped), and the four modes (answer, explain differently, example, quiz with 3 questions).
+    `UNTRUSTED` moved to `app/ai/sources.py` so both prompt sets share it.
+  - **Linking threshold 0.75** (was 0.63), with migration 0016 queuing a relink (not run on the dev database). The
+    real-model fixture test now checks the fixtures at their own 0.63 and that no unrelated passage reaches 0.75.
+  - `evals/search --retrieval`, with each query's topic in `search/cos330.yaml`.
+  - #34 review: search result and page-list titles strip Markdown ("… essay *(Ch5, 5 marks)*" → "… essay (Ch5,
+    5 marks)"). The session's Materials link and tutor note were already below the timer; the flow test now asserts
+    the order and the link (checked in tests; no dev server was running to look at it).
+  - Tests: 16 retrieval (cross-user module and topic, a topic from another module, `allow_ai`, one per page, the cap,
+    labels, the budget, the boost only on linked chunks and subtopics), 11 prompt, the 0016 migration, 2 web.
+- **Eval (COS330, 15 queries, links as built at 0.63):**
+  - No topic: an acceptable page in the 8 for 15/15, at S1 for 12/15, MRR 0.900, 30 acceptable pages in the 8.
+  - The query's topic at ×1.25, ×1.5 or ×2: unchanged ranks, 32 acceptable pages in the 8. At ×3: 33.
+    Counting only links ≥ 0.75 gives the same.
+  - A topic from another chapter: S1 for 11/15 at ×1.25 (MRR 0.867), and 9/15 at ×1.5 or more (MRR 0.800 / 0.800
+    / 0.789). The acceptable page stayed in the 8 for 15/15 in every run.
+  - Context: 918–3,530 estimated tokens (mean 2,063), under the 4,500 budget, so nothing was dropped.
+- **Decided:**
+  - `TUTOR_TOPIC_BOOST` = 1.25 (×1.5's and ×2's on-topic gain, at the smallest off-topic cost), multiplying the
+    fused RRF score.
+  - `TUTOR_CONTEXT_MAX_TOKENS` = 4,500 at 3.5 characters a token for course prose (it ran at about 4.6, decision
+    0010). With about 600 for the prompts and 2,000 for the answer, a full request stays under Groq's 8,000 a minute.
+  - The boost reads `chunk_topics`, not `topic_pages` directly: it already holds the cited pages, less the ones the
+    student unlinked.
+- **Next:** Phase 3 task 2: the SSE tutor endpoint, plus `conversations` / `messages` storage with citations.
+
 ## 2026-11-18: Glass polish, and the e2e failure on main
 
 - **CI on main was red** (run 44321451301: the e2e job's "a PDF opens from a search result" failed after #33 merged,

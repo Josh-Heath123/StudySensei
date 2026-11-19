@@ -75,6 +75,17 @@ test("start → pause → resume → break → end → reflect → summary", asy
   expect(
     screen.getByText(/Open this module's slides and notes, search them, and jump to any page/),
   ).toBeInTheDocument();
+  // Below the timer (#34 item 12): the Materials link and the tutor note follow it.
+  const timerSection = screen.getByRole("region", { name: "Timer" });
+  const materials = screen.getByRole("link", { name: "Open module" });
+  expect(materials).toHaveAttribute("href", "/modules/m1");
+  const tutorNote = screen.getByText("The tutor arrives in Phase 3.");
+  for (const below of [materials, tutorNote]) {
+    expect(
+      timerSection.compareDocumentPosition(below) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(timerSection.contains(below)).toBe(false);
+  }
 
   await pass(10 * MIN);
   expect(timer()).toHaveTextContent("40:00");

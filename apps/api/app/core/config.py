@@ -141,14 +141,27 @@ class Settings(BaseSettings):
     topic_merge_max_tokens: int = 7000
     # A chunk links to a topic by similarity when the cosine of the topic's "name:
     # description" and the chunk is at least this, keeping at most this many per topic.
-    # Calibrated with bge-small on tests/topic_maps/linking_fixtures.py: passages that teach
-    # the topic scored 0.63-0.90, others 0.41-0.62 (test_real_model_threshold.py pins it).
-    topic_link_threshold: float = 0.63
+    # First calibrated at 0.63 with bge-small on tests/topic_maps/linking_fixtures.py
+    # (teaching passages 0.63-0.90, others 0.41-0.62). On COS330 (evals/linking, 18 Nov
+    # 2026) 0.63 never cut: every similarity link scored 0.67-0.88. 0.75 kept 88 % of the
+    # same-chapter links and 48 % of the cross-chapter ones; migration 0016 relinks.
+    topic_link_threshold: float = 0.75
     topic_link_max_chunks: int = 12
     # Pages with less extracted text than this (title slides, "Chapter N" dividers,
     # caption-only figure slides) are never similarity candidates; cited pages still link.
     # COS330, 18 Nov 2026: 127 of 318 similarity links were such pages, 77 across chapters.
     topic_link_min_page_chars: int = 150
+    # --- Tutor retrieval (Phase 3; ARCHITECTURE "Search" and "Tutor") ---
+    # Chunks linked to the session's current topic (or its subtopics) have their fused RRF
+    # score multiplied by this; 1.0 turns the boost off. COS330 (evals/search --retrieval,
+    # 18 Nov 2026): x1.25 to x2 each brought 32 acceptable pages into the 8 sources (30 with
+    # no boost); with a topic from another chapter, x1.25 kept the right page at S1 for 11 of
+    # 15 queries and x1.5 or more for only 9.
+    tutor_topic_boost: float = 1.25
+    # The sources' share of a tutor request, in estimated tokens (3.5 characters a token,
+    # app/services/tutor/prompts.py). Sized for Groq's 8,000 tokens a minute on the smart
+    # role: 4,500 for sources + about 600 for the prompts and question + 2,000 for the answer.
+    tutor_context_max_tokens: int = 4500
     # Connecting gives up quickly; reading allows for a long answer (and thinking) to arrive.
     ai_connect_timeout_seconds: float = 10.0
     ai_read_timeout_seconds: float = 90.0

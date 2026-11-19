@@ -6,7 +6,7 @@ import { Input } from "@/ui/input";
 
 import { useSearch, type Material, type SearchResult } from "./api";
 import { PagesDialog } from "./PagesDialog";
-import { groupByPage, plainSnippet } from "./searchResults";
+import { groupByPage, plainSnippet, plainText } from "./searchResults";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -112,7 +112,9 @@ export function MaterialSearch({
                   <strong className="tabular font-semibold">
                     {`${result.material_title} · page ${result.page_number}`}
                   </strong>
-                  {result.page_title && <span className="text-muted"> · {result.page_title}</span>}
+                  {result.page_title && (
+                    <span className="text-muted"> · {plainText(result.page_title)}</span>
+                  )}
                 </p>
                 <p className="mt-1 line-clamp-3 text-sm">
                   {plainSnippet(result.snippet).map((part, index) =>

@@ -9,6 +9,7 @@ import uuid
 from pathlib import Path
 from types import ModuleType
 
+import pytest
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from sqlalchemy import delete, select
@@ -188,26 +189,23 @@ async def test_the_relink_job_keeps_unlinks_and_cited_links(
     assert my_pages[4] == "similarity"  # the student's own topic gets similarity links
 
 
-# --- migration 0015 ---
+# --- migrations 0015 and 0016 (the same relink, queued again for the 0.75 threshold) ---
 
-PATH = (
-    Path(__file__).resolve().parents[2]
-    / "alembic"
-    / "versions"
-    / "0015_relink_without_near_empty_pages.py"
-)
+VERSIONS = Path(__file__).resolve().parents[2] / "alembic" / "versions"
+RELINKS = ["0015_relink_without_near_empty_pages.py", "0016_relink_at_threshold_075.py"]
 
 
-def load() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("migration_0015", PATH)
+def load(name: str) -> ModuleType:
+    spec = importlib.util.spec_from_file_location(name.removesuffix(".py"), VERSIONS / name)
     assert spec is not None and spec.loader is not None
     loaded = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(loaded)
     return loaded
 
 
+@pytest.mark.parametrize("migration", RELINKS)
 async def test_the_migration_queues_one_link_job_per_module_with_a_topic_map(
-    session: AsyncSession, module: IndexedModule, user_b: User
+    session: AsyncSession, module: IndexedModule, user_b: User, migration: str
 ) -> None:
     # Alice's module has chunk links: a topic citing a page.
     session.add(
@@ -241,7 +239,7 @@ async def test_the_migration_queues_one_link_job_per_module_with_a_topic_map(
     def run(sync_connection: object) -> None:
         context = MigrationContext.configure(sync_connection)  # type: ignore[arg-type]
         with Operations.context(context):
-            load().queue_relinking()
+            load(migration).queue_relinking()
 
     await (await session.connection()).run_sync(run)
 

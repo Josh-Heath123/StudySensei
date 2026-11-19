@@ -6,6 +6,8 @@ page and of the first acceptable slide. Results are ranked as the API returns th
 row per chunk, 20 at most.
 
 Pass: any acceptable page in the top 3 for at least 12 of 15 queries (exit code 0).
+
+``--retrieval`` runs the tutor's retrieval instead (``evals/search/retrieval.py``).
 """
 
 import asyncio
@@ -15,6 +17,7 @@ from app.services.search.embedding import get_embedder
 from app.services.search.search import search_module
 from evals.common import dev_session, find_module, load_config
 from evals.metrics import Page, first_rank, in_top, mean_reciprocal_rank
+from evals.search import retrieval
 
 LIMIT = 20
 TOP = 3
@@ -66,4 +69,7 @@ async def main(name: str) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main(sys.argv[1] if len(sys.argv) > 1 else "cos330")))
+    args = [arg for arg in sys.argv[1:] if not arg.startswith("--")]
+    name = args[0] if args else "cos330"
+    run = retrieval.main if "--retrieval" in sys.argv[1:] else main
+    sys.exit(asyncio.run(run(name)))
