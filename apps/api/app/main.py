@@ -12,6 +12,7 @@ from app.api import (
     tasks,
     topic_maps,
     topics,
+    tutor,
 )
 from app.api.errors import add_error_handlers
 from app.core.config import get_settings
@@ -35,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(sessions.router)
     app.include_router(materials.router)
     app.include_router(search.router)
+    app.include_router(tutor.router)
     app.include_router(ai.router)
     return app
 

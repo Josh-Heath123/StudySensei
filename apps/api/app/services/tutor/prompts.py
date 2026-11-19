@@ -13,7 +13,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
-from app.ai.messages import Message, system, user
+from app.ai.messages import Message, assistant, system, user
 from app.ai.sources import UNTRUSTED
 
 TutorMode = Literal["answer", "explain_differently", "example", "quiz"]
@@ -105,14 +105,53 @@ def context_text(sources: Sequence[PromptSource]) -> str:
     return "\n\n".join(material_block(source) for source in sources)
 
 
+@dataclass(frozen=True)
+class Exchange:
+    """An earlier question and its answer in the same conversation."""
+
+    question: str
+    answer: str
+
+
+# "[S1]", "[S2, S5]", "[S3; S4]": an earlier answer's labels pointed at that turn's sources,
+# which aren't this turn's, so they're taken out of the history.
+_CITATION = re.compile(r"\s*\[\s*S\d+(?:\s*[,;]\s*S\d+)*\s*\]")
+
+
+def history_messages(history: Sequence[Exchange]) -> list[Message]:
+    """Earlier exchanges as chat turns, oldest first, without their source labels."""
+    messages: list[Message] = []
+    for exchange in history:
+        messages.append(user(f"Student's question: {exchange.question.strip()}"))
+        messages.append(assistant(_CITATION.sub("", exchange.answer).strip()))
+    return messages
+
+
+def history_tokens(history: Sequence[Exchange]) -> int:
+    """What the history adds to a request, estimated like the sources."""
+    return sum(estimate_tokens(message.text) for message in history_messages(history))
+
+
+def fit_history(history: Sequence[Exchange], max_tokens: int) -> list[Exchange]:
+    """The most recent exchanges that fit ``max_tokens``: the oldest go first."""
+    kept = list(history)
+    while kept and history_tokens(kept) > max_tokens:
+        kept.pop(0)
+    return kept
+
+
 def tutor_messages(
-    mode: TutorMode, question: str, sources: Sequence[PromptSource]
+    mode: TutorMode,
+    question: str,
+    sources: Sequence[PromptSource],
+    history: Sequence[Exchange] = (),
 ) -> list[Message]:
-    """The system prompt, then the sources, the student's question and what to do with it."""
+    """The system prompt, any earlier exchanges, then the sources, the student's question
+    and what to do with it."""
     context = context_text(sources) if sources else "(No course sources matched this question.)"
     prompt = (
         f"Sources:\n\n{context}\n\n"
         f"Student's question: {question.strip()}\n\n"
         f"{MODE_INSTRUCTIONS[mode]}"
     )
-    return [system(TUTOR_SYSTEM), user(prompt)]
+    return [system(TUTOR_SYSTEM), *history_messages(history), user(prompt)]

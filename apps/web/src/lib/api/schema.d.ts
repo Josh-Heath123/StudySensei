@@ -823,6 +823,76 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/modules/{module_id}/tutor/conversations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Create
+     * @description Start a tutor conversation in the module, optionally for a study session and a topic.
+     *
+     *     Without a topic, the session's topic is used. Retrieval boosts the topic's pages.
+     */
+    post: operations["create_modules__module_id__tutor_conversations_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/conversations/{conversation_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read
+     * @description The conversation with its messages, oldest first, and each answer's sources.
+     */
+    get: operations["read_conversations__conversation_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/conversations/{conversation_id}/messages": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Ask
+     * @description Ask a question; the answer streams as server-sent events, in this order:
+     *
+     *     - `sources`: the sources the answer is given (label, material, page), before any text;
+     *     - `delta`: a piece of the answer's text (many);
+     *     - `done` (the answer ended: message id, status, model, time to first token, cited
+     *       labels) or `error` (a readable message, and when to retry if the AI is busy).
+     *
+     *     The question is stored at once, the answer when it ends. If the client disconnects,
+     *     the provider's stream is stopped and the partial answer is stored as `stopped`.
+     */
+    post: operations["ask_conversations__conversation_id__messages_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/ai/status": {
     parameters: {
       query?: never;
@@ -1056,6 +1126,49 @@ export interface components {
       /** Deleted */
       deleted: number;
     };
+    /**
+     * ConversationCreate
+     * @description Both optional. A study session must be in the module; without a topic, the session's
+     *     topic (if any) is the one retrieval boosts.
+     */
+    ConversationCreate: {
+      /** Study Session Id */
+      study_session_id?: string | null;
+      /** Topic Id */
+      topic_id?: string | null;
+    };
+    /** ConversationOut */
+    ConversationOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Module Id
+       * Format: uuid
+       */
+      module_id: string;
+      /** Study Session Id */
+      study_session_id: string | null;
+      /** Topic Id */
+      topic_id: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Messages */
+      messages: components["schemas"]["MessageOut"][];
+    };
+    /**
+     * DeltaEvent
+     * @description A piece of the answer, in order.
+     */
+    DeltaEvent: {
+      /** Text */
+      text: string;
+    };
     /** DismissedCount */
     DismissedCount: {
       /** Dismissed */
@@ -1075,6 +1188,48 @@ export interface components {
        * Format: date-time
        */
       dismissed_at: string;
+    };
+    /**
+     * DoneEvent
+     * @description Last, when an answer was given (``truncated`` if it hit the output limit).
+     */
+    DoneEvent: {
+      /**
+       * Message Id
+       * Format: uuid
+       */
+      message_id: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "complete" | "truncated";
+      /** Model */
+      model: string;
+      /** First Token Ms */
+      first_token_ms: number;
+      /** Total Ms */
+      total_ms: number;
+      /** Cited */
+      cited: string[];
+      /** Unknown Citations */
+      unknown_citations: string[];
+    };
+    /**
+     * ErrorEvent
+     * @description Last, when no full answer was given. Any text already streamed is kept as a
+     *     ``failed`` message.
+     */
+    ErrorEvent: {
+      /**
+       * Message Id
+       * Format: uuid
+       */
+      message_id: string;
+      /** Message */
+      message: string;
+      /** Retry At */
+      retry_at?: string | null;
     };
     /**
      * EventBatch
@@ -1291,6 +1446,77 @@ export interface components {
        * Format: uuid
        */
       target_id: string;
+    };
+    /** MessageCreate */
+    MessageCreate: {
+      /** Question */
+      question: string;
+      /**
+       * Mode
+       * @default answer
+       * @enum {string}
+       */
+      mode: "answer" | "explain_differently" | "example" | "quiz";
+    };
+    /** MessageOut */
+    MessageOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: "user" | "assistant";
+      /**
+       * Mode
+       * @enum {string}
+       */
+      mode: "answer" | "explain_differently" | "example" | "quiz";
+      /** Text */
+      text: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "complete" | "truncated" | "failed" | "stopped";
+      /** Model */
+      model: string | null;
+      /** First Token Ms */
+      first_token_ms: number | null;
+      /** Total Ms */
+      total_ms: number | null;
+      /** Unknown Citations */
+      unknown_citations: string[];
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Sources */
+      sources: components["schemas"]["MessageSourceOut"][];
+    };
+    /**
+     * MessageSourceOut
+     * @description A source the answer was given. ``material_id`` is null once the material is deleted.
+     */
+    MessageSourceOut: {
+      /** Label */
+      label: string;
+      /** Rank */
+      rank: number;
+      /** Material Id */
+      material_id: string | null;
+      /** Material Title */
+      material_title: string;
+      /** Page Number */
+      page_number: number;
+      /** Page Title */
+      page_title: string | null;
+      /** Cited */
+      cited: boolean;
     };
     /** ModuleCreate */
     ModuleCreate: {
@@ -1592,6 +1818,33 @@ export interface components {
       text: string;
       /** Highlight */
       highlight: boolean;
+    };
+    /**
+     * SourceOut
+     * @description A source as the student sees it before the answer: enough to link to the page.
+     */
+    SourceOut: {
+      /** Label */
+      label: string;
+      /**
+       * Material Id
+       * Format: uuid
+       */
+      material_id: string;
+      /** Material Title */
+      material_title: string;
+      /** Page Number */
+      page_number: number;
+      /** Page Title */
+      page_title: string | null;
+    };
+    /**
+     * SourcesEvent
+     * @description First: the sources the answer is given (may be empty).
+     */
+    SourcesEvent: {
+      /** Sources */
+      sources: components["schemas"]["SourceOut"][];
     };
     /** StartEvent */
     StartEvent: {
@@ -3542,6 +3795,107 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["SearchOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_modules__module_id__tutor_conversations_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConversationCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConversationOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_conversations__conversation_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        conversation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConversationOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  ask_conversations__conversation_id__messages_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        conversation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MessageCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": unknown;
         };
       };
       /** @description Validation Error */

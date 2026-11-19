@@ -2525,6 +2525,194 @@
         }
       }
     },
+    "/modules/{module_id}/tutor/conversations": {
+      "post": {
+        "tags": [
+          "tutor"
+        ],
+        "summary": "Create",
+        "description": "Start a tutor conversation in the module, optionally for a study session and a topic.\n\nWithout a topic, the session's topic is used. Retrieval boosts the topic's pages.",
+        "operationId": "create_modules__module_id__tutor_conversations_post",
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{conversation_id}": {
+      "get": {
+        "tags": [
+          "tutor"
+        ],
+        "summary": "Read",
+        "description": "The conversation with its messages, oldest first, and each answer's sources.",
+        "operationId": "read_conversations__conversation_id__get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{conversation_id}/messages": {
+      "post": {
+        "tags": [
+          "tutor"
+        ],
+        "summary": "Ask",
+        "description": "Ask a question; the answer streams as server-sent events, in this order:\n\n- `sources`: the sources the answer is given (label, material, page), before any text;\n- `delta`: a piece of the answer's text (many);\n- `done` (the answer ended: message id, status, model, time to first token, cited\n  labels) or `error` (a readable message, and when to retry if the AI is busy).\n\nThe question is stored at once, the answer when it ends. If the client disconnects,\nthe provider's stream is stopped and the partial answer is stored as `stopped`.",
+        "operationId": "ask_conversations__conversation_id__messages_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/event-stream": {
+                "itemSchema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "string",
+                      "contentMediaType": "application/json",
+                      "contentSchema": {
+                        "anyOf": [
+                          {
+                            "$ref": "#/components/schemas/SourcesEvent"
+                          },
+                          {
+                            "$ref": "#/components/schemas/DeltaEvent"
+                          },
+                          {
+                            "$ref": "#/components/schemas/DoneEvent"
+                          },
+                          {
+                            "$ref": "#/components/schemas/ErrorEvent"
+                          }
+                        ],
+                        "title": "Streamitem Ask Conversations  Conversation Id  Messages Post"
+                      }
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "retry": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ai/status": {
       "get": {
         "tags": [
@@ -3160,6 +3348,112 @@
         ],
         "title": "ClearedTopics"
       },
+      "ConversationCreate": {
+        "properties": {
+          "study_session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Session Id"
+          },
+          "topic_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ConversationCreate",
+        "description": "Both optional. A study session must be in the module; without a topic, the session's\ntopic (if any) is the one retrieval boosts."
+      },
+      "ConversationOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "module_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Module Id"
+          },
+          "study_session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Session Id"
+          },
+          "topic_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/MessageOut"
+            },
+            "type": "array",
+            "title": "Messages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "module_id",
+          "study_session_id",
+          "topic_id",
+          "created_at",
+          "messages"
+        ],
+        "title": "ConversationOut"
+      },
+      "DeltaEvent": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "DeltaEvent",
+        "description": "A piece of the answer, in order."
+      },
       "DismissedCount": {
         "properties": {
           "dismissed": {
@@ -3197,6 +3491,93 @@
           "dismissed_at"
         ],
         "title": "DismissedTopicOut"
+      },
+      "DoneEvent": {
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Message Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "truncated"
+            ],
+            "title": "Status"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "first_token_ms": {
+            "type": "integer",
+            "title": "First Token Ms"
+          },
+          "total_ms": {
+            "type": "integer",
+            "title": "Total Ms"
+          },
+          "cited": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Cited"
+          },
+          "unknown_citations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unknown Citations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message_id",
+          "status",
+          "model",
+          "first_token_ms",
+          "total_ms",
+          "cited",
+          "unknown_citations"
+        ],
+        "title": "DoneEvent",
+        "description": "Last, when an answer was given (``truncated`` if it hit the output limit)."
+      },
+      "ErrorEvent": {
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Message Id"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "retry_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message_id",
+          "message"
+        ],
+        "title": "ErrorEvent",
+        "description": "Last, when no full answer was given. Any text already streamed is kept as a\n``failed`` message."
       },
       "EventBatch": {
         "properties": {
@@ -3672,6 +4053,200 @@
           "target_id"
         ],
         "title": "MergeInto"
+      },
+      "MessageCreate": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "answer",
+              "explain_differently",
+              "example",
+              "quiz"
+            ],
+            "title": "Mode",
+            "default": "answer"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "MessageCreate"
+      },
+      "MessageOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "answer",
+              "explain_differently",
+              "example",
+              "quiz"
+            ],
+            "title": "Mode"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "truncated",
+              "failed",
+              "stopped"
+            ],
+            "title": "Status"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "first_token_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Token Ms"
+          },
+          "total_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Ms"
+          },
+          "unknown_citations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unknown Citations"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/MessageSourceOut"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "mode",
+          "text",
+          "status",
+          "model",
+          "first_token_ms",
+          "total_ms",
+          "unknown_citations",
+          "created_at",
+          "sources"
+        ],
+        "title": "MessageOut"
+      },
+      "MessageSourceOut": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "rank": {
+            "type": "integer",
+            "title": "Rank"
+          },
+          "material_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material Id"
+          },
+          "material_title": {
+            "type": "string",
+            "title": "Material Title"
+          },
+          "page_number": {
+            "type": "integer",
+            "title": "Page Number"
+          },
+          "page_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Title"
+          },
+          "cited": {
+            "type": "boolean",
+            "title": "Cited"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "rank",
+          "material_id",
+          "material_title",
+          "page_number",
+          "page_title",
+          "cited"
+        ],
+        "title": "MessageSourceOut",
+        "description": "A source the answer was given. ``material_id`` is null once the material is deleted."
       },
       "ModuleCreate": {
         "properties": {
@@ -4475,6 +5050,65 @@
         ],
         "title": "SnippetPart",
         "description": "A run of snippet text; ``highlight`` marks words that matched the query."
+      },
+      "SourceOut": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "material_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Material Id"
+          },
+          "material_title": {
+            "type": "string",
+            "title": "Material Title"
+          },
+          "page_number": {
+            "type": "integer",
+            "title": "Page Number"
+          },
+          "page_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "material_id",
+          "material_title",
+          "page_number",
+          "page_title"
+        ],
+        "title": "SourceOut",
+        "description": "A source as the student sees it before the answer: enough to link to the page."
+      },
+      "SourcesEvent": {
+        "properties": {
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceOut"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sources"
+        ],
+        "title": "SourcesEvent",
+        "description": "First: the sources the answer is given (may be empty)."
       },
       "StartEvent": {
         "properties": {
