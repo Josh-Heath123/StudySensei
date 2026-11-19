@@ -6,7 +6,9 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/ui/button";
 
 import { SourcesContext, sourceLabel, type OpenSource } from "./sourcesContext";
-import { answeredBy, errorMessage, type AnswerView, type SourceView } from "./turns";
+import type { QuizAnswers } from "./quiz";
+import { QuizCard } from "./QuizCard";
+import { answeredBy, errorMessage, writtenBy, type AnswerView, type SourceView } from "./turns";
 
 // KaTeX and the Markdown pipeline load on the first answer, not with the app.
 const AnswerMarkdown = lazy(() => import("./AnswerMarkdown"));
@@ -20,17 +22,36 @@ export function TutorAnswer({
   answer,
   onOpen,
   onRetry,
+  onQuizAnswer,
 }: {
   answer: AnswerView;
   onOpen: OpenSource;
   onRetry?: () => void;
+  /** Save a quiz's picks (quiz answers only). */
+  onQuizAnswer?: (answers: QuizAnswers) => Promise<void>;
 }) {
   const streaming = answer.status === "waiting" || answer.status === "streaming";
-  const byline = answeredBy(answer.model, answer.firstTokenMs);
+  const isQuiz = answer.mode === "quiz";
+  const byline = isQuiz
+    ? writtenBy(answer.model, answer.totalMs)
+    : answeredBy(answer.model, answer.firstTokenMs);
   return (
     <SourcesContext.Provider value={{ sources: answer.sources, open: onOpen }}>
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
-        {answer.status === "waiting" && !answer.text && (
+        {isQuiz && answer.status === "waiting" && (
+          <p className="text-muted flex items-center gap-2 text-sm">
+            <span aria-hidden className="answer-caret" />
+            Writing 3 questions…
+          </p>
+        )}
+        {isQuiz && answer.quiz && onQuizAnswer && (
+          <QuizCard
+            quiz={answer.quiz}
+            answers={answer.quizAnswers ?? answer.quiz.questions.map(() => null)}
+            onAnswer={onQuizAnswer}
+          />
+        )}
+        {!isQuiz && answer.status === "waiting" && !answer.text && (
           <p className="text-muted flex items-center gap-2 text-sm">
             <span aria-hidden className="answer-caret" />
             {answer.sources.length > 0
@@ -38,7 +59,7 @@ export function TutorAnswer({
               : "Finding the matching pages…"}
           </p>
         )}
-        {answer.text && (
+        {!isQuiz && answer.text && (
           <div className="answer-prose">
             <Suspense fallback={<p className="whitespace-pre-wrap">{answer.text}</p>}>
               <AnswerMarkdown text={answer.text} />
@@ -63,7 +84,7 @@ export function TutorAnswer({
             )}
           </div>
         )}
-        {!streaming && answer.sources.length > 0 && (
+        {!streaming && answer.sources.length > 0 && (!isQuiz || answer.quiz) && (
           <SourceList sources={answer.sources} onOpen={onOpen} />
         )}
         {!streaming && byline && <p className="text-muted text-xs">{byline}</p>}

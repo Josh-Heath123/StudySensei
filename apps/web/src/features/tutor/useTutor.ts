@@ -4,19 +4,25 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   conversationKey,
   createConversation,
+  requestQuiz,
+  saveQuizAnswers,
   streamAnswer,
   useSessionConversation,
   type Conversation,
   type DoneEvent,
+  type MessageMode,
+  type StoredMessage,
   type StreamSource,
   type TutorMode,
+  TutorRequestError,
 } from "./api";
+import type { QuizAnswers } from "./quiz";
 import { liveSources, turnsFromMessages, type AnswerStatus, type Turn } from "./turns";
 
 /** The turn being asked right now, shown until the stored copy comes back from the API. */
 type Live = {
   question: string;
-  mode: TutorMode;
+  mode: MessageMode;
   /** How many stored messages there were when it was sent. */
   base: number;
   sources: StreamSource[];
@@ -138,6 +144,54 @@ export function useTutor({
 
   const stop = useCallback(() => abort.current?.abort(), []);
 
+  /** "Quiz me" on the last answer: written whole (not streamed), then stored. */
+  const quiz = useCallback(async () => {
+    const current = conversation.data;
+    if (sessionId === null || !current || (live && isActive(live.status))) return;
+    const update = (change: Partial<Live>) => setLive((now) => (now ? { ...now, ...change } : now));
+    setLive({
+      question: "Quiz me",
+      mode: "quiz",
+      base: current.messages.length,
+      sources: [],
+      text: "",
+      status: "waiting",
+      done: null,
+      error: null,
+      retryAt: null,
+    });
+    try {
+      const message = await requestQuiz(current.id);
+      await refetch();
+      update(
+        message.status === "failed"
+          ? { status: "failed", error: message.text || "The tutor couldn't write the quiz." }
+          : { status: "complete" },
+      );
+    } catch (error) {
+      const retryAt = error instanceof TutorRequestError ? error.retryAt : null;
+      update({ status: "failed", error: (error as Error).message || LOST, retryAt });
+      await refetch();
+    }
+  }, [conversation.data, live, sessionId, refetch]);
+
+  /** Save the picks for a quiz; the cached conversation takes the stored copy. */
+  const answerQuiz = useCallback(
+    async (messageId: string, answers: QuizAnswers) => {
+      const saved = await saveQuizAnswers(messageId, answers);
+      queryClient.setQueryData<Conversation | null>(key, (now) =>
+        now
+          ? {
+              ...now,
+              messages: now.messages.map((m: StoredMessage) => (m.id === saved.id ? saved : m)),
+            }
+          : now,
+      );
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [queryClient, moduleId, sessionId],
+  );
+
   const turns: Turn[] = turnsFromMessages(shown ? stored.slice(0, shown.base) : stored);
   if (shown) {
     const live = shown;
@@ -153,6 +207,11 @@ export function useTutor({
         firstTokenMs: live.done?.first_token_ms ?? null,
         error: live.error,
         retryAt: live.retryAt,
+        messageId: live.done?.message_id ?? null,
+        mode: live.mode,
+        quiz: null,
+        quizAnswers: null,
+        totalMs: live.done?.total_ms ?? null,
       },
     });
   }
@@ -163,9 +222,13 @@ export function useTutor({
     restoring: conversation.isPending && sessionId !== null,
     loadError: conversation.isError ? conversation.error.message : null,
     busy: live !== null && isActive(live.status),
+    /** A text answer is streaming (it can be stopped; a quiz arrives whole). */
+    streaming: live !== null && isActive(live.status) && live.mode !== "quiz",
     ready: sessionId !== null,
     send,
     stop,
+    quiz,
+    answerQuiz,
   };
 }
 

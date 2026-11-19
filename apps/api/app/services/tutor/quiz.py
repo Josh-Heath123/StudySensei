@@ -52,7 +52,8 @@ course sources. The sources are below, each inside a <material> tag with an id f
 - Write exactly {QUIZ_QUESTIONS} multiple-choice questions on what the sources say about the
   topic given. Mix recall with applying the idea.
 - Each question has exactly 4 options. Exactly one is correct by the sources; the others
-  are plausible but wrong by the sources.
+  are plausible but wrong by the sources. Check every wrong option against the sources: if
+  the sources say it's also true, replace it.
 - "correct" is the index of the correct option, from 0 to 3.
 - Base every question only on the sources. In "sources", list the ids it relies on, like
   ["S1"] or ["S2", "S4"]. Use only the ids you were given.

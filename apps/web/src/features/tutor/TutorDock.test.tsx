@@ -468,3 +468,24 @@ describe("on a phone", () => {
     expect(within(sheet).getByRole("textbox", { name: "Ask about this topic" })).toHaveFocus();
   });
 });
+
+test("the session timer's ticks never remount a citation chip or take its focus", async () => {
+  serve([], { existing: conversation(stored("How does stateful inspection work?")) });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // What the session screen does: it re-renders every second for its timer.
+  const screenAt = (tick: number) => (
+    <QueryClientProvider client={client}>
+      <p role="timer">{tick}</p>
+      <TutorDock moduleId={MODULE} sessionId={SESSION} topicId={TOPIC} />
+    </QueryClientProvider>
+  );
+  const { rerender } = render(screenAt(0));
+  const chip = await screen.findByRole("button", { name: /^Source S2/ });
+  chip.focus();
+
+  for (let tick = 1; tick <= 5; tick++) rerender(screenAt(tick));
+
+  expect(screen.getByRole("timer")).toHaveTextContent("5");
+  expect(screen.getByRole("button", { name: /^Source S2/ })).toBe(chip);
+  expect(chip).toHaveFocus();
+});

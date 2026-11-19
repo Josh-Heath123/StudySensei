@@ -28,6 +28,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.ai.client import LLMClient, TextDelta
+from app.ai.errors import AIUnavailable
 from app.ai.usage import COUNTED_OUTCOMES, DbUsageStore, UsageRecord, UsageStore
 from app.core.config import Settings, get_settings
 from app.models import Module, Topic, User
@@ -143,6 +144,10 @@ def print_calls(rows: list[UsageRecord], out: TextIO) -> None:
     calls = ", ".join(f"{r.provider}/{r.model} {r.outcome} ({r.latency_ms} ms)" for r in rows)
     counted = sum(1 for r in rows if r.outcome in COUNTED_OUTCOMES)
     print(f"AI calls: {len(rows)} ({counted} counted against the free tier): {calls}", file=out)
+    for row in rows:
+        if row.outcome != "ok" and row.detail:
+            # Why it failed (a status and the provider's message, or what didn't validate).
+            print(f"  {row.provider}/{row.model} {row.outcome}: {row.detail}", file=out)
 
 
 @asynccontextmanager
@@ -216,14 +221,17 @@ async def dry_run(
                 else:
                     previous_question = args.after
             if args.mode == "quiz":
-                quiz = await build_quiz(
-                    session,
-                    reuse,
-                    focus=args.after,
-                    user_id=user_id,
-                    client=client,
-                    settings=settings,
-                )
+                try:
+                    quiz = await build_quiz(
+                        session,
+                        reuse,
+                        focus=args.after,
+                        user_id=user_id,
+                        client=client,
+                        settings=settings,
+                    )
+                except AIUnavailable as exc:
+                    quiz = QuizResult(None, 0, None, 0, list(before.sources), str(exc))
                 print_quiz(quiz, out)
                 failed = Answer(
                     status="complete" if quiz.quiz else "failed",

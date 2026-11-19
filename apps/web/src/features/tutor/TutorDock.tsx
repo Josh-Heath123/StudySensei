@@ -1,5 +1,5 @@
 import { MessageCircleQuestion, PanelRightClose } from "lucide-react";
-import { useState } from "react";
+import { memo, useState } from "react";
 
 import { DESKTOP, useMediaQuery } from "@/lib/useMediaQuery";
 import { Button } from "@/ui/button";
@@ -15,9 +15,10 @@ import { useTutor } from "./useTutor";
  *   topic…"); the session grid keeps the timer at its comfortable size beside it;
  * - below that, a "Tutor" button that opens a glass bottom sheet.
  * One conversation per study session, kept here so collapsing or closing never stops an
- * answer.
+ * answer. Memoised: the session screen re-renders every second for its timer, and none of
+ * that reaches the tutor (its props are three IDs).
  */
-export function TutorDock({
+export const TutorDock = memo(function TutorDock({
   moduleId,
   sessionId,
   topicId,
@@ -100,4 +101,4 @@ export function TutorDock({
       <TutorPanel tutor={tutor} autoFocus={justOpened} />
     </aside>
   );
-}
+});

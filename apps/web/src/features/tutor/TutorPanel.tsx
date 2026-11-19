@@ -1,5 +1,12 @@
 import { ArrowUp, Square } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 
 import { PagesDialog } from "@/features/modules/materials/PagesDialog";
 import { cn } from "@/lib/utils";
@@ -7,6 +14,7 @@ import { Button } from "@/ui/button";
 import { TooltipProvider } from "@/ui/tooltip";
 
 import { PRIVACY_NOTE, privacyNoteSeen, rememberPrivacyNote } from "./storage";
+import type { QuizAnswers } from "./quiz";
 import { TutorAnswer } from "./TutorAnswer";
 import { spokenSentences, type SourceView, type Turn } from "./turns";
 import type { useTutor } from "./useTutor";
@@ -26,6 +34,14 @@ export function TutorPanel({ tutor, autoFocus = false }: { tutor: Tutor; autoFoc
   const end = useRef<HTMLDivElement>(null);
   const log = useRef<HTMLDivElement>(null);
   const last = tutor.turns.at(-1);
+  // The follow-up buttons sit under the latest finished answer, and stay there (disabled)
+  // while a newer request runs.
+  let finished = -1;
+  tutor.turns.forEach((turn, index) => {
+    if (turn.answer?.status === "complete" || turn.answer?.status === "truncated") {
+      finished = index;
+    }
+  });
 
   useEffect(() => {
     if (autoFocus) input.current?.focus();
@@ -98,15 +114,35 @@ export function TutorPanel({ tutor, autoFocus = false }: { tutor: Tutor; autoFoc
               pages they used.
             </p>
           )}
-          {tutor.turns.map((turn) => (
+          {tutor.turns.map((turn, index) => (
             <TurnView
               key={turn.key}
               turn={turn}
               onOpen={setViewing}
               onRetry={
                 turn === last && turn.answer?.status === "failed" && !tutor.busy
-                  ? () => void tutor.send(turn.question, turn.mode)
+                  ? () =>
+                      void (turn.mode === "quiz"
+                        ? tutor.quiz()
+                        : tutor.send(turn.question, turn.mode))
                   : undefined
+              }
+              onQuizAnswer={
+                turn.answer?.messageId
+                  ? (answers) => tutor.answerQuiz(turn.answer!.messageId!, answers)
+                  : undefined
+              }
+              modes={
+                index === finished ? (
+                  <ModeButtons
+                    disabled={tutor.busy}
+                    onExplain={() =>
+                      void tutor.send("Explain that differently.", "explain_differently")
+                    }
+                    onExample={() => void tutor.send("Give me an example of that.", "example")}
+                    onQuiz={() => void tutor.quiz()}
+                  />
+                ) : null
               }
             />
           ))}
@@ -117,7 +153,6 @@ export function TutorPanel({ tutor, autoFocus = false }: { tutor: Tutor; autoFoc
 
         <form onSubmit={submit} className="glass m-3 grid gap-2 rounded-2xl p-2">
           {!noteSeen && <p className="text-muted px-2 pt-1 text-xs">{PRIVACY_NOTE}</p>}
-          {/* Room for "Explain differently", "Give an example" and "Quiz me" (task 4). */}
           <div className="flex items-end gap-2">
             {/* Room for push-to-talk (task 5). */}
             <label htmlFor="tutor-question" className="sr-only">
@@ -138,13 +173,17 @@ export function TutorPanel({ tutor, autoFocus = false }: { tutor: Tutor; autoFoc
                 "focus-visible:border-ring disabled:opacity-60",
               )}
             />
-            {tutor.busy ? (
+            {tutor.streaming ? (
               <Button type="button" variant="outline" size="icon" onClick={tutor.stop}>
                 <Square aria-hidden className="fill-current" />
                 <span className="sr-only">Stop</span>
               </Button>
             ) : (
-              <Button type="submit" size="icon" disabled={!draft.trim() || !tutor.ready}>
+              <Button
+                type="submit"
+                size="icon"
+                disabled={!draft.trim() || !tutor.ready || tutor.busy}
+              >
                 <ArrowUp aria-hidden />
                 <span className="sr-only">Send</span>
               </Button>
@@ -164,14 +203,48 @@ export function TutorPanel({ tutor, autoFocus = false }: { tutor: Tutor; autoFoc
   );
 }
 
+/**
+ * Under the latest finished answer: three quiet follow-ups on the same sources. Disabled
+ * while a request is running.
+ */
+function ModeButtons({
+  disabled,
+  onExplain,
+  onExample,
+  onQuiz,
+}: {
+  disabled: boolean;
+  onExplain: () => void;
+  onExample: () => void;
+  onQuiz: () => void;
+}) {
+  return (
+    <div role="group" aria-label="Follow up on this answer" className="flex flex-wrap gap-2">
+      <Button variant="quiet" disabled={disabled} onClick={onExplain}>
+        Explain differently
+      </Button>
+      <Button variant="quiet" disabled={disabled} onClick={onExample}>
+        Give an example
+      </Button>
+      <Button variant="quiet" disabled={disabled} onClick={onQuiz}>
+        Quiz me
+      </Button>
+    </div>
+  );
+}
+
 function TurnView({
   turn,
   onOpen,
   onRetry,
+  onQuizAnswer,
+  modes,
 }: {
   turn: Turn;
   onOpen: (source: SourceView) => void;
   onRetry?: () => void;
+  onQuizAnswer?: (answers: QuizAnswers) => Promise<void>;
+  modes?: ReactNode;
 }) {
   return (
     <article
@@ -182,10 +255,16 @@ function TurnView({
         {turn.question}
       </p>
       {turn.answer ? (
-        <TutorAnswer answer={turn.answer} onOpen={onOpen} onRetry={onRetry} />
+        <TutorAnswer
+          answer={turn.answer}
+          onOpen={onOpen}
+          onRetry={onRetry}
+          onQuizAnswer={onQuizAnswer}
+        />
       ) : (
         <p className="text-muted text-sm">No answer was saved for this question.</p>
       )}
+      {modes}
     </article>
   );
 }

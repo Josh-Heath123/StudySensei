@@ -76,7 +76,7 @@ export function RunningSession({
       {/* The timer's column, and the tutor beside it from 1024 px. The timer column never
           narrows below 480 px (the ring's comfortable size); below 1024 px the tutor is a
           bottom sheet, and the page keeps room for its button. */}
-      <main className="mx-auto grid max-w-[1440px] gap-8 px-4 pt-2 pb-28 sm:px-8 lg:grid-cols-[minmax(480px,1fr)_360px] lg:px-10 lg:pb-12 xl:grid-cols-[minmax(480px,1fr)_400px]">
+      <main className="mx-auto grid max-w-[1440px] gap-8 px-4 pt-2 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:px-8 lg:grid-cols-[minmax(480px,1fr)_360px] lg:px-10 lg:pb-12 xl:grid-cols-[minmax(480px,1fr)_400px]">
         <div className="mx-auto grid w-full max-w-[640px] min-w-0 content-start gap-8">
           <SessionBanners controller={controller} snapshot={snapshot} plan={PLAN} />
           <section aria-label="Timer" className="grid justify-items-center gap-6">
@@ -107,7 +107,7 @@ export function RunningSession({
             </div>
 
             {/* The floating control bar: one primary action, the rest secondary. */}
-            <div className="glass flex flex-wrap items-center justify-center gap-2 rounded-2xl p-2">
+            <div className="glass flex flex-wrap items-center justify-center gap-1.5 rounded-2xl p-1.5 sm:gap-2 sm:p-2 max-sm:[&_button]:px-3.5">
               {snapshot.state === "active" && (
                 <>
                   <Button disabled={!can("pause")} onClick={() => void controller.pause()}>
