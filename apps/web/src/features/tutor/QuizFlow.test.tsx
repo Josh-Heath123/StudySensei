@@ -194,6 +194,15 @@ test("Quiz me: one question at a time, graded, explained, then the results", asy
 
   const results = screen.getByRole("region", { name: "Quiz results" });
   expect(results).toHaveTextContent("You got 2 of 3 right.");
+  // Each question marked in words, with the student's pick beside the right one.
+  const rows = within(results).getAllByRole("listitem");
+  expect(rows[0]).toHaveTextContent(
+    "Wrong · Question 1: what does a stateful firewall keep?" +
+      "Your answer: A. Nothing · Correct: B. A state table",
+  );
+  expect(rows[1]).toHaveTextContent("Right · Question 2");
+  expect(rows[1]).toHaveTextContent("Your answer: B. A state table");
+  expect(rows[1]).not.toHaveTextContent("Correct:");
   expect(results).toHaveTextContent("Practice only: this doesn't change your progress or plan.");
   const saved = api.calls.filter((c) => c.method === "PATCH").map((c) => c.body);
   expect(saved).toEqual([

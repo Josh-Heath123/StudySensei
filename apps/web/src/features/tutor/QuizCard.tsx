@@ -150,22 +150,40 @@ function QuizSummary({ quiz, answers }: { quiz: Quiz; answers: QuizAnswers }) {
       <p className="text-[15px] font-semibold">
         You got {right} of {answered} right.
       </p>
-      <ol className="grid gap-1.5">
+      <ol aria-label="Your answers" className="grid gap-2.5">
         {quiz.questions.map((question, i) => {
-          const good = isRight(question, answers[i]);
+          const pick = answers[i] ?? null;
+          const good = isRight(question, pick);
+          const correct = `${LETTERS[question.correct]}. ${question.options[question.correct]}`;
           return (
             <li key={i} className="flex items-start gap-2 text-sm">
               {good ? (
-                <Check aria-label="Right" className="text-success mt-0.5 size-4 shrink-0" />
+                <Check aria-hidden className="text-success mt-0.5 size-4 shrink-0" />
               ) : (
-                <X aria-label="Wrong" className="text-danger mt-0.5 size-4 shrink-0" />
+                <X aria-hidden className="text-danger mt-0.5 size-4 shrink-0" />
               )}
-              <span className="min-w-0">
-                {question.prompt}{" "}
-                <span className="text-muted">
-                  ({LETTERS[question.correct]}: {question.options[question.correct]})
-                </span>
-              </span>
+              <div className="grid min-w-0 gap-0.5">
+                <p>
+                  <span className={cn("font-semibold", good ? "text-success" : "text-danger")}>
+                    {good ? "Right" : pick === null ? "Not answered" : "Wrong"}
+                  </span>
+                  <span className="text-muted"> · </span>
+                  {question.prompt}
+                </p>
+                {good ? (
+                  <p className="text-muted">Your answer: {correct}</p>
+                ) : (
+                  <p className="text-muted">
+                    {pick !== null && (
+                      <>
+                        Your answer: {LETTERS[pick]}. {question.options[pick]}
+                        <span> · </span>
+                      </>
+                    )}
+                    <span className="text-fg">Correct: {correct}</span>
+                  </p>
+                )}
+              </div>
             </li>
           );
         })}

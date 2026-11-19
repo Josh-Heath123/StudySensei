@@ -39,7 +39,7 @@ import re
 import time
 import uuid
 from collections import deque
-from collections.abc import AsyncGenerator, Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
 from contextlib import aclosing
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -198,6 +198,8 @@ class _InvalidReply(Exception):
         super().__init__(problem)
         self.reply = reply
         self.problem = problem
+        # The route that wrote the reply (set by _complete).
+        self.route: Route | None = None
 
 
 def json_instruction(schema: type[BaseModel]) -> str:
@@ -346,6 +348,17 @@ class LLMClient:
                 raise _InvalidReply(text, _problem(exc)) from exc
 
         prompt = [system(json_instruction(schema)), *messages]
+        if interactive:
+            return await self._json_interactive(
+                role,
+                prompt,
+                check,
+                result,
+                purpose=purpose,
+                user_id=user_id,
+                effort=reasoning_effort,
+                budget=budget,
+            )
         try:
             _, route = await self._complete(
                 role,
@@ -393,6 +406,88 @@ class LLMClient:
                 f"The AI reply for {purpose} didn't match its schema after a repair attempt: "
                 f"{second.problem}"
             ) from None
+
+    async def _json_interactive[T: BaseModel](
+        self,
+        role: AIRole,
+        prompt: list[Message],
+        check: Callable[[str], None],
+        result: list[T],
+        *,
+        purpose: str,
+        user_id: uuid.UUID,
+        effort: ReasoningEffort | None,
+        budget: CallBudget | None,
+    ) -> AIResult[T]:
+        """A student is waiting (ADR 0014, amending 0013). The repair goes to the model that
+        wrote the reply. If that model turns the repair away (429, 503, 413, a timeout, a
+        cooldown or its budget), the next models get the original prompt afresh: the reply
+        of one model is never handed to another to fix, so two models' output is never
+        stitched. A 5xx still fails at once, and a reply still invalid after its repair is
+        ``AIInvalidOutput``."""
+        _, routes = self._usable_routes(role, prompt)
+        remaining = list(routes)
+        while remaining:
+            try:
+                _, route = await self._complete(
+                    role,
+                    prompt,
+                    purpose=purpose,
+                    user_id=user_id,
+                    json_mode=True,
+                    check=check,
+                    effort=effort,
+                    budget=budget,
+                    interactive=True,
+                    only=remaining,
+                )
+                return AIResult(result[-1], route)
+            except _InvalidReply as first:
+                wrote = first.route
+                assert wrote is not None
+                if budget is not None and not budget.can_repair:
+                    raise AIInvalidOutput(
+                        f"The AI reply for {purpose} didn't match its schema: {first.problem}"
+                    ) from None
+                if budget is not None:
+                    budget.repairs_used += 1
+                log.info(
+                    "AI reply for %s didn't validate; asking %s to repair it", purpose, wrote.key
+                )
+                repair = [
+                    *prompt,
+                    assistant_message(first.reply),
+                    user(
+                        "That reply did not match the schema: "
+                        f"{first.problem}. Reply again with the corrected JSON object only."
+                    ),
+                ]
+                try:
+                    _, route = await self._complete(
+                        role,
+                        repair,
+                        purpose=purpose,
+                        user_id=user_id,
+                        json_mode=True,
+                        check=check,
+                        effort=effort,
+                        budget=budget,
+                        interactive=True,
+                        only=[wrote],
+                    )
+                    return AIResult(result[-1], route)
+                except _InvalidReply as second:
+                    raise AIInvalidOutput(
+                        f"The AI reply for {purpose} didn't match its schema after a repair "
+                        f"attempt: {second.problem}"
+                    ) from None
+                except AIUnavailable as busy:
+                    if not busy.exhausted:
+                        raise
+                    log.info("%s turned the repair away; asking the next model afresh", wrote.key)
+                    keys = [route.key for route in remaining]
+                    remaining = remaining[keys.index(wrote.key) + 1 :]
+        raise self._out_of_routes([], [])
 
     async def stream_text(
         self,
@@ -691,6 +786,7 @@ class LLMClient:
             f"The AI providers can't take this request now (rate limits or daily quotas). "
             f"Trying again after {retry_at.astimezone(UTC):%Y-%m-%d %H:%M} UTC.",
             retry_at=retry_at,
+            exhausted=True,
         )
 
     async def _complete(
@@ -705,8 +801,15 @@ class LLMClient:
         effort: ReasoningEffort | None,
         budget: CallBudget | None,
         interactive: bool = False,
+        only: Sequence[Route] | None = None,
     ) -> tuple[str, Route]:
+        """``only`` limits the routes tried (in the role's order) to these."""
         role, routes = self._usable_routes(role, messages)
+        if only is not None:
+            keys = {route.key for route in only}
+            routes = [route for route in routes if route.key in keys]
+            if not routes:
+                raise self._out_of_routes([], [])
         waits: list[datetime] = []
         refusals: list[str] = []
         for route in routes:
@@ -763,6 +866,7 @@ class LLMClient:
                     try:
                         check(completion.text)
                     except _InvalidReply as invalid:
+                        invalid.route = route
                         await self._record(
                             route,
                             role,
