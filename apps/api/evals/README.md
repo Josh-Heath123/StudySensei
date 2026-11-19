@@ -65,6 +65,21 @@ from the student's own submissions. The course files stay outside the repo.
 - **Chosen:** `TUTOR_TOPIC_BOOST` = 1.25. It gives all of ×2's on-topic gain at the smallest off-topic cost.
 - The default context budget (4,500) dropped nothing: the largest context was 3,530 tokens.
 
+## Follow-ups, 19 Nov 2026 (COS330, the query's topic, x1.25)
+
+Three follow-ups asked after queries 5, 12 and 15 (`follow_ups` in `search/cos330.yaml`), each accepted on its
+query's pages. "Alone" searches the follow-up's own words; "with context" is the tutor's rule since Phase 3 task 3
+(a second search on the previous question and the follow-up, fused by RRF).
+
+| After | Follow-up | Alone: rank (acceptable in 8) | With context |
+| --- | --- | --- | --- |
+| 5 | how can a database stop that? | 2 (3) | 2 (3) |
+| 12 | which of the two is faster? | - (0) | 2 (2) |
+| 15 | which one leaves the customer responsible for the most? | 4 (1) | 1 (3) |
+
+An acceptable page in the 8: alone 2/3, with context 3/3. With context, query 12's S1 is still off-topic (Ch7 notes
+p38): "faster" pulls in a quantitative page. The pages it needs are S2 and S5.
+
 ## Baseline, 18 Nov 2026 (COS330, after PR #26's relink)
 
 - **Search:** slide in the top 3 for 11/15; any acceptable page in the top 3 for 15/15 (PASS); MRR 0.900.

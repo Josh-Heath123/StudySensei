@@ -88,7 +88,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 
 - [x] Retrieval with a current-topic boost, and prompt templates (sources labelled as untrusted material)
 - [x] SSE tutor endpoint, plus `conversations` / `messages` storage with citations
-- [ ] Tutor panel in the session: streamed answers, clickable [S1]–[S8] citations into the viewer, KaTeX
+- [x] Tutor panel in the session: streamed answers, clickable [S1]–[S8] citations into the viewer, KaTeX
 - [ ] "Explain differently", "Give an example", "Quiz me" (3 questions)
 - [ ] `voice/stt.ts` (Web Speech API) and `voice/tts.ts` (`speechSynthesis`), push-to-talk, latency timing
 - [ ] `evals/tutor`: 20 questions with expected source pages

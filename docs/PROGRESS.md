@@ -2,6 +2,62 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-19: Phase 3, task 3 (the tutor panel), and three fixes from the live review of #36
+
+- **Backend fixes:**
+  - **Follow-ups keep their sources.** `explain_differently`, `example` and `quiz` reuse the last answer's sources,
+    with the same labels. That needs `message_sources.chunk_id` (migration 0018, which also adds
+    `UNIQUE (id, user_id)` on chunks); a lost chunk falls back to its page's first chunk.
+  - **A new question in a conversation searches twice:** on its own words, and on the previous question plus its own,
+    fused by RRF.
+  - **The embedding model loads at startup** in the API (a background thread from its lifespan) and the worker
+    (`PRELOAD_EMBEDDER`).
+  - **`GET /modules/{id}/tutor/conversations?study_session_id=`**, with cross-user cases. `npm run gen:api` was run.
+  - The CLI has `--after QUESTION`, for a follow-up in a dry run.
+- **The panel** (`features/tutor/`, ARCHITECTURE "The tutor panel", DESIGN "Tutor panel"):
+  - **Layout:** a collapsible right-hand panel from 1024 px (the timer's column stays at least 480 px); a glass
+    bottom sheet on phones. One conversation per session, restored after a reload.
+  - **Answers:** streamed with a caret and Stop. Markdown and KaTeX are lazy-loaded, raw HTML is never rendered, and
+    KaTeX runs with `trust: false`.
+  - **Citations:** `[S1]` and `【S1】` chips with a tooltip; clicking opens the viewer at that page. Cited sources come
+    first and the rest are folded. The footnote reads "Answered by gpt-oss-120b (Groq) · first words in 0.6 s
+    (measured)".
+  - **Errors** are readable ("The free AI providers are busy; try again at HH:MM"), with Retry.
+  - **Accessibility:** a polite live region by sentence, Enter to send, and the first-use privacy note.
+  - Room is left for task 4's buttons and task 5's voice.
+- **Dependencies (MIT):** react-markdown, remark-gfm, remark-math, rehype-katex and katex. The licence check
+  passes (209 npm packages ok).
+  - An npm override pins every katex copy to 0.19.1, because rehype-katex and micromark-extension-math asked for
+    0.16 (GHSA-238p-pmpm-9mq7, low).
+  - `npm audit --omit=dev` finds 0.
+- **Bundle:**
+
+  | | Before | After |
+  | --- | --- | --- |
+  | Main JS | 637.28 kB (196.02 gzip) | 663.84 kB (204.03 gzip) |
+  | Main CSS | 52.40 kB (10.71 gzip) | 57.57 kB (11.70 gzip) |
+  | Lazy Markdown and KaTeX chunk, loaded on the first answer | — | 440.10 kB (132.47 gzip) + CSS 29.80 kB (7.97 gzip) |
+
+- **Eval follow-ups** (`evals/search --retrieval`): an acceptable page in the 8 for 3 of 3 with context, against 2 of 3
+  searched alone. The table is in `evals/README.md`.
+- **Real check** (`app.tutor.ask --dry-run --after …`, COS330, 8 free-tier calls, all `groq/openai/gpt-oss-120b`):
+
+  | Case | Sources | Cited | First token |
+  | --- | --- | --- | --- |
+  | The live bug: "Explain that differently…" after the stateful-vs-packet-filter question | the earlier answer's 8, all CH09 | CH09 p14, p10 | 625 ms |
+  | "how can a database stop that?" after query 5 | Ch5 notes p20, p14, guide p19, CH05 p29… | p20, notes p14, guide p19, CH05 p29 | 735 ms |
+  | "which of the two is faster?" after query 12 | CH09 p14, p13 among the 8 (S1 is Ch7 notes p38) | none: "the material doesn't cover their speed" (true) | 1,483 ms |
+  | "which one leaves the customer responsible for the most?" after query 15 | CH13 p15, p14, p13… | CH13 p15, p14, p13 | 531 ms |
+
+- **Tests:**
+  - **API:** 14 for follow-ups, the list endpoint and preloading; 2 new cross-user cases; 1 for the CLI.
+  - **Web:** 41 new (SSE parser 7, citations and turns 8, Markdown and KaTeX safety 19, panel 14); 405 in all.
+  - **e2e:** `tutor.spec.ts` (page.route fixture). `npm run e2e -- --repeat-each=3` passed 12 of 12.
+- **Screenshots:** the session shot now has the panel open, on a fixture exchange in the demo seed (synthetic NET201,
+  never COS330). It was regenerated in both themes.
+- **Migrations 0017 and 0018 aren't applied to the dev database.** Run `npm run db:migrate` before using the panel.
+- **Next:** Phase 3 task 4: "Explain differently", "Give an example", "Quiz me" (3 questions).
+
 ## 2026-11-19: Phase 3, task 2 (SSE tutor endpoint and conversation storage)
 
 - **Done:**

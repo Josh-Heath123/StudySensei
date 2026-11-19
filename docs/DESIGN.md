@@ -147,6 +147,8 @@ any content uses `glass-strong`; `tokens.test.ts` checks each against its worst 
 | **Skeleton** | `skeleton` utility: a `subtle` block that pulses (opacity only) |
 | **Empty state** | One icon in an `accent-soft` well, one sentence, at most one action |
 | **Search result** | Leads with what will open, in strong text: the material's title and "page N"; the snippet underneath (Markdown stripped for display, highlights kept), clamped to 3 lines; one result per page, with "N matches on this page" when there are more |
+| **Tutor panel** | Chrome `glass` (radius 24, sticky, collapsible to one "Ask about this topic…" line); the conversation on one solid `surface-card` (answers are reading material: `answer-prose`, 15/1.6); the input bar `glass`. Questions in `subtle` bubbles on the right. Citations are `accent-soft` chips (11/600, radius 6) that turn violet on hover or focus, with a `glass-strong` tooltip naming the material and page. Under each answer: cited sources first on `accent-soft`, the others folded; a muted "Answered by … (measured)" footnote. A violet caret while streaming (still under reduced motion). Errors in `danger` with Retry; "not covered" is a normal answer |
+| **Bottom sheet** (`ui/sheet.tsx`) | `glass-strong`, pinned to the bottom, radius 24 on the top corners, up to 88 % of the viewport, safe-area padding; slides up in 320 ms (fades only under reduced motion) |
 | **Viewer page** | A solid surface. **Fit page** (the default) fits the whole page into the visible area with no scrollbars; **Fit width** fits the width and scrolls down, with its scrollbar space reserved so the width never changes while drawing |
 | **Topic tree rows** | Chapters 15/600, subtopics 15/400, page counts muted. Row actions appear on hover and focus-within (still in the tab order); on touch screens they're behind one "…" menu |
 | **Icons** | lucide-react only, one stroke width (1.75, set globally) |
@@ -156,10 +158,11 @@ any content uses `glass-strong`; `tokens.test.ts` checks each against its worst 
 - **Today** (the most expressive): an editorial date in Display type; "Next up" as the hero card, the gradient as its
   background with its text on a `glass-hero` layer; countdown tiles and deadlines calm and solid; "Your day" a compact empty state until the
   planner (Phase 4) supplies blocks; the system status card quiet.
-- **Session** (`/session`): one centred column: a very large, light timer inside a progress ring with a gradient
-  stroke; a faint ambient gradient mist behind it in both themes; a floating `glass` control bar (pause, break, end);
-  then one small card for Materials and the tutor note (the tutor gets its own column when it exists, Phase 3); the
-  reflection form solid and calm; the away dialog in glass.
+- **Session** (`/session`): a very large, light timer inside a progress ring with a gradient stroke; a faint ambient
+  gradient mist behind it in both themes; a floating `glass` control bar (pause, break, end); then one small card for
+  Materials. From 1024 px the **tutor panel** sits on the right (360 px, 400 px from 1280) and the timer's column never
+  narrows below 480 px; below 1024 px it's a "Tutor" button that opens a glass bottom sheet. The reflection form is
+  solid and calm; the away dialog in glass.
 - **Modules and module detail:** a clean header with the module's colour, Start session as the one primary action and
   Edit and Delete in a "…" menu; tabs as a segmented control; solid, readable lists and tables.
 - **Topics:** a solid tree; AI and review state shown subtly (a small violet dot and a quiet label); the ReviewBar a
