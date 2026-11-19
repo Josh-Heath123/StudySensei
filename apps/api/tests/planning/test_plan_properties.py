@@ -61,11 +61,31 @@ def weekly_intervals(draw: st.DrawFn, tz: ZoneInfo, horizon_days: int) -> tuple[
 
 
 @st.composite
-def plan_inputs(draw: st.DrawFn) -> PlanInput:
+def roomy_intervals(draw: st.DrawFn, tz: ZoneInfo, horizon_days: int) -> tuple[Interval, ...]:
+    """A student with time most days: one or two windows of 1-5 hours on every weekday, so
+    the spacing and review properties are exercised, not just vacuously true."""
+    rules = []
+    for weekday in range(7):
+        start = draw(st.integers(6 * 60, 12 * 60))
+        for _ in range(draw(st.integers(1, 2))):
+            end = min(1440, start + draw(st.integers(60, 300)))
+            rules.append(Rule(weekday, Window(start, end)))
+            start = end + draw(st.integers(30, 180))
+            if start >= 1380:
+                break
+    first = BASE.astimezone(tz).date() - timedelta(days=1)
+    days = expand(rules, {}, first, first + timedelta(days=horizon_days + 3), tz, 1440)
+    return tuple(i for day in days for i in day.intervals)
+
+
+@st.composite
+def plan_inputs(draw: st.DrawFn, roomy: bool = False) -> PlanInput:
     tz = ZoneInfo(draw(st.sampled_from(TIMEZONES)))
-    horizon_days = draw(st.integers(1, 21))
+    horizon_days = draw(st.integers(4 if roomy else 1, 21))
     now = BASE + timedelta(minutes=draw(st.integers(0, 2 * 1440)), seconds=draw(st.integers(0, 59)))
-    if draw(st.booleans()):
+    if roomy:
+        free = draw(roomy_intervals(tz, horizon_days))
+    elif draw(st.booleans()):
         free = draw(weekly_intervals(tz, horizon_days))
     else:
         free = draw(raw_intervals(horizon_days))
@@ -78,23 +98,28 @@ def plan_inputs(draw: st.DrawFn) -> PlanInput:
             workload_minutes=draw(st.none() | st.integers(0, 600)),
             confidence=draw(st.none() | st.integers(1, 5)),
         )
-        for i in range(draw(st.integers(1, 8)))
+        for i in range(draw(st.integers(1, 5 if roomy else 8)))
     )
     studied = {t.id: draw(st.integers(0, 300)) for t in topics if draw(st.integers(0, 3)) == 0}
     assessments = []
-    for i in range(draw(st.integers(1, 4))):
+    for i in range(draw(st.integers(1, 3 if roomy else 4))):
         module = draw(st.sampled_from(modules))
         in_module = [t.id for t in topics if t.module_id == module]
-        due = now + timedelta(minutes=draw(st.integers(-1440, horizon_days * 1440)))
+        earliest_due = 2 * 1440 if roomy else -1440
+        due = now + timedelta(minutes=draw(st.integers(earliest_due, horizon_days * 1440)))
         weight = draw(st.none() | st.integers(0, 100).map(float))
-        topic_ids = draw(st.lists(st.sampled_from(in_module), unique=True)) if in_module else []
+        topic_ids = (
+            draw(st.lists(st.sampled_from(in_module), unique=True, min_size=1 if roomy else 0))
+            if in_module
+            else []
+        )
         assessments.append(
             AssessmentInput(UUID(int=1000 + i), module, due, weight, tuple(topic_ids))
         )
     return PlanInput(
         now=now,
         free=free,
-        daily_cap_minutes=draw(st.integers(15, 600)),
+        daily_cap_minutes=draw(st.integers(100, 600) if roomy else st.integers(15, 600)),
         timezone=tz,
         assessments=tuple(assessments),
         topics=topics,
@@ -103,7 +128,7 @@ def plan_inputs(draw: st.DrawFn) -> PlanInput:
 
 
 @PROPERTY_SETTINGS
-@given(plan_inputs())
+@given(st.one_of(plan_inputs(), plan_inputs(roomy=True)))
 def test_every_plan_keeps_every_property(request: PlanInput) -> None:
     """No overlaps; inside free time; the daily cap; nothing in the past or after its
     deadline; two days per topic when time allows; final reviews; shortfalls."""
@@ -120,7 +145,7 @@ def test_every_plan_keeps_every_property(request: PlanInput) -> None:
 
 
 @PROPERTY_SETTINGS
-@given(plan_inputs(), st.randoms(use_true_random=False))
+@given(st.one_of(plan_inputs(), plan_inputs(roomy=True)), st.randoms(use_true_random=False))
 def test_the_same_input_gives_the_same_plan_in_any_order(request: PlanInput, rng: Random) -> None:
     first = plan(request)
     assert plan(request) == first

@@ -175,8 +175,10 @@ def _fits_50s(spans: list[Span]) -> int:
 
 def spacing_applies(request: PlanInput, result: Plan, assessment: AssessmentInput) -> bool:
     """Whether the free time before ``assessment`` is enough for every in-scope topic's two
-    minimum blocks on two days: two whole local days between today and the deadline's day
-    that, after the final reviews, each hold one 50-minute block for every topic due by then.
+    minimum blocks on two days. Only whole local days between today and the deadline's day
+    count, after the final reviews. A day can give each topic at most one of its two blocks,
+    so the test (Hall's condition) is: the sum over those days of min(50-minute blocks that
+    fit, topics due by then) is at least twice the number of those topics.
     """
     drivers = driving(request)
     in_scope = [t for t, a in drivers.items() if a.due_at <= assessment.due_at]
@@ -185,17 +187,16 @@ def spacing_applies(request: PlanInput, result: Plan, assessment: AssessmentInpu
     reviews = [b for b in result.blocks if b.kind == "review"]
     today = local_day(request.now, request)
     last = local_day(assessment.due_at, request)
-    big_days = 0
+    total = 0
     day = today + timedelta(days=1)
-    while day < last and big_days < 2:
+    while day < last:
         lo, hi = day_span(day, request)
         on_day = [r for r in reviews if local_day(r.start, request) == day]
         room = request.daily_cap_minutes - sum(r.minutes for r in on_day)
         fits = min(_fits_50s(gaps(request, lo, hi, reviews)), room // BLOCK_MINUTES)
-        if fits >= len(in_scope):
-            big_days += 1
+        total += min(fits, len(in_scope))
         day += timedelta(days=1)
-    return big_days >= 2
+    return total >= MIN_BLOCKS * len(in_scope)
 
 
 def check_spacing(request: PlanInput, result: Plan) -> None:
