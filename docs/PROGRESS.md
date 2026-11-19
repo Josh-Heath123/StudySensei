@@ -26,7 +26,7 @@ Newest first. 3–5 lines per session: what was done, what was decided, what's n
   - **Accessibility:** a polite live region by sentence, Enter to send, and the first-use privacy note.
   - Room is left for task 4's buttons and task 5's voice.
 - **Dependencies (MIT):** react-markdown, remark-gfm, remark-math, rehype-katex and katex. The licence check
-  passes (209 npm packages ok).
+  passes (225 npm packages ok).
   - An npm override pins every katex copy to 0.19.1, because rehype-katex and micromark-extension-math asked for
     0.16 (GHSA-238p-pmpm-9mq7, low).
   - `npm audit --omit=dev` finds 0.
