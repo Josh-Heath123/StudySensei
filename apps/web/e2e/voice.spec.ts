@@ -71,10 +71,15 @@ test("hold to talk: transcript, streamed answer spoken, timing shown and kept af
   });
 
   const tutor = page.getByRole("complementary", { name: "Tutor" });
-  if (!(await tutor.getByRole("textbox").count())) {
-    await tutor.getByRole("button", { name: "Ask about this topic…" }).click();
+  const box = tutor.getByRole("textbox", { name: "Ask about this topic" });
+  const opener = tutor.getByRole("button", { name: "Ask about this topic…" });
+  // The panel shows the box or, when collapsed, its opener: wait for one before choosing
+  // (counting textboxes straight away raced the first render and clicked a missing opener).
+  await expect(box.or(opener)).toBeVisible({ timeout: 20_000 });
+  if (await opener.isVisible()) {
+    await opener.click();
   }
-  await expect(tutor.getByRole("textbox", { name: "Ask about this topic" })).toBeEnabled({
+  await expect(box).toBeEnabled({
     timeout: 20_000,
   });
   const mic = tutor.getByRole("button", { name: "Hold to talk (or hold Space)" });
