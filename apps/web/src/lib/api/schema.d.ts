@@ -872,6 +872,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/conversations/{conversation_id}/quiz": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Quiz
+     * @description "Quiz me": 3 multiple-choice questions on the last answer's sources (not streamed).
+     *
+     *     The question ("Quiz me") and the answer are stored like any other turn; the answer is
+     *     `failed` with a readable `text` when the AI's quiz couldn't be used. Questions whose
+     *     sources weren't among the answer's are dropped, so there may be fewer than 3. 422 when
+     *     nothing has been answered yet; 503 (with Retry-After) when the AI is busy.
+     */
+    post: operations["quiz_conversations__conversation_id__quiz_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/messages/{message_id}/quiz-answers": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Quiz Answers
+     * @description Save the student's picks for a quiz: one per question, null if not answered yet.
+     *
+     *     The app grades them in code (the correct index is in the quiz); nothing about mastery or
+     *     the plan changes. 422 if the message isn't a quiz or the count doesn't match.
+     */
+    patch: operations["quiz_answers_messages__message_id__quiz_answers_patch"];
+    trace?: never;
+  };
   "/conversations/{conversation_id}/messages": {
     parameters: {
       query?: never;
@@ -1463,7 +1511,7 @@ export interface components {
        * @default answer
        * @enum {string}
        */
-      mode: "answer" | "explain_differently" | "example" | "quiz";
+      mode: "answer" | "explain_differently" | "example";
     };
     /** MessageOut */
     MessageOut: {
@@ -1504,6 +1552,9 @@ export interface components {
       created_at: string;
       /** Sources */
       sources: components["schemas"]["MessageSourceOut"][];
+      quiz?: components["schemas"]["Quiz"] | null;
+      /** Quiz Answers */
+      quiz_answers?: (number | null)[] | null;
     };
     /**
      * MessageSourceOut
@@ -1622,6 +1673,38 @@ export interface components {
       char_count: number;
       /** Is Scanned */
       is_scanned: boolean;
+    };
+    /**
+     * Quiz
+     * @description What the model is asked for (3 questions); up to 6 are accepted, then filtered.
+     */
+    Quiz: {
+      /** Questions */
+      questions: components["schemas"]["QuizQuestion"][];
+    };
+    /**
+     * QuizAnswersIn
+     * @description The student's pick for each question, in order (null for one not answered yet).
+     */
+    QuizAnswersIn: {
+      /** Answers */
+      answers: (number | null)[];
+    };
+    /**
+     * QuizQuestion
+     * @description One multiple-choice question. Extra keys from the model are ignored.
+     */
+    QuizQuestion: {
+      /** Prompt */
+      prompt: string;
+      /** Options */
+      options: string[];
+      /** Correct */
+      correct: number;
+      /** Explanation */
+      explanation: string;
+      /** Sources */
+      sources: string[];
     };
     /** ReflectionIn */
     ReflectionIn: {
@@ -3901,6 +3984,79 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ConversationOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  quiz_conversations__conversation_id__quiz_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        conversation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MessageOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description No AI model can take it now; Retry-After says when to try again */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  quiz_answers_messages__message_id__quiz_answers_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        message_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["QuizAnswersIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MessageOut"];
         };
       };
       /** @description Validation Error */

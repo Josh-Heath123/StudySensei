@@ -1,6 +1,7 @@
 """``python -m app.tutor.ask --dry-run``: the real service, and nothing written."""
 
 import io
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -11,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.models import AIUsage, Conversation, Message, User
 from app.tutor.ask import Sessions, dry_run, parse
-from tests.fakes import FakeLLM, streamed
+from tests.fakes import FakeLLM, ok, streamed
 from tests.tutor.conftest import Module
 
 
@@ -119,4 +120,40 @@ async def test_after_answers_the_earlier_question_then_the_follow_up_on_its_sour
     blocks = first[-1]["content"].split("Student's question:")[0]
     assert blocks in second[-1]["content"]
     assert "Earlier question: How does a stateful inspection firewall work?" in out.getvalue()
+    assert await counts(session) == (0, 0, 0)
+
+
+async def test_quiz_mode_answers_then_quizzes_on_that_answers_sources(
+    session: AsyncSession, module: Module, settings: Settings, fake_llm: FakeLLM
+) -> None:
+    user = await session.get(User, module.user_id)
+    assert user is not None
+    local = settings.model_copy(update={"local_user_email": user.email})
+    question = {
+        "prompt": "What does a stateful firewall track?",
+        "options": ["Nothing", "Each connection", "Only ports", "Only addresses"],
+        "correct": 1,
+        "explanation": "It keeps a state table [S1].",
+        "sources": ["S1"],
+    }
+    fake_llm.reply(
+        "flash",
+        streamed("It tracks connections [S1]."),
+        ok(json.dumps({"questions": [question, {**question, "sources": ["S9"]}]})),
+    )
+    args = parse(
+        ["--module", "COS330", "--dry-run", "--mode", "quiz", "--after", "How does it work?", "q"]
+    )
+    out = io.StringIO()
+
+    result, calls = await dry_run(
+        args, local, out, sessions_on(session), transport=fake_llm.transport
+    )
+
+    assert result is not None and result.status == "complete"
+    printed = out.getvalue()
+    assert "Quiz: 1 question(s), 1 dropped as ungrounded · model gemini/flash" in printed
+    assert "  * B. Each connection" in printed
+    assert "  S1: CH09 p1" in printed
+    assert len(calls) == 2
     assert await counts(session) == (0, 0, 0)

@@ -54,7 +54,7 @@ async def conversation(api: httpx.AsyncClient, module: Module) -> str:
 # --- the follow-up modes reuse the last answer's sources ---
 
 
-@pytest.mark.parametrize("mode", ["explain_differently", "example", "quiz"])
+@pytest.mark.parametrize("mode", ["explain_differently", "example"])
 async def test_a_follow_up_mode_is_given_the_last_answers_sources_again(
     client_as: ClientFactory,
     session: AsyncSession,
@@ -133,7 +133,11 @@ async def test_a_reused_source_whose_chunk_is_gone_comes_back_from_its_page(
             update(MessageSource).where(MessageSource.label == "S1").values(chunk_id=None)
         )
         await session.commit()
-        again = sources_of(await ask(api, conversation_id, {"question": "Quiz me", "mode": "quiz"}))
+        again = sources_of(
+            await ask(
+                api, conversation_id, {"question": "Give me an example of that.", "mode": "example"}
+            )
+        )
 
     assert again == first
     assert FIREWALL[:40] in fake_llm.requests[-1].body["messages"][-1]["content"]
@@ -163,7 +167,9 @@ async def test_turning_ai_off_drops_a_reused_source_and_the_others_keep_their_la
         assert material is not None
         material.allow_ai = False
         await session.commit()
-        events = await ask(api, conversation_id, {"question": "Quiz me", "mode": "quiz"})
+        events = await ask(
+            api, conversation_id, {"question": "Give me an example of that.", "mode": "example"}
+        )
         stored = (await api.get(f"/conversations/{conversation_id}")).json()["messages"][3]
 
     again = sources_of(events)

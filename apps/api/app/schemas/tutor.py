@@ -1,13 +1,14 @@
 """Schemas for the tutor: conversations, messages, and the events of a streamed answer."""
 
+import re
 import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from app.schemas.academics import _Input
-from app.services.tutor.prompts import TutorMode
+from app.services.tutor.prompts import MessageMode, TutorMode
 
 MessageStatus = Literal["complete", "truncated", "failed", "stopped"]
 
@@ -25,6 +26,57 @@ class MessageCreate(_Input):
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)
     ]
     mode: TutorMode = "answer"
+
+
+# --- "Quiz me" (validated before it's stored in messages.quiz) ---
+
+QUIZ_OPTIONS = 4
+Option = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
+_LABEL = re.compile(r"[\[【]?\s*[sS](\d+)\s*[\]】]?")
+
+
+class QuizQuestion(BaseModel):
+    """One multiple-choice question. Extra keys from the model are ignored."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    prompt: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+    options: list[Option] = Field(min_length=QUIZ_OPTIONS, max_length=QUIZ_OPTIONS)
+    # The index of the correct option, 0 to 3.
+    correct: int = Field(ge=0, le=QUIZ_OPTIONS - 1)
+    # One line on why it's right, citing its source like [S1].
+    explanation: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=600)
+    ]
+    # The source labels it's based on, like ["S1", "S3"]. Code drops a question whose
+    # labels aren't all among the answer's sources.
+    sources: list[str] = Field(min_length=1, max_length=8)
+
+    @field_validator("sources", mode="before")
+    @classmethod
+    def _plain_labels(cls, value: object) -> object:
+        """ "[S1]", "【S1】" and "s1" all mean "S1"; anything else is kept, and won't match."""
+        if not isinstance(value, list):
+            return value
+        labels: list[object] = []
+        for item in value:
+            match = _LABEL.fullmatch(item.strip()) if isinstance(item, str) else None
+            labels.append(f"S{int(match.group(1))}" if match else item)
+        return labels
+
+
+class Quiz(BaseModel):
+    """What the model is asked for (3 questions); up to 6 are accepted, then filtered."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    questions: list[QuizQuestion] = Field(min_length=1, max_length=6)
+
+
+class QuizAnswersIn(_Input):
+    """The student's pick for each question, in order (null for one not answered yet)."""
+
+    answers: list[Annotated[int, Field(ge=0, le=QUIZ_OPTIONS - 1)] | None] = Field(max_length=6)
 
 
 class MessageSourceOut(BaseModel):
@@ -46,7 +98,7 @@ class MessageOut(BaseModel):
 
     id: uuid.UUID
     role: Literal["user", "assistant"]
-    mode: TutorMode
+    mode: MessageMode
     text: str
     status: MessageStatus
     # "provider/model" that answered (answers only).
@@ -58,6 +110,9 @@ class MessageOut(BaseModel):
     unknown_citations: list[str]
     created_at: datetime
     sources: list[MessageSourceOut]
+    # A "Quiz me" answer's questions, and the student's picks (null until answered).
+    quiz: Quiz | None = None
+    quiz_answers: list[int | None] | None = None
 
 
 class ConversationOut(BaseModel):

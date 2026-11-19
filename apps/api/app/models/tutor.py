@@ -11,6 +11,7 @@ itself is rebuilt from these, never stored.
 """
 
 import uuid
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -26,7 +27,7 @@ from sqlalchemy import (
 from sqlalchemy import (
     text as sql,
 )
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.academics import _in
@@ -43,11 +44,14 @@ class Conversation(TimestampedBase):
         ForeignKeyConstraint(
             ["module_id", "user_id"], ["modules.id", "modules.user_id"], ondelete="CASCADE"
         ),
-        # Deleting the session or the topic keeps the conversation, without it.
+        # Deleting a study session deletes its conversation (and so its messages and
+        # sources): what came from the record goes with it (migration 0019). Deleting the
+        # topic keeps the conversation, without the topic.
         ForeignKeyConstraint(
             ["study_session_id", "module_id"],
             ["study_sessions.id", "study_sessions.module_id"],
-            ondelete="SET NULL (study_session_id)",
+            ondelete="CASCADE",
+            name="fk_conversations_study_session",
         ),
         ForeignKeyConstraint(
             ["topic_id", "module_id"],
@@ -111,6 +115,11 @@ class Message(TimestampedBase):
     unknown_citations: Mapped[list[str]] = mapped_column(
         ARRAY(String(10)), default=list, server_default=sql("'{}'")
     )
+    # "Quiz me" (migration 0019): the validated quiz (app/schemas/tutor.py Quiz, its
+    # questions already filtered to the answer's sources), and the student's picks, one per
+    # question (null until answered). Graded by code, never by the model.
+    quiz: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    quiz_answers: Mapped[list[int | None] | None] = mapped_column(JSONB)
     # The sources an answer was given, S1 first (none for the student's messages).
     sources: Mapped[list["MessageSource"]] = relationship(
         order_by="MessageSource.rank", cascade="all, delete-orphan", lazy="raise"
