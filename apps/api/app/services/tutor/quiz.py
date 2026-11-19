@@ -29,7 +29,7 @@ from app.ai.messages import system, user
 from app.ai.sources import UNTRUSTED
 from app.core.config import Settings
 from app.models import Message, MessageSource
-from app.schemas.tutor import Quiz, QuizAnswersIn
+from app.schemas.tutor import Quiz, QuizAnswersIn, VoiceTimingIn
 from app.services.errors import Invalid, NotFound
 from app.services.tutor.conversations import (
     add_message,
@@ -270,6 +270,24 @@ async def get_message(
     if found is None:
         raise NotFound("Message")
     return found
+
+
+async def save_voice_timing(
+    session: AsyncSession, message_id: uuid.UUID, data: VoiceTimingIn, *, user_id: uuid.UUID
+) -> Message:
+    """Record how long a spoken question took to be answered aloud. ``NotFound`` if the
+    message isn't the user's; ``Invalid`` unless it's an answer."""
+    message = await get_message(session, message_id, user_id=user_id)
+    if message.role != "assistant":
+        raise Invalid("Only an answer has a voice timing.")
+    message.voice_latency_ms = data.voice_latency_ms
+    message.voice_timing = {
+        "transcript_ms": data.transcript_ms,
+        "first_token_ms": data.first_token_ms,
+        "first_sentence_ms": data.first_sentence_ms,
+    }
+    await session.commit()
+    return await get_message(session, message_id, user_id=user_id)
 
 
 async def save_quiz_answers(

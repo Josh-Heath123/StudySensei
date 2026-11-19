@@ -123,6 +123,16 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/conversations/{conversation}/messages", {"question": "What is a firewall?"}),
     ("POST", "/conversations/{conversation}/quiz", None),
     ("PATCH", "/messages/{message}/quiz-answers", {"answers": [0]}),
+    (
+        "PATCH",
+        "/messages/{message}/voice-timing",
+        {
+            "voice_latency_ms": 1,
+            "transcript_ms": 1,
+            "first_token_ms": 1,
+            "first_sentence_ms": 1,
+        },
+    ),
 ]
 
 

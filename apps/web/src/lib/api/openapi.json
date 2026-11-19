@@ -2787,6 +2787,60 @@
         }
       }
     },
+    "/messages/{message_id}/voice-timing": {
+      "patch": {
+        "tags": [
+          "tutor"
+        ],
+        "summary": "Voice Timing",
+        "description": "Record a spoken question's latency, measured in the browser: from releasing\npush-to-talk to the first spoken word, with its parts. No audio is ever sent. 422 unless\nthe message is an answer.",
+        "operationId": "voice_timing_messages__message_id__voice_timing_patch",
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Message Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceTimingIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{conversation_id}/messages": {
       "post": {
         "tags": [
@@ -4365,6 +4419,31 @@
               }
             ],
             "title": "Quiz Answers"
+          },
+          "voice_latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voice Latency Ms"
+          },
+          "voice_timing": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voice Timing"
           }
         },
         "type": "object",
@@ -6096,6 +6175,44 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VoiceTimingIn": {
+        "properties": {
+          "voice_latency_ms": {
+            "type": "integer",
+            "maximum": 600000.0,
+            "minimum": 0.0,
+            "title": "Voice Latency Ms"
+          },
+          "transcript_ms": {
+            "type": "integer",
+            "maximum": 600000.0,
+            "minimum": 0.0,
+            "title": "Transcript Ms"
+          },
+          "first_token_ms": {
+            "type": "integer",
+            "maximum": 600000.0,
+            "minimum": 0.0,
+            "title": "First Token Ms"
+          },
+          "first_sentence_ms": {
+            "type": "integer",
+            "maximum": 600000.0,
+            "minimum": 0.0,
+            "title": "First Sentence Ms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "voice_latency_ms",
+          "transcript_ms",
+          "first_token_ms",
+          "first_sentence_ms"
+        ],
+        "title": "VoiceTimingIn",
+        "description": "Measured in the browser for a question asked by voice, in ms from releasing\npush-to-talk: the final transcript, the first answer token, the first full sentence,\nand the first spoken word (``voice_latency_ms``, the Phase 3 target is under 2,500)."
       }
     }
   }

@@ -23,6 +23,7 @@ from app.schemas.tutor import (
     MessageOut,
     QuizAnswersIn,
     SourcesEvent,
+    VoiceTimingIn,
 )
 from app.services.search.embedding import get_embedder
 from app.services.tutor.conversations import (
@@ -34,7 +35,7 @@ from app.services.tutor.conversations import (
     prepare_message,
     run_turn,
 )
-from app.services.tutor.quiz import make_quiz, save_quiz_answers
+from app.services.tutor.quiz import make_quiz, save_quiz_answers, save_voice_timing
 
 router = APIRouter(tags=["tutor"])
 
@@ -129,6 +130,17 @@ async def quiz_answers(
     The app grades them in code (the correct index is in the quiz); nothing about mastery or
     the plan changes. 422 if the message isn't a quiz or the count doesn't match."""
     message = await save_quiz_answers(session, message_id, data, user_id=user.id)
+    return MessageOut.model_validate(message)
+
+
+@router.patch("/messages/{message_id}/voice-timing", response_model=MessageOut)
+async def voice_timing(
+    message_id: uuid.UUID, data: VoiceTimingIn, session: SessionDep, user: CurrentUser
+) -> MessageOut:
+    """Record a spoken question's latency, measured in the browser: from releasing
+    push-to-talk to the first spoken word, with its parts. No audio is ever sent. 422 unless
+    the message is an answer."""
+    message = await save_voice_timing(session, message_id, data, user_id=user.id)
     return MessageOut.model_validate(message)
 
 

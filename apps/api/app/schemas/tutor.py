@@ -79,6 +79,21 @@ class QuizAnswersIn(_Input):
     answers: list[Annotated[int, Field(ge=0, le=QUIZ_OPTIONS - 1)] | None] = Field(max_length=6)
 
 
+# Ten minutes: anything longer isn't a measurement worth keeping.
+VoiceMs = Annotated[int, Field(ge=0, le=600_000)]
+
+
+class VoiceTimingIn(_Input):
+    """Measured in the browser for a question asked by voice, in ms from releasing
+    push-to-talk: the final transcript, the first answer token, the first full sentence,
+    and the first spoken word (``voice_latency_ms``, the Phase 3 target is under 2,500)."""
+
+    voice_latency_ms: VoiceMs
+    transcript_ms: VoiceMs
+    first_token_ms: VoiceMs
+    first_sentence_ms: VoiceMs
+
+
 class MessageSourceOut(BaseModel):
     """A source the answer was given. ``material_id`` is null once the material is deleted."""
 
@@ -113,6 +128,9 @@ class MessageOut(BaseModel):
     # A "Quiz me" answer's questions, and the student's picks (null until answered).
     quiz: Quiz | None = None
     quiz_answers: list[int | None] | None = None
+    # Asked by voice: release to the first spoken word, and its parts (ms from release).
+    voice_latency_ms: int | None = None
+    voice_timing: dict[str, int] | None = None
 
 
 class ConversationOut(BaseModel):
