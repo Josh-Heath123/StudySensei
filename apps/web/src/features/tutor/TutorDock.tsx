@@ -84,7 +84,7 @@ export function TutorDock({
   return (
     <aside
       aria-label="Tutor"
-      className="glass sticky top-4 flex h-[calc(100dvh-2rem)] max-h-[880px] flex-col self-start rounded-2xl"
+      className="glass sticky top-4 flex h-[calc(100dvh-8rem)] max-h-[880px] min-h-[480px] min-w-0 flex-col self-start rounded-2xl"
     >
       <div className="flex items-center gap-2 px-5 pt-4 pb-3">
         <h2 className="type-h3 min-w-0 flex-1">Tutor</h2>

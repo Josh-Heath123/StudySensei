@@ -29,7 +29,7 @@ export function TutorAnswer({
   const byline = answeredBy(answer.model, answer.firstTokenMs);
   return (
     <SourcesContext.Provider value={{ sources: answer.sources, open: onOpen }}>
-      <div className="grid gap-3">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
         {answer.status === "waiting" && !answer.text && (
           <p className="text-muted flex items-center gap-2 text-sm">
             <span aria-hidden className="answer-caret" />
@@ -77,9 +77,9 @@ function SourceList({ sources, onOpen }: { sources: SourceView[]; onOpen: OpenSo
   const cited = sources.filter((s) => s.cited);
   const others = sources.filter((s) => !s.cited);
   return (
-    <div className="grid gap-1.5">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-1.5">
       {cited.length > 0 && (
-        <ul aria-label="Cited sources" className="grid gap-1">
+        <ul aria-label="Cited sources" className="grid grid-cols-[minmax(0,1fr)] gap-1">
           {cited.map((source) => (
             <SourceRow key={source.label} source={source} onOpen={onOpen} cited />
           ))}
@@ -96,7 +96,7 @@ function SourceList({ sources, onOpen }: { sources: SourceView[]; onOpen: OpenSo
               ? `${others.length} more ${others.length === 1 ? "source" : "sources"} it was given`
               : `${others.length} ${others.length === 1 ? "source" : "sources"} it was given (none cited)`}
           </summary>
-          <ul aria-label="Other sources" className="mt-1 grid gap-1">
+          <ul aria-label="Other sources" className="mt-1 grid grid-cols-[minmax(0,1fr)] gap-1">
             {others.map((source) => (
               <SourceRow key={source.label} source={source} onOpen={onOpen} />
             ))}
@@ -131,7 +131,7 @@ function SourceRow({
         <span className={cn("text-xs font-semibold tabular-nums", cited && "text-link")}>
           {source.label}
         </span>
-        <span className="min-w-0 truncate">{label}</span>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
         {source.materialId === null && <span className="text-muted text-xs">(deleted)</span>}
       </button>
     </li>

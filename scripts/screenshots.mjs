@@ -255,31 +255,17 @@ async function main() {
       );
       await ctx.close();
 
-      // A running session: a paused clock, so the timer shows exactly 18 minutes in. Only one
-      // session can be open, so the second theme resumes the one the first started.
+      // The running session the demo seed opened 18 minutes before "now", with the tutor
+      // panel open on its one exchange. The clock runs until the panel has loaded (the data
+      // layer delivers results through timers), then the time is fixed: the timer shows 32:00.
       const sessionCtx = await context(browser, theme);
       const sessionPage = await sessionCtx.newPage();
       await sessionPage.clock.install({ time: fixed });
-      await sessionPage.clock.pauseAt(fixed + 1000);
-      if (theme === "light") {
-        await sessionPage.goto("/");
-        await sessionPage
-          .getByRole("button", { name: "Start session" })
-          .first()
-          .click();
-        const dialog = sessionPage.getByRole("dialog", {
-          name: "Start a study session",
-        });
-        await dialog.getByLabel("Module").selectOption(module.id);
-        await dialog
-          .getByLabel("Topic (optional)")
-          .selectOption({ label: "Slow start and ssthresh" });
-        await dialog.getByRole("button", { name: "Start" }).click();
-      } else {
-        await sessionPage.goto("/session");
-      }
-      await sessionPage.getByRole("timer").waitFor();
-      await sessionPage.clock.runFor(18 * 60 * 1000);
+      await sessionPage.goto("/session");
+      const tutor = sessionPage.getByRole("complementary", { name: "Tutor" });
+      await tutor.locator(".katex").first().waitFor();
+      await tutor.getByText(/first words in 0\.6 s/).waitFor();
+      await sessionPage.clock.setFixedTime(fixed + 1000);
       await sessionPage
         .getByRole("timer")
         .filter({ hasText: "32:00" })

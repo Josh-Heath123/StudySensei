@@ -24,17 +24,31 @@ export function TutorPanel({ tutor, autoFocus = false }: { tutor: Tutor; autoFoc
   const [noteSeen, setNoteSeen] = useState(privacyNoteSeen);
   const input = useRef<HTMLTextAreaElement>(null);
   const end = useRef<HTMLDivElement>(null);
+  const log = useRef<HTMLDivElement>(null);
   const last = tutor.turns.at(-1);
 
   useEffect(() => {
     if (autoFocus) input.current?.focus();
   }, [autoFocus]);
 
-  // Keep the newest text in view as it streams (instant: no smooth scrolling to animate).
-  const lastText = last?.answer?.text;
+  // Scrolling moves only the conversation box, never the page (instant: nothing animates).
+  // A new turn (or the restored ones) shows from its question; while an answer streams,
+  // the box follows its end only as far as needed.
+  const turnCount = tutor.turns.length;
   useEffect(() => {
-    end.current?.scrollIntoView?.({ block: "end" });
-  }, [tutor.turns.length, lastText]);
+    const box = log.current;
+    const turn = box?.querySelector("article:last-of-type");
+    if (!box || !turn) return;
+    box.scrollTop += turn.getBoundingClientRect().top - box.getBoundingClientRect().top - 16;
+  }, [turnCount]);
+  const lastText = last?.answer?.text;
+  const streaming = last?.answer?.status === "streaming";
+  useEffect(() => {
+    const box = log.current;
+    if (!streaming || !box || !end.current) return;
+    const below = end.current.getBoundingClientRect().bottom - box.getBoundingClientRect().bottom;
+    if (below > 0) box.scrollTop += below;
+  }, [lastText, streaming]);
 
   function send(question: string) {
     if (!question.trim() || tutor.busy || !tutor.ready) return;
@@ -63,9 +77,10 @@ export function TutorPanel({ tutor, autoFocus = false }: { tutor: Tutor; autoFoc
     <TooltipProvider>
       <div className="flex min-h-0 flex-1 flex-col">
         <div
+          ref={log}
           role="log"
           aria-label="Tutor conversation"
-          className="surface-card mx-3 grid min-h-0 flex-1 content-start gap-5 overflow-y-auto rounded-xl p-4 sm:p-5"
+          className="surface-card mx-3 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-5 overflow-y-auto rounded-xl p-4 sm:p-5"
         >
           {tutor.restoring && (
             <p aria-busy="true" className="text-muted text-sm">
@@ -159,7 +174,10 @@ function TurnView({
   onRetry?: () => void;
 }) {
   return (
-    <article aria-label={`Question: ${turn.question}`} className="grid gap-3">
+    <article
+      aria-label={`Question: ${turn.question}`}
+      className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3"
+    >
       <p className="bg-subtle ml-6 justify-self-end rounded-lg px-3 py-2 text-[15px] whitespace-pre-wrap">
         {turn.question}
       </p>
