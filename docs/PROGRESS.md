@@ -2,6 +2,64 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-19: Phase 3, task 4 ("Explain differently", "Give an example", "Quiz me"), and five fixes from the review of #37
+
+- **Fixes from the live review:**
+  - **a. Chips remounted on every timer tick** (focus lost, tooltips flickering). The cause was react-markdown's
+    `components` built inline. They're now defined once, and `TutorDock` is memoised. Two tests (same DOM node,
+    focus kept across ticks) fail on the old code.
+  - **b. Wide tables** scroll in their own box with readable columns. The prompt prefers lists and keeps tables to 3
+    columns.
+  - **c. Citations are always bracketed**, tables included; the parser is unchanged.
+  - **d. Phones:** the control bar fits one row at 375 px, and the page keeps 8 rem (plus the safe area) for the Tutor
+    button. Checked in the 375 px QA capture.
+  - **e. Deleting a study session** now deletes its conversation, messages and sources (migration 0019; the FK was
+    SET NULL). Conversations orphaned before 0019 aren't touched: they can't be told apart from ones made without a
+    session.
+- **Modes:** three quiet buttons under the latest finished answer, disabled while a request runs. Explain and Example
+  stream on the same sources.
+- **Quiz me:**
+  - `POST /conversations/{id}/quiz` uses `complete_json` with the `Quiz` schema (one repair, interactive), on the
+    last answer's sources only. Ungrounded questions are dropped.
+  - It's stored in `messages.quiz`; picks go through `PATCH /messages/{id}/quiz-answers`. Grading is done by code,
+    and there are no mastery or plan changes.
+  - The panel shows one question at a time with the explanation's chips, Next and the results, and restores after a
+    reload.
+  - `quiz` is no longer a streamed mode (422 on the stream), and quizzes aren't history. Cross-user cases cover both
+    endpoints, and `npm run gen:api` was run.
+- **Real check** (`app.tutor.ask --dry-run --after <query> --mode …`, COS330, each query with its topic, all answered
+  by `groq/openai/gpt-oss-120b`):
+
+  | After | Mode | Time | Quiz questions: is the correct answer supported by the cited page? |
+  | --- | --- | --- | --- |
+  | 5 (inference) | Explain differently | first token 764 ms | |
+  | 5 | Give an example | first token 531 ms | |
+  | 5 | Quiz me | total 1,796 ms | Q1 yes (notes p14: Start-Date in Salaries lets a Clerk infer names). Q2 yes (guide p19, CH05 p29: detection at query time denies or alters). Q3 yes (notes p20: views don't prevent inference), though "aggregated queries" leans on Ch1 notes p10 |
+  | 12 (stateful vs packet filter) | Explain differently | first token 547 ms | |
+  | 12 | Give an example | first token 703 ms | |
+  | 12 | Quiz me | total 1,077 ms | Q1: the answer is right (CH09 p14), **but distractor C ("inspects FTP and SIPS commands") is also true by p14**. Q2 yes (p10). Q3 yes (p6) |
+
+  - **The first query-5 quiz failed.** It ran right after the other two modes: Groq returned invalid JSON twice, the
+    repair hit Groq's minute limit, and Flash-Lite's reply was invalid too. I couldn't tell why: the CLI didn't print
+    the usage details yet. It does now.
+  - **A retry right away was turned away** (`AIUnavailable`), and the CLI now reports that instead of crashing.
+  - Spaced two minutes apart, both quizzes worked first time, with 0 questions dropped.
+  - **About 20 free-tier calls** in all, every one on Groq except one Flash-Lite repair.
+  - The quiz prompt now asks the model to check every wrong option against the sources. That isn't re-measured.
+- **Tests:**
+  - **API:** 26 for the quiz (schema, repair, ungrounded, fewer than 3, none grounded, 422 before an answer, 503
+    without waiting, not history, not streamed, answers saved, bad answers rejected); 3 for the session cascade;
+    2 new cross-user cases; 1 CLI quiz.
+  - **Web:** 10 new (2 for chip stability, 8 for the quiz flow).
+  - **e2e:** `tutor-modes.spec.ts` asks, explains, quizzes, answers all three and reloads. It has no AI fakes in the
+    app: the tutor API is answered by `page.route` over a small in-memory record.
+- **Screenshots:** a new `quiz-{light,dark}.png` (the demo seed's fixture quiz on the NET201 slides) and the session
+  shot back on the answer, both regenerated in both themes. They're in the README gallery.
+- **Vitest note:** a direct `npx vitest run` from `apps/web` hung three times with no output. Every folder passed
+  alone, and `npm run check`'s vitest step passed in 26 s.
+- **Migration 0019 isn't applied to the dev database.** Run `npm run db:migrate`.
+- **Next:** Phase 3 task 5: `voice/stt.ts` and `voice/tts.ts`, push-to-talk, latency timing.
+
 ## 2026-11-19: Phase 3, task 3 (the tutor panel), and three fixes from the live review of #36
 
 - **Backend fixes:**

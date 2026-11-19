@@ -89,7 +89,7 @@ the web app calls the API through the typed `openapi-fetch` client. CI fails if 
 | Sessions | `POST /sessions`, `GET /sessions/active`, `GET/DELETE /sessions/{id}`, `POST /sessions/{id}/events`, `PUT /sessions/{id}/reflection`, `GET /modules/{id}/sessions?limit=&offset=` (a page `{items, total, limit, offset}`: the open session first, then newest first; limit 1–100, default 20), `GET /modules/{id}/sessions/summary?week_start=` (session count and active seconds, all time and since `week_start`) |
 | AI | `GET /ai/status`: per provider whether it's configured (`key_set` is yes/no only), each role's models in order, and per model `used_today` / `daily_budget` / `resets_at` for the current user |
 | AI | `POST /ai/ping` (no body): tests every configured model at once, one short request each (30 s limit each), logged in `ai_usage` as purpose `ping` against the caller. One result per model: `status` `ok` (`latency_ms`), `failed` (`error`: the provider's own text, never a key) or `skipped` (daily budget used up, so not called; `resets_at`), plus `in_models_list` (null with `models_list_error` when the provider's `/models` failed). No provider configured → `results: []` |
-| Tutor | `GET /modules/{id}/tutor/conversations?study_session_id=` (newest first, each with its messages; another user's session ID gives `[]`; the panel restores a session's conversation with it), `POST /modules/{id}/tutor/conversations` (`{study_session_id?, topic_id?}`, 201; both must be in the module; without a topic the session's is used), `GET /conversations/{id}` (messages oldest first; each answer has its `model`, `status`, `first_token_ms`, `total_ms`, `unknown_citations` and `sources` with `label`, `rank`, material, page, `cited`), `POST /conversations/{id}/messages` (`{question, mode}`, mode `answer` / `explain_differently` / `example` / `quiz`) → `text/event-stream`, below |
+| Tutor | `GET /modules/{id}/tutor/conversations?study_session_id=` (newest first, each with its messages; another user's session ID gives `[]`; the panel restores a session's conversation with it), `POST /modules/{id}/tutor/conversations` (`{study_session_id?, topic_id?}`, 201; both must be in the module; without a topic the session's is used), `GET /conversations/{id}` (messages oldest first; each answer has its `model`, `status`, `first_token_ms`, `total_ms`, `unknown_citations` and `sources` with `label`, `rank`, material, page, `cited`), `POST /conversations/{id}/messages` (`{question, mode}`, mode `answer` / `explain_differently` / `example`) → `text/event-stream`, below; `POST /conversations/{id}/quiz` (no body, 201: the stored quiz answer, `failed` with a readable `text` if the AI's quiz couldn't be used; 422 before any answer; 503 with `Retry-After` when the AI is busy), `PATCH /messages/{id}/quiz-answers` (`{answers: [0–3 or null, …]}`, one per question; 422 if it isn't a quiz or the count differs) |
 | Materials | `POST /modules/{id}/materials` (multipart: `file`, `kind`, `title?`, `allow_ai`; 413 over 50 MB, 415 wrong type, 409 same file in the module), `GET /modules/{id}/materials`, `GET/PATCH/DELETE /materials/{id}` (PATCH: title, kind, allow_ai), `POST /materials/{id}/retry` (failed only), `GET /materials/{id}/pages` (page number, title, char count, is_scanned), `GET /materials/{id}/pages/{n}` (adds the text), `GET /materials/{id}/file` (the stored original, streamed through `Storage`: its own `Content-Type`, `Content-Disposition: inline` with the RFC 5987 filename, `X-Content-Type-Options: nosniff`, `ETag` = the sha256 with `Cache-Control: private, max-age=31536000, immutable`, and 304 for a matching `If-None-Match`; 404 for another user's material or a missing blob) |
 
 Notes on these endpoints:
@@ -148,7 +148,7 @@ Derived tables can always be rebuilt from source tables.
 | Sessions | `study_sessions`, `session_events`, `session_minutes` | No images or audio, ever |
 | Practice | `practice_items`, `reviews` (grade + FSRS state) | |
 | Derived | `topic_mastery`, `profile_metrics` (value, sample size, label), `recommendations` | Rebuilt nightly and after each session |
-| Tutor | `conversations` (module, optional study session and topic), `messages` (`position` in the conversation, role `user`/`assistant`, mode, text, status `complete`/`truncated`/`failed`/`stopped`, model, `first_token_ms`, `total_ms`, `unknown_citations`), `message_sources` (label S1–S8, rank, material, page, titles copied, `cited`) | Migration 0017. Every table has `user_id` and composite FKs: a conversation's session and topic must be in its module (set to null if deleted); a source's material is the same user's (set to null if deleted, titles kept). The prompt itself is never stored |
+| Tutor | `conversations` (module, optional study session and topic), `messages` (`position` in the conversation, role `user`/`assistant`, mode, text, status `complete`/`truncated`/`failed`/`stopped`, model, `first_token_ms`, `total_ms`, `unknown_citations`), `message_sources` (label S1–S8, rank, material, page, titles copied, `chunk_id`, `cited`); `messages.quiz` and `quiz_answers` (JSONB, 0019) | Migrations 0017–0019. Every table has `user_id` and composite FKs: a conversation's session and topic must be in its module. **Deleting a study session deletes its conversation, messages and sources** (0019; it was SET NULL, which left an unreachable conversation); deleting the topic keeps the conversation without it. A source's material is the same user's (set to null if deleted, titles kept). The prompt itself is never stored |
 | AI | `ai_usage` | Usage drives budget and rate-limit handling; outcome `stopped` (0017) is a stream the student stopped |
 | System | `jobs` (kind, payload, status, attempts, run_after, error) | |
 
@@ -344,6 +344,26 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
     A label that wasn't given (`S9`) is kept out of the citations and listed in `unknown_citations`, and the text is
     never rewritten.
   - **Timings** are measured from receiving the question.
+  - **"Quiz me"** (`app/services/tutor/quiz.py`, not streamed):
+    - It's made from the last answer's sources only (`reuse_sources`, the same passages and labels), plus the question
+      that answer was for. `complete_json` validates the reply against `Quiz`, with one repair. It's interactive: a
+      busy model is skipped, not waited for.
+    - **Schema** (`app/schemas/tutor.py`): `Quiz.questions`, 1–6 accepted, each with:
+      - `prompt`;
+      - exactly 4 `options`;
+      - `correct`, the option's index 0–3;
+      - a one-line `explanation` citing like [S1];
+      - `sources`: labels, with "[S1]", "【S1】" and "s1" all normalised to "S1".
+    - **Code keeps** a question only if all its labels are among the answer's sources, and keeps at most 3. Fewer
+      are shown as they are, and the panel says so. None left is a `failed` answer saying why.
+    - **Stored** in `messages.quiz` (validated) with `quiz_answers` all null. The question "Quiz me" and the answer are
+      a turn like any other, but **not history** for the next question.
+    - **Graded by code**, in the panel and in `grade()`, never by the model. No mastery or plan changes (Phase 5).
+  - **Prompt rules from the live review:**
+    - Prefer lists, and use tables only of at most 3 columns (answers are read on phones).
+    - Always write citations in brackets, tables included.
+    - In a quiz, check each wrong option against the sources.
+    - The parser stays strict: only `[S1]` and `【S1】` count.
   - **Follow-ups** (19 Nov review of #36):
     - `explain_differently`, `example` and `quiz` are given the last answer's sources again, with the same labels, so
       their citations match. `message_sources.chunk_id` (migration 0018) keeps the exact passage; after a re-index,
@@ -509,6 +529,19 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   - Citations are buttons, with the material and page in their name and tooltip.
   - Reduced motion is respected through the global rule.
 - **Privacy note:** shown once, until the first question: what goes to the free provider and what doesn't.
+- **Modes** (task 4):
+  - Under the latest finished answer: "Explain differently", "Give an example" and "Quiz me", as quiet buttons.
+    They stay there, disabled, while a newer request runs.
+  - The first two stream on the same sources and labels.
+  - "Quiz me" shows "Writing 3 questions…", then `QuizCard`, one question at a time:
+    - pick, then code grades it, then the explanation with its chips, then Next, then the results;
+    - each pick is saved with `PATCH …/quiz-answers`, so a reload resumes at the first unanswered question.
+- **Stable rendering:**
+  - The session screen re-renders every second for its timer. The dock is memoised, so none of that reaches the
+    tutor.
+  - `AnswerMarkdown`'s components and plugins are defined once at module level. A new components object on each
+    render remounted every citation chip, which lost keyboard focus and made tooltips flicker.
+  - Wide tables scroll in their own focusable box, with columns at least 7 rem wide.
 - **Tests:**
   - Vitest covers the SSE parser, citations in both forms, HTML and KaTeX safety, streaming, Stop, errors, Retry,
     restore, the keyboard, the live region and the phone sheet.
