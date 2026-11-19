@@ -71,16 +71,17 @@ test("start → pause → resume → break → end → reflect → summary", asy
   expect(await screen.findByText("COS330")).toBeInTheDocument();
   expect(timer()).toHaveTextContent("50:00");
   expect(eyebrow()).toHaveTextContent("Focus");
-  expect(screen.getByText("The tutor arrives in Phase 3.")).toBeInTheDocument();
+  expect(screen.getByRole("complementary", { name: "Tutor" })).toBeInTheDocument();
   expect(
     screen.getByText(/Open this module's slides and notes, search them, and jump to any page/),
   ).toBeInTheDocument();
-  // Below the timer (#34 item 12): the Materials link and the tutor note follow it.
+  // After the timer (#34 item 12): the Materials link, then the tutor.
   const timerSection = screen.getByRole("region", { name: "Timer" });
   const materials = screen.getByRole("link", { name: "Open module" });
   expect(materials).toHaveAttribute("href", "/modules/m1");
-  const tutorNote = screen.getByText("The tutor arrives in Phase 3.");
-  for (const below of [materials, tutorNote]) {
+  // The tutor sits beside the timer on a desktop (after it in reading order), never inside.
+  const tutor = screen.getByRole("complementary", { name: "Tutor" });
+  for (const below of [materials, tutor]) {
     expect(
       timerSection.compareDocumentPosition(below) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();

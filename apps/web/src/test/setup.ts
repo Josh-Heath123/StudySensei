@@ -1,6 +1,10 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, configure } from "@testing-library/react";
+import { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { afterEach, vi } from "vitest";
+
+// jsdom has Response but not ReadableStream: the tutor reads streamed (SSE) bodies.
+globalThis.ReadableStream ??= NodeReadableStream as unknown as typeof ReadableStream;
 
 // findBy*/waitFor give up after 1 s by default. The first test in a file also pays for
 // loading the app's modules, which on a busy machine running every file in parallel

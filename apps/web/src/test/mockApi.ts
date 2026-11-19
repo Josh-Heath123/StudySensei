@@ -6,7 +6,12 @@ export type ApiCall = { method: string; path: string; body: unknown };
 
 type Reply = unknown | Response;
 export type Handler = (
-  call: ApiCall & { params: Record<string, string>; query: URLSearchParams },
+  call: ApiCall & {
+    params: Record<string, string>;
+    query: URLSearchParams;
+    /** The request itself: its `signal` lets a streamed reply end when it is aborted. */
+    request: Request;
+  },
 ) => Reply | Promise<Reply>;
 
 /**
@@ -39,6 +44,7 @@ export function mockApi(routes: Record<string, Handler>) {
           ...call,
           params,
           query: new URL(request.url).searchParams,
+          request,
         });
         return reply instanceof Response ? reply : json(reply ?? null);
       }
