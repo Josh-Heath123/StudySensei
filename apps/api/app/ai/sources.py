@@ -12,7 +12,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Chunk, Material, MaterialPage
@@ -82,6 +82,47 @@ async def chunks_for_prompt(
     )
     found = {row[0]: SourceChunk(*row) for row in rows}
     return [found[chunk_id] for chunk_id in chunk_ids if chunk_id in found]
+
+
+async def first_chunks_on_pages(
+    session: AsyncSession,
+    pages: Sequence[tuple[uuid.UUID, int]],
+    *,
+    user_id: uuid.UUID,
+) -> dict[tuple[uuid.UUID, int], SourceChunk]:
+    """The first chunk of each (material, page) that may go to the AI.
+
+    Pages of materials with ``allow_ai`` off (or of another user) are left out.
+    """
+    if not pages:
+        return {}
+    rows = await session.execute(
+        select(
+            Chunk.id,
+            Chunk.material_id,
+            Material.title,
+            Chunk.page_number,
+            Chunk.text,
+            MaterialPage.title,
+        )
+        .join(Material, (Material.id == Chunk.material_id) & (Material.user_id == Chunk.user_id))
+        .outerjoin(
+            MaterialPage,
+            (MaterialPage.material_id == Chunk.material_id)
+            & (MaterialPage.page_number == Chunk.page_number)
+            & (MaterialPage.user_id == Chunk.user_id),
+        )
+        .where(
+            Chunk.user_id == user_id,
+            tuple_(Chunk.material_id, Chunk.page_number).in_(list(pages)),
+            Material.allow_ai.is_(True),
+        )
+        .order_by(Chunk.material_id, Chunk.page_number, Chunk.position)
+    )
+    first: dict[tuple[uuid.UUID, int], SourceChunk] = {}
+    for row in rows:
+        first.setdefault((row[1], row[3]), SourceChunk(*row))
+    return first
 
 
 async def material_pages_for_prompt(

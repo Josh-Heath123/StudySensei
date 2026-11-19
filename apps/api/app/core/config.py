@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     max_upload_bytes: int = 50 * 1024 * 1024
     # How long the job worker sleeps when the queue is empty.
     worker_poll_seconds: float = 1.0
+    # Load the embedding model when the API and the worker start, rather than on the first
+    # search (about 1.4 s, 19 Nov 2026). The API loads it in the background.
+    preload_embedder: bool = True
 
     # --- AI providers (decision 0002, ARCHITECTURE "AI integration") ---
     # A provider without a key is skipped. Keys are secrets: never log or return them.

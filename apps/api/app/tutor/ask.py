@@ -40,9 +40,15 @@ from app.schemas.tutor import (
     SourcesEvent,
 )
 from app.services.search.embedding import get_embedder
-from app.services.tutor.conversations import create_conversation, prepare_message, run_turn
-from app.services.tutor.prompts import TUTOR_MODES, TutorMode
-from app.services.tutor.retrieval import Source
+from app.services.tutor.conversations import (
+    FOLLOW_UP_MODES,
+    HISTORY_STATUSES,
+    create_conversation,
+    prepare_message,
+    run_turn,
+)
+from app.services.tutor.prompts import TUTOR_MODES, Exchange, TutorMode
+from app.services.tutor.retrieval import PreviousSource, Source
 from app.services.tutor.turn import Answer, answer, build_turn
 
 Sessions = Callable[[], AbstractAsyncContextManager[AsyncSession]]
@@ -174,6 +180,40 @@ async def dry_run(
             loading = time.monotonic()
             embedder = await asyncio.to_thread(get_embedder)
             load_ms = int((time.monotonic() - loading) * 1000)
+            history: list[Exchange] = []
+            reuse: list[PreviousSource] = []
+            previous_question: str | None = None
+            if args.after:
+                # The earlier question, answered for real, then this one as its follow-up:
+                # the rules of conversations.prepare_message, without storing anything.
+                before = await build_turn(
+                    session,
+                    module_id,
+                    args.after,
+                    "answer",
+                    user_id=user_id,
+                    topic_id=topic_id,
+                    history=[],
+                    embedder=embedder,
+                    settings=settings,
+                )
+                earlier: Answer | None = None
+                async for event in answer(before, client=client, user_id=user_id):
+                    if isinstance(event, Answer):
+                        earlier = event
+                print(f"Earlier question: {args.after}", file=out)
+                if earlier is not None:
+                    print_result(earlier, before.sources, out)
+                    print(file=out)
+                    if earlier.status in HISTORY_STATUSES and earlier.text.strip():
+                        history = [Exchange(args.after, earlier.text)]
+                if args.mode in FOLLOW_UP_MODES:
+                    reuse = [
+                        PreviousSource(s.label, s.chunk_id, s.material_id, s.page_number)
+                        for s in before.sources
+                    ]
+                else:
+                    previous_question = args.after
             started = time.monotonic()
             turn = await build_turn(
                 session,
@@ -182,10 +222,12 @@ async def dry_run(
                 args.mode,
                 user_id=user_id,
                 topic_id=topic_id,
-                history=[],
+                history=history,
                 embedder=embedder,
                 settings=settings,
                 started=started,
+                previous_question=previous_question,
+                reuse=reuse,
             )
             print(
                 f"Context: {turn.context_tokens} estimated tokens of sources "
@@ -286,6 +328,11 @@ def parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--topic", help="the session topic retrieval boosts (its exact name)")
     parser.add_argument("--mode", choices=TUTOR_MODES, default="answer")
     parser.add_argument("--dry-run", action="store_true", help="write nothing to the database")
+    parser.add_argument(
+        "--after",
+        metavar="QUESTION",
+        help="with --dry-run: ask this first, then the question as its follow-up (two calls)",
+    )
     return parser.parse_args(argv)
 
 
@@ -294,6 +341,8 @@ async def main(argv: list[str], out: TextIO = sys.stdout) -> int:
     mode: TutorMode = args.mode
     args.mode = mode
     settings = get_settings()
+    if args.after and not args.dry_run:
+        raise SystemExit("--after works with --dry-run only.")
     if args.dry_run:
         async with read_only_sessions(settings) as sessions:
             result, rows = await dry_run(args, settings, out, sessions)

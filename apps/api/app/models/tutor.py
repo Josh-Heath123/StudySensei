@@ -127,6 +127,13 @@ class MessageSource(TimestampedBase):
             ["messages.id", "messages.user_id"],
             ondelete="CASCADE",
         ),
+        # Re-indexing a material replaces its chunks: the source keeps its page.
+        ForeignKeyConstraint(
+            ["chunk_id", "user_id"],
+            ["chunks.id", "chunks.user_id"],
+            ondelete="SET NULL (chunk_id)",
+            name="fk_message_sources_chunk",
+        ),
         # Deleting the material keeps the row (and its titles), so old answers still read.
         ForeignKeyConstraint(
             ["material_id", "user_id"],
@@ -145,6 +152,9 @@ class MessageSource(TimestampedBase):
     label: Mapped[str] = mapped_column(String(3))
     rank: Mapped[int] = mapped_column(SmallInteger)
     material_id: Mapped[uuid.UUID | None]
+    # The passage the answer was given, so a follow-up ("explain that differently") can be
+    # given the very same sources. Null after a re-index, or for answers before 0018.
+    chunk_id: Mapped[uuid.UUID | None]
     # Copied when the answer was given, so the citation still reads if the material goes.
     material_title: Mapped[str] = mapped_column(String(200))
     page_number: Mapped[int] = mapped_column(Integer)

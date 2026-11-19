@@ -34,7 +34,7 @@ from app.services.tutor.prompts import (
     history_tokens,
     tutor_messages,
 )
-from app.services.tutor.retrieval import Source, retrieve
+from app.services.tutor.retrieval import PreviousSource, Source, retrieve, reuse_sources
 
 HISTORY_EXCHANGES = 2
 PURPOSE = "tutor"
@@ -82,21 +82,31 @@ async def build_turn(
     embedder: Embedder,
     settings: Settings,
     started: float | None = None,
+    previous_question: str | None = None,
+    reuse: Sequence[PreviousSource] = (),
 ) -> Turn:
     """Retrieve the sources and build the messages. Reads only. ``NotFound`` for a module or
-    topic that isn't the user's."""
+    topic that isn't the user's.
+
+    ``reuse``: the previous answer's sources, given again with their labels (the follow-up
+    modes). Otherwise retrieval, with ``previous_question`` as context for a follow-up.
+    """
     started = time.monotonic() if started is None else started
     budget = settings.tutor_context_max_tokens
-    found = await retrieve(
-        session,
-        module_id,
-        question,
-        user_id=user_id,
-        embedder=embedder,
-        topic_id=topic_id,
-        boost=settings.tutor_topic_boost,
-        max_tokens=budget,
-    )
+    if reuse:
+        found = await reuse_sources(session, reuse, user_id=user_id, max_tokens=budget)
+    else:
+        found = await retrieve(
+            session,
+            module_id,
+            question,
+            user_id=user_id,
+            embedder=embedder,
+            topic_id=topic_id,
+            boost=settings.tutor_topic_boost,
+            max_tokens=budget,
+            previous_question=previous_question,
+        )
     kept = fit_history(list(history)[-HISTORY_EXCHANGES:], budget - found.context_tokens)
     messages = tutor_messages(
         mode, question, [source.for_prompt() for source in found.sources], kept

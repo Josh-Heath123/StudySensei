@@ -28,6 +28,7 @@ from app.services.tutor.conversations import (
     PreparedTurn,
     create_conversation,
     get_conversation,
+    list_conversations,
     prepare_message,
     run_turn,
 )
@@ -68,6 +69,23 @@ async def create(
     Without a topic, the session's topic is used. Retrieval boosts the topic's pages."""
     conversation = await create_conversation(session, module_id, data, user_id=user.id)
     return _out(await get_conversation(session, conversation.id, user_id=user.id))
+
+
+@router.get("/modules/{module_id}/tutor/conversations", response_model=list[ConversationOut])
+async def list_for_module(
+    module_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    study_session_id: uuid.UUID | None = None,
+) -> list[ConversationOut]:
+    """The module's tutor conversations, newest first, each with its messages.
+
+    `?study_session_id=` keeps one session's (the tutor panel restores it after a reload).
+    Another user's session ID gives `[]`, like a missing one."""
+    views = await list_conversations(
+        session, module_id, user_id=user.id, study_session_id=study_session_id
+    )
+    return [_out(view) for view in views]
 
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationOut)
