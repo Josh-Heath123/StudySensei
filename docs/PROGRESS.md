@@ -2,6 +2,52 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-19: Phase 3, task 6 (`evals/tutor`), done before task 5 by decision, and two fixes from the review of #38
+
+- **Fixes:**
+  - **a. Interactive JSON repairs** (ADR 0014, amending 0013): the repair goes to the model that wrote the reply.
+    If that model turns it away (429, 503, 413, a timeout, a cooldown or its budget), the next models get the
+    original prompt afresh, never the first model's reply. A 5xx still fails at once, and background jobs are
+    unchanged. 9 tests.
+  - **b. Quiz results** mark each question Right or Wrong in words, with the student's pick beside the correct
+    option.
+- **`evals/tutor`** (`python -m evals.tutor cos330`):
+  - The 15 search-eval questions and 5 new ones, each with its topic, go through the tutor's own service in answer
+    mode, as a dry run. "Quiz me" follows Q5, Q12, Q16, Q17 and Q18.
+  - Calls are paced under Groq's 8,000 tokens a minute.
+  - Results are in `apps/api/evals/results/tutor-2026-11-19-run1.json` and `tutor-2026-11-19.md`: numbers,
+    labels and pages only.
+  - The metrics (coverage, rate, nearest-rank percentiles, "doesn't cover") are unit-tested.
+- **Run 1:**
+  - 26 free-tier calls: 25 ok and 1 `invalid_json` (repaired on the same model). None was turned away, and pacing
+    waited 900 s.
+
+  | Measure | Result | Target |
+  | --- | --- | --- |
+  | Correct-page citation rate | **18 / 20 (90 %)** | ≥ 85 % (17) |
+  | Mean coverage | **0.88** (19 questions; Q20 had no acceptable page among its sources) | |
+  | "Doesn't cover" answers / failed | 0 / 0 | |
+  | Time to first token, median / p90 / max | **654 / 1,342 / 1,530 ms** | under 2 s |
+  | Model | `groq/openai/gpt-oss-120b`, 20 of 20 | |
+
+  - **The misses:** Q3 is a citation choice (CH03 p14 was S2 but not cited). Q20 is a retrieval miss (CH01 p6 and
+    p7 weren't among the 8 sources).
+  - **No second run.** The targets were met, so the prompt wasn't changed and nothing was tuned against these 20
+    questions.
+- **Quiz check** (by hand, against the cited pages):
+  - The JSON was valid on the first try in 4 of 5 quizzes, and no questions were dropped.
+  - The marked answer was supported in 13 of 15 questions:
+    - after Q12, Q2: CH09 p10 doesn't say which default policy is more common;
+    - after Q16, Q1: by CH09 p27 the marked topology isn't the DMZ one.
+  - A wrong option was also true in 1 of 15 (that same Q12 Q2).
+  - The #38 prompt change held for the question that prompted it.
+  - One explanation cites `[S9]`, which wasn't a source.
+- **Phase 3 verify criteria:**
+  - **At least 85 % of eval answers cite a correct page:** met (90 %).
+  - **Time to first token under 2 s:** met (p90 1,342 ms).
+  - **Speech starts within 2.5 s:** waits for task 5 (voice).
+- **Next:** Phase 3 task 5: `voice/stt.ts` and `voice/tts.ts`, push-to-talk, latency timing.
+
 ## 2026-11-19: Phase 3, task 4 ("Explain differently", "Give an example", "Quiz me"), and five fixes from the review of #37
 
 - **Fixes from the live review:**

@@ -344,6 +344,10 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
     A label that wasn't given (`S9`) is kept out of the citations and listed in `unknown_citations`, and the text is
     never rewritten.
   - **Timings** are measured from receiving the question.
+  - **Interactive JSON repairs** (decision 0014): the repair goes to the model that wrote the reply. If that
+    model turns it away (429, 503, 413, a timeout, a cooldown or its budget), the next models get the original
+    prompt afresh, so one model's reply is never handed to another. A 5xx still fails at once, and background
+    calls keep their short wait.
   - **"Quiz me"** (`app/services/tutor/quiz.py`, not streamed):
     - It's made from the last answer's sources only (`reuse_sources`, the same passages and labels), plus the question
       that answer was for. `complete_json` validates the reply against `Quiz`, with one repair. It's interactive: a
