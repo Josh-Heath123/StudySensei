@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./base";
 
 import { uniqueCode } from "./env";
 import { startWorker, stopWorker } from "./worker";
