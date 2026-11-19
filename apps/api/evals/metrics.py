@@ -1,5 +1,6 @@
 """Pure metric functions for the evals: no database, no model. Unit-tested in tests/evals/."""
 
+import math
 import re
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -184,3 +185,55 @@ def similarity_pages(
     if rule.delta is not None and best_cited is not None:
         floor = max(floor, best_cited - rule.delta)
     return {(c.material, c.page) for c in top if c.score >= floor} - set(cited)
+
+
+# --- tutor ---
+
+# Phrases the tutor uses when the sources don't cover the question (its system prompt asks
+# it to say so plainly). A heuristic, reported as such.
+_NOT_COVERED = re.compile(
+    r"(doesn.t|does not|don.t|do not)\s+(cover|contain|include|say|mention|discuss)"
+    r"|not\s+covered|no\s+information\s+(about|on)|isn.t\s+covered",
+    re.IGNORECASE,
+)
+
+
+def says_not_covered(text: str, cited: Collection[str]) -> bool:
+    """The answer says the material doesn't cover the question, and cites nothing."""
+    return not cited and bool(_NOT_COVERED.search(text))
+
+
+def coverage(
+    cited: Collection[Page], sources: Collection[Page], acceptable: Collection[Page]
+) -> float | None:
+    """Of the acceptable pages that were among the sources, the share the answer cited.
+
+    None when no acceptable page was among the sources (nothing could be cited).
+    """
+    given = set(sources) & set(acceptable)
+    if not given:
+        return None
+    return len(given & set(cited)) / len(given)
+
+
+def rate(flags: Sequence[bool]) -> float:
+    """The share of True, 0.0 for none."""
+    return sum(1 for flag in flags if flag) / len(flags) if flags else 0.0
+
+
+def mean(values: Sequence[float | None]) -> float | None:
+    """The mean of the values that aren't None; None when there are none."""
+    known = [value for value in values if value is not None]
+    return sum(known) / len(known) if known else None
+
+
+def percentile(values: Sequence[float], q: float) -> float | None:
+    """The nearest-rank percentile (q from 0 to 100): a value that was measured, never an
+    interpolation. None for no values."""
+    if not values:
+        return None
+    if not 0 <= q <= 100:
+        raise ValueError("q must be between 0 and 100")
+    ordered = sorted(values)
+    rank = max(1, math.ceil(q / 100 * len(ordered)))
+    return ordered[rank - 1]
