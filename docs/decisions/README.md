@@ -17,3 +17,4 @@ after they're accepted (apart from redacting personal identifiers); a later reco
 | [0010](0010-merge-token-ratio.md) | The merge's token ratio is 2.5 characters, and an oversized merge is reported, not cut | Accepted; supersedes part of 0009 |
 | [0011](0011-large-merges-gemini-only.md) | Large topic-map merges are Gemini-only | Accepted; settles 0010's open question |
 | [0012](0012-visual-direction-glass.md) | Visual direction C "Glass" (light and dark, selective glass) | Accepted; supersedes the 13 Nov choice of direction B "Planner" |
+| [0013](0013-streaming-tutor.md) | The tutor streams; it falls back only before the first token, and never waits | Accepted; amends 0007 and 0008 for interactive calls |
