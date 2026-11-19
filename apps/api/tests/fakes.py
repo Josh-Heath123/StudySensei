@@ -164,3 +164,81 @@ def unauthorized() -> httpx.Response:
 
 def refuse_network(request: httpx.Request) -> httpx.Response:
     raise AssertionError(f"A test tried to reach a real AI provider ({request.url.host})")
+
+
+class StreamedBody(httpx.AsyncByteStream):
+    """A provider's SSE reply, sent event by event. ``closed`` turns true when the client
+    closes the response (so a test can see the provider's stream was stopped).
+
+    ``pause_after`` holds the stream after that many answer pieces until ``resume`` is set
+    (never, unless the test sets it). ``fail_after`` raises a lost connection after that
+    many answer pieces.
+    """
+
+    def __init__(
+        self,
+        events: list[dict[str, Any]],
+        *,
+        pause_after: int | None = None,
+        fail_after: int | None = None,
+    ) -> None:
+        self.events = events
+        self.pause_after = pause_after
+        self.fail_after = fail_after
+        self.resume = asyncio.Event()
+        self.closed = False
+        self.sent_pieces = 0
+
+    async def __aiter__(self) -> Any:
+        for event in self.events:
+            content = (event.get("choices") or [{}])[0].get("delta", {}).get("content")
+            if content and self.fail_after is not None and self.sent_pieces == self.fail_after:
+                raise httpx.ReadError("connection lost")
+            if content and self.pause_after is not None and self.sent_pieces == self.pause_after:
+                await self.resume.wait()
+            yield f"data: {json.dumps(event)}\n\n".encode()
+            if content:
+                self.sent_pieces += 1
+        yield b"data: [DONE]\n\n"
+
+    async def aclose(self) -> None:
+        self.closed = True
+
+
+def stream_events(
+    *pieces: str,
+    reasoning: Sequence[str] = (),
+    finish_reason: str | None = "stop",
+    input_tokens: int = 12,
+    output_tokens: int = 5,
+) -> list[dict[str, Any]]:
+    """Chat-completion chunks: thinking first, then the answer, the finish, and usage."""
+
+    def chunk(delta: dict[str, Any], finish: str | None = None) -> dict[str, Any]:
+        return {"choices": [{"index": 0, "delta": delta, "finish_reason": finish}]}
+
+    events = [chunk({"role": "assistant", "content": ""})]
+    events += [chunk({"reasoning": text}) for text in reasoning]
+    events += [chunk({"content": text}) for text in pieces]
+    events.append(chunk({}, finish_reason))
+    events.append(
+        {
+            "choices": [],
+            "usage": {"prompt_tokens": input_tokens, "completion_tokens": output_tokens},
+        }
+    )
+    return events
+
+
+def streamed(
+    *pieces: str,
+    reasoning: Sequence[str] = (),
+    finish_reason: str | None = "stop",
+    body: StreamedBody | None = None,
+    **tokens: int,
+) -> httpx.Response:
+    """A streamed completion (``stream: true``). Pass ``body`` to keep a handle on it."""
+    stream = body or StreamedBody(
+        stream_events(*pieces, reasoning=reasoning, finish_reason=finish_reason, **tokens)
+    )
+    return httpx.Response(200, headers={"content-type": "text/event-stream"}, stream=stream)

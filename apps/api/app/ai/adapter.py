@@ -6,7 +6,9 @@ Error messages never include the key or the prompt.
 """
 
 import asyncio
+import json
 import re
+from collections.abc import AsyncGenerator, AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
@@ -55,6 +57,76 @@ class Completion:
         if reason in REFUSAL_REASONS:
             return f"finish_reason {self.finish_reason}"
         return "empty reply"
+
+
+@dataclass(frozen=True)
+class StreamChunk:
+    """One event of a streamed reply. Any field may be empty."""
+
+    # Answer text.
+    text: str = ""
+    # Thinking text (gpt-oss on Groq streams it as ``reasoning``): never shown or kept.
+    reasoning: str = ""
+    finish_reason: str | None = None
+    # Token counts, on the last event when the provider sends them.
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+
+
+async def sse_data(lines: AsyncIterator[str]) -> AsyncIterator[str]:
+    """The ``data`` of each server-sent event (multi-line data joined with newlines).
+
+    Comments (``:``), ``event:``, ``id:`` and ``retry:`` lines are skipped.
+    """
+    data: list[str] = []
+    async for line in lines:
+        if not line.strip():
+            if data:
+                yield "\n".join(data)
+                data = []
+        elif line.startswith("data:"):
+            value = line[5:]
+            data.append(value[1:] if value.startswith(" ") else value)
+    if data:
+        yield "\n".join(data)
+
+
+def _stream_chunk(name: str, data: str) -> StreamChunk:
+    try:
+        event: Any = json.loads(data)
+    except ValueError as exc:
+        raise ProviderError(
+            f"{name}: a streamed event wasn't JSON", status=502, retry_after=None
+        ) from exc
+    if isinstance(event, list) and event:
+        event = event[0]
+    if not isinstance(event, dict):
+        raise ProviderError(f"{name}: unexpected streamed event", status=502, retry_after=None)
+    error = event.get("error")
+    if error:
+        message = error.get("message") if isinstance(error, dict) else str(error)
+        code = error.get("code") if isinstance(error, dict) else None
+        status = code if isinstance(code, int) and 400 <= code < 600 else 502
+        text = " ".join(str(message or "error").split())[:MAX_PROVIDER_MESSAGE]
+        raise ProviderError(f"{name}: error in the stream: {text}", status=status, retry_after=None)
+    usage = event.get("usage") or (event.get("x_groq") or {}).get("usage") or {}
+    text, reasoning, finish = "", "", None
+    for choice in event.get("choices") or []:
+        delta = choice.get("delta") or {}
+        text += delta.get("content") or ""
+        reasoning += delta.get("reasoning") or delta.get("reasoning_content") or ""
+        finish = choice.get("finish_reason") or finish
+    return StreamChunk(
+        text=text,
+        reasoning=reasoning,
+        finish_reason=finish,
+        input_tokens=int(usage["prompt_tokens"])
+        if usage.get("prompt_tokens") is not None
+        else None,
+        output_tokens=(
+            int(usage["completion_tokens"]) if usage.get("completion_tokens") is not None else None
+        ),
+    )
 
 
 class ProviderError(Exception):
@@ -231,6 +303,59 @@ class OpenAICompatAdapter:
             output_tokens=int(usage.get("completion_tokens") or 0),
             finish_reason=choice.get("finish_reason"),
         )
+
+    async def stream(
+        self,
+        model: str,
+        messages: list[Message],
+        *,
+        reasoning_effort: str | None = None,
+    ) -> AsyncGenerator[StreamChunk]:
+        """``stream: true``: the reply as it's written, one ``StreamChunk`` per SSE event.
+
+        Raises ``ProviderError`` for an HTTP error (before anything is yielded), an error
+        event, a timeout or a lost connection (at any point). The httpx response is
+        closed when the iteration ends or is closed, so stopping it stops the provider.
+        """
+        body: dict[str, Any] = {
+            "model": model,
+            "messages": [to_wire(m) for m in messages],
+            "stream": True,
+            # The last event carries the token counts (Groq also puts them in x_groq).
+            "stream_options": {"include_usage": True},
+        }
+        if reasoning_effort is not None:
+            body["reasoning_effort"] = reasoning_effort
+        name = self.provider.name
+        try:
+            async with self._http.stream(
+                "POST",
+                _url(self.provider, "chat/completions"),
+                json=body,
+                headers=_headers(self.provider),
+            ) as response:
+                if response.status_code >= 400:
+                    await response.aread()
+                    raise ProviderError(
+                        http_error(name, response),
+                        status=response.status_code,
+                        retry_after=retry_after_seconds(response),
+                    )
+                async for data in sse_data(response.aiter_lines()):
+                    if data.strip() == "[DONE]":
+                        break
+                    yield _stream_chunk(name, data)
+        except (httpx.TimeoutException, TimeoutError) as exc:
+            phase = "connecting" if isinstance(exc, httpx.ConnectTimeout) else "waiting for a reply"
+            raise ProviderError(
+                f"{name}: timed out {phase}", status=None, retry_after=None, timed_out=True
+            ) from exc
+        except httpx.TransportError as exc:
+            raise ProviderError(
+                f"{name}: the connection was lost ({type(exc).__name__})",
+                status=None,
+                retry_after=None,
+            ) from exc
 
     async def list_models(self, deadline: float | None = None) -> list[str]:
         data = await self._send("GET", "models", None, deadline)

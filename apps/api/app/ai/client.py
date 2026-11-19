@@ -39,10 +39,12 @@ import re
 import time
 import uuid
 from collections import deque
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
+from contextlib import aclosing
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
+import anyio
 import httpx
 from pydantic import BaseModel, ValidationError
 
@@ -54,6 +56,7 @@ from app.ai.errors import (
     AIInvalidOutput,
     AIRefused,
     AIRequestFailed,
+    AIStreamFailed,
     AITruncated,
     AIUnavailable,
 )
@@ -86,6 +89,32 @@ class AIResult[T]:
 
     value: T
     route: Route
+
+
+@dataclass(frozen=True)
+class TextDelta:
+    """A piece of a streamed answer (never thinking text)."""
+
+    text: str
+    # "provider/model" writing it (fixed for the whole answer: models are never spliced).
+    model: str
+
+
+@dataclass(frozen=True)
+class StreamDone:
+    """The end of a streamed answer: who wrote it, how it ended and how long it took."""
+
+    route: Route
+    finish_reason: str | None
+    input_tokens: int
+    output_tokens: int
+    # From sending the request to the first answer token, and to the end (this attempt).
+    first_token_ms: int
+    total_ms: int
+
+    @property
+    def truncated(self) -> bool:
+        return Completion("", 0, 0, self.finish_reason).truncated
 
 
 @dataclass
@@ -359,6 +388,114 @@ class LLMClient:
                 f"{second.problem}"
             ) from None
 
+    async def stream_text(
+        self,
+        role: AIRole,
+        messages: list[Message],
+        *,
+        purpose: str,
+        user_id: uuid.UUID,
+        interactive: bool = True,
+        reasoning_effort: ReasoningEffort | None = None,
+    ) -> AsyncGenerator[TextDelta | StreamDone]:
+        """Stream a reply: ``TextDelta`` pieces of the answer, then one ``StreamDone``.
+
+        The routes, budgets, pacing, timeouts and effort levels are ``complete_text``'s, and
+        each attempt is one ``ai_usage`` row (written when it ends). Fallback happens only
+        before the first answer token (ADR 0013): a 429, 503, 413, timeout, lost connection
+        or refusal then moves on to the next model. Once text has been yielded, a failure
+        raises ``AIStreamFailed`` instead, so two models' text is never spliced.
+
+        ``interactive`` (the tutor): a 429 or 503 moves straight on, with no waiting or
+        backoff. A background caller keeps ``complete_text``'s retries.
+
+        Reasoning deltas (gpt-oss) are never yielded and don't count as the first token.
+        ``finish_reason`` "length" ends the stream normally, marked ``truncated``. Closing
+        the iterator closes the provider's stream; the attempt is logged as "stopped".
+        """
+        role, routes = self._usable_routes(role, messages)
+        waits: list[datetime] = []
+        refusals: list[str] = []
+        for route in routes:
+            until = await self._unavailable_now(route, user_id)
+            if until is not None:
+                waits.append(until)
+                continue
+            attempt = 0
+            while True:
+                await self._pacer.wait_turn(
+                    route.key, self.settings.ai_requests_per_minute.get(route.key)
+                )
+                started = time.monotonic()
+                first_at: float | None = None
+                parts: list[str] = []
+                finish: str | None = None
+                tokens_in = tokens_out = 0
+                stream = self._adapter(route).stream(
+                    route.model, messages, reasoning_effort=route.effort_to_send(reasoning_effort)
+                )
+                try:
+                    async with aclosing(stream):
+                        async for chunk in stream:
+                            finish = chunk.finish_reason or finish
+                            tokens_in = chunk.input_tokens or tokens_in
+                            tokens_out = chunk.output_tokens or tokens_out
+                            if chunk.text:
+                                if first_at is None:
+                                    first_at = time.monotonic()
+                                parts.append(chunk.text)
+                                yield TextDelta(chunk.text, route.key)
+                except ProviderError as exc:
+                    partial = Completion("".join(parts), tokens_in, tokens_out, finish)
+                    await self._record(
+                        route, role, purpose, user_id, started, partial, exc, budget=None
+                    )
+                    if first_at is not None:
+                        log.warning("%s failed part-way (%s) for %s", route.key, exc, purpose)
+                        raise AIStreamFailed(
+                            f"The answer stopped part-way: {exc}", model=route.key
+                        ) from exc
+                    log.warning("%s failed (%s) for %s", route.key, exc, purpose)
+                    wait = self._after_failure(route, exc, attempt, waits, interactive=interactive)
+                    if wait is None:
+                        break
+                    attempt += 1
+                    await self._sleep(wait)
+                    continue
+                except (GeneratorExit, asyncio.CancelledError):
+                    # The caller stopped reading (the student left): the provider's stream is
+                    # closed; record what ran, even while being cancelled.
+                    partial = Completion("".join(parts), tokens_in, tokens_out, finish)
+                    with anyio.CancelScope(shield=True):
+                        await self._record(
+                            route, role, purpose, user_id, started, partial, None, stopped=True
+                        )
+                    raise
+                self._cooldown.pop(route.key, None)
+                completion = Completion("".join(parts), tokens_in, tokens_out, finish)
+                await self._record(route, role, purpose, user_id, started, completion, None)
+                if completion.refused:
+                    if first_at is None:
+                        # This model won't answer this; another may (nothing was shown yet).
+                        log.warning("%s declined %s (%s)", route.key, purpose, completion.refusal)
+                        refusals.append(f"{route.key}: {completion.refusal}")
+                        break
+                    raise AIStreamFailed(
+                        f"{route.key} stopped answering part-way ({completion.refusal}).",
+                        model=route.key,
+                    )
+                ended = time.monotonic()
+                yield StreamDone(
+                    route=route,
+                    finish_reason=finish,
+                    input_tokens=tokens_in,
+                    output_tokens=tokens_out,
+                    first_token_ms=int(((first_at or ended) - started) * 1000),
+                    total_ms=int((ended - started) * 1000),
+                )
+                return
+        raise self._out_of_routes(waits, refusals)
+
     async def ping(
         self, route: Route, *, user_id: uuid.UUID, limit_seconds: float = PING_TIMEOUT_SECONDS
     ) -> PingResult:
@@ -403,10 +540,13 @@ class LLMClient:
         *,
         invalid: str | None = None,
         budget: CallBudget | None = None,
+        stopped: bool = False,
     ) -> None:
         """One ``ai_usage`` row. ``detail`` says why it failed, never what was said."""
         detail: str | None = None
-        if error is not None:
+        if stopped:
+            outcome, detail = "stopped", "the caller stopped reading the stream"
+        elif error is not None:
             detail = str(error)
             if error.timed_out:
                 outcome = "timeout"
@@ -462,18 +602,55 @@ class LLMClient:
             return error.retry_after
         return float(BACKOFF_BASE_SECONDS * 2**attempt)
 
-    async def _complete(
+    def _after_failure(
         self,
-        role: AIRole,
-        messages: list[Message],
+        route: Route,
+        exc: ProviderError,
+        attempt: int,
+        waits: list[datetime],
         *,
-        purpose: str,
-        user_id: uuid.UUID,
-        json_mode: bool,
-        check: Callable[[str], None] | None,
-        effort: ReasoningEffort | None,
-        budget: CallBudget | None,
-    ) -> tuple[str, Route]:
+        interactive: bool,
+    ) -> float | None:
+        """After a request failed (before any reply): seconds to wait before trying the same
+        model again, or None to move on to the next model. Raises when no model will do.
+
+        - 429 or 5xx: a background call retries the same model after its Retry-After (or
+          a backoff) when that's short. An interactive call never waits (ADR 0013): a 429
+          or 503 moves straight on, and any other 5xx fails at once.
+        - 413: the next model (this one stays free for smaller requests).
+        - 429, 503, a timeout or a lost connection: this model cools down; the next one.
+        - Another 5xx that persists: ``AIUnavailable``. Anything else (401, 400, 404):
+          ``AIRequestFailed``, not passed on to the fallbacks (decision 0007).
+        """
+        delay = self._delay(exc, attempt)
+        if (
+            not interactive
+            and (exc.rate_limited or (exc.status or 0) >= 500)
+            and attempt < self.settings.ai_retries
+            and delay <= self.settings.ai_max_wait_seconds
+        ):
+            return delay + self._jitter() * max(1.0, delay / 2)
+        until = self._now() + max(timedelta(seconds=delay), DEFAULT_COOLDOWN)
+        if exc.too_large:
+            # Too big for this model's limits, not a busy model: the next model may take
+            # it, and this one stays free for smaller requests.
+            return None
+        if exc.turned_away or exc.timed_out or exc.status is None:
+            # This model can't take it now: the next one may.
+            self._cooldown[route.key] = until
+            waits.append(until)
+            return None
+        if (exc.status or 0) >= 500:
+            self._cooldown[route.key] = until
+            raise AIUnavailable(
+                f"{route.key} is having problems ({exc}). Trying again after "
+                f"{until.astimezone(UTC):%Y-%m-%d %H:%M} UTC.",
+                retry_at=until,
+            ) from exc
+        raise AIRequestFailed(str(exc)) from exc
+
+    def _usable_routes(self, role: AIRole, messages: list[Message]) -> tuple[AIRole, list[Route]]:
+        """The role to use (vision for images) and its routes that have a key."""
         if has_images(messages):
             # Only the vision role's models read images, whatever role was asked for.
             role = "vision"
@@ -486,18 +663,49 @@ class LLMClient:
                     retry_at=None,
                 )
             raise AIUnavailable(NOT_CONFIGURED, retry_at=None)
+        return role, routes
 
+    async def _unavailable_now(self, route: Route, user_id: uuid.UUID) -> datetime | None:
+        """When the route may be tried again if it's cooling down or out of budget, else None."""
+        blocked = self._cooldown.get(route.key)
+        if blocked is not None and blocked > self._now():
+            return blocked
+        reset = await self.budget_reset(route, user_id)
+        if reset is not None:
+            log.info("%s: daily budget used up until %s", route.key, reset.isoformat())
+        return reset
+
+    def _out_of_routes(self, waits: list[datetime], refusals: list[str]) -> Exception:
+        if refusals and not waits:
+            return AIRefused(
+                "Every AI model declined to answer for this content (" + "; ".join(refusals) + ")."
+            )
+        retry_at = min(waits) if waits else self._now() + ERROR_RETRY
+        return AIUnavailable(
+            f"The AI providers can't take this request now (rate limits or daily quotas). "
+            f"Trying again after {retry_at.astimezone(UTC):%Y-%m-%d %H:%M} UTC.",
+            retry_at=retry_at,
+        )
+
+    async def _complete(
+        self,
+        role: AIRole,
+        messages: list[Message],
+        *,
+        purpose: str,
+        user_id: uuid.UUID,
+        json_mode: bool,
+        check: Callable[[str], None] | None,
+        effort: ReasoningEffort | None,
+        budget: CallBudget | None,
+    ) -> tuple[str, Route]:
+        role, routes = self._usable_routes(role, messages)
         waits: list[datetime] = []
         refusals: list[str] = []
         for route in routes:
-            blocked = self._cooldown.get(route.key)
-            if blocked is not None and blocked > self._now():
-                waits.append(blocked)
-                continue
-            reset = await self.budget_reset(route, user_id)
-            if reset is not None:
-                log.info("%s: daily budget used up until %s", route.key, reset.isoformat())
-                waits.append(reset)
+            until = await self._unavailable_now(route, user_id)
+            if until is not None:
+                waits.append(until)
                 continue
 
             attempt = 0
@@ -522,32 +730,12 @@ class LLMClient:
                         route, role, purpose, user_id, started, None, exc, budget=budget
                     )
                     log.warning("%s failed (%s) for %s", route.key, exc, purpose)
-                    delay = self._delay(exc, attempt)
-                    if (exc.rate_limited or (exc.status or 0) >= 500) and (
-                        attempt < self.settings.ai_retries
-                        and delay <= self.settings.ai_max_wait_seconds
-                    ):
-                        attempt += 1
-                        await self._sleep(delay + self._jitter() * max(1.0, delay / 2))
-                        continue
-                    until = self._now() + max(timedelta(seconds=delay), DEFAULT_COOLDOWN)
-                    if exc.too_large:
-                        # Too big for this model's limits, not a busy model: the next model
-                        # may take it, and this one stays free for smaller requests.
+                    wait = self._after_failure(route, exc, attempt, waits, interactive=False)
+                    if wait is None:
                         break
-                    if exc.turned_away or exc.timed_out or exc.status is None:
-                        # This model can't take it now: the next one may.
-                        self._cooldown[route.key] = until
-                        waits.append(until)
-                        break
-                    if (exc.status or 0) >= 500:
-                        self._cooldown[route.key] = until
-                        raise AIUnavailable(
-                            f"{route.key} is having problems ({exc}). Trying again after "
-                            f"{until.astimezone(UTC):%Y-%m-%d %H:%M} UTC.",
-                            retry_at=until,
-                        ) from exc
-                    raise AIRequestFailed(str(exc)) from exc
+                    attempt += 1
+                    await self._sleep(wait)
+                    continue
                 if budget is not None:
                     budget.charge(turned_away=False)
                 self._cooldown.pop(route.key, None)
@@ -585,16 +773,7 @@ class LLMClient:
                 )
                 return completion.text, route
 
-        if refusals and not waits:
-            raise AIRefused(
-                "Every AI model declined to answer for this content (" + "; ".join(refusals) + ")."
-            )
-        retry_at = min(waits) if waits else self._now() + ERROR_RETRY
-        raise AIUnavailable(
-            f"The AI providers can't take this request now (rate limits or daily quotas). "
-            f"Trying again after {retry_at.astimezone(UTC):%Y-%m-%d %H:%M} UTC.",
-            retry_at=retry_at,
-        )
+        raise self._out_of_routes(waits, refusals)
 
 
 _client: LLMClient | None = None
