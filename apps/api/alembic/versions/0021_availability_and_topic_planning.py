@@ -14,6 +14,7 @@ Create Date: 2026-11-20
 """
 
 from collections.abc import Sequence
+from datetime import datetime
 
 import sqlalchemy as sa
 from alembic import op
@@ -27,7 +28,7 @@ depends_on: str | Sequence[str] | None = None
 WINDOW_CHECK = "start_minute >= 0 AND start_minute < end_minute AND end_minute <= 1440"
 
 
-def _timestamps() -> list[sa.Column[sa.DateTime]]:
+def _timestamps() -> list[sa.Column[datetime]]:
     return [
         sa.Column(
             "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
