@@ -87,3 +87,14 @@ queries:
       - {material: CH13, page: 13, slide: true}
       - {material: CH13, page: 14, slide: true}
       - {material: CH13, page: 15, slide: true}
+# Follow-ups (Phase 3 task 3): asked after query N in the same conversation, so they lean on
+# it ("that", "the two"). Each is acceptable on the pages of the query it follows: they ask
+# about the same concept (the inference countermeasures are on Ch5 notes p14 and the guide's
+# p19, already listed for query 5).
+follow_ups:
+  - after: 5
+    question: how can a database stop that?
+  - after: 12
+    question: which of the two is faster?
+  - after: 15
+    question: which one leaves the customer responsible for the most?

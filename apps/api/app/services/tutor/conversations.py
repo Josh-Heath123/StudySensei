@@ -18,7 +18,7 @@ from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 
 import anyio
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -38,8 +38,11 @@ from app.services.errors import NotFound
 from app.services.search.embedding import Embedder
 from app.services.tutor.citations import parse_citations
 from app.services.tutor.prompts import Exchange
+from app.services.tutor.retrieval import PreviousSource
 from app.services.tutor.turn import HISTORY_EXCHANGES, Answer, Turn, answer, build_turn
 
+# Modes that work on the last answer's sources rather than searching again.
+FOLLOW_UP_MODES = ("explain_differently", "example", "quiz")
 # Answers that count as history for the next question (a failed or stopped one doesn't).
 HISTORY_STATUSES = ("complete", "truncated")
 
@@ -101,6 +104,30 @@ async def get_conversation(
     return ConversationView(conversation, messages)
 
 
+async def list_conversations(
+    session: AsyncSession,
+    module_id: uuid.UUID,
+    *,
+    user_id: uuid.UUID,
+    study_session_id: uuid.UUID | None = None,
+) -> list[ConversationView]:
+    """The module's conversations, newest first, optionally only one study session's.
+
+    ``NotFound`` if the module isn't the user's. A session ID that isn't theirs simply
+    matches nothing, like a missing one.
+    """
+    await get_module(session, module_id, user_id=user_id)
+    query = select(Conversation.id).where(
+        Conversation.module_id == module_id, Conversation.user_id == user_id
+    )
+    if study_session_id is not None:
+        query = query.where(Conversation.study_session_id == study_session_id)
+    ids = list(
+        await session.scalars(query.order_by(Conversation.created_at.desc(), Conversation.id))
+    )
+    return [await get_conversation(session, found, user_id=user_id) for found in ids]
+
+
 async def _conversation(
     session: AsyncSession, conversation_id: uuid.UUID, *, user_id: uuid.UUID
 ) -> Conversation:
@@ -151,6 +178,54 @@ async def _add_message(session: AsyncSession, message: Message) -> Message:
     return message
 
 
+async def previous_sources(
+    session: AsyncSession, conversation_id: uuid.UUID, *, user_id: uuid.UUID
+) -> list[PreviousSource]:
+    """The sources of the conversation's last answer that had any, S1 first."""
+    message_id = await session.scalar(
+        select(Message.id)
+        .where(
+            Message.conversation_id == conversation_id,
+            Message.user_id == user_id,
+            Message.role == "assistant",
+            exists().where(MessageSource.message_id == Message.id),
+        )
+        .order_by(Message.position.desc())
+        .limit(1)
+    )
+    if message_id is None:
+        return []
+    rows = await session.execute(
+        select(
+            MessageSource.label,
+            MessageSource.chunk_id,
+            MessageSource.material_id,
+            MessageSource.page_number,
+        )
+        .where(MessageSource.message_id == message_id, MessageSource.user_id == user_id)
+        .order_by(MessageSource.rank)
+    )
+    return [PreviousSource(*row) for row in rows]
+
+
+async def last_question(
+    session: AsyncSession, conversation_id: uuid.UUID, *, user_id: uuid.UUID
+) -> str | None:
+    """The conversation's last question asked in answer mode, if any."""
+    found: str | None = await session.scalar(
+        select(Message.text)
+        .where(
+            Message.conversation_id == conversation_id,
+            Message.user_id == user_id,
+            Message.role == "user",
+            Message.mode == "answer",
+        )
+        .order_by(Message.position.desc())
+        .limit(1)
+    )
+    return found
+
+
 @dataclass(frozen=True)
 class PreparedTurn:
     user_id: uuid.UUID
@@ -172,6 +247,18 @@ async def prepare_message(
     started = time.monotonic()
     conversation = await _conversation(session, conversation_id, user_id=user_id)
     history = await recent_exchanges(session, conversation.id, user_id=user_id)
+    # A follow-up mode works on the last answer's sources; a new question searches with the
+    # previous question as context (ARCHITECTURE "AI integration": the tutor turn).
+    reuse = (
+        await previous_sources(session, conversation.id, user_id=user_id)
+        if data.mode in FOLLOW_UP_MODES
+        else []
+    )
+    previous_question = (
+        await last_question(session, conversation.id, user_id=user_id)
+        if data.mode == "answer"
+        else None
+    )
     turn = await build_turn(
         session,
         conversation.module_id,
@@ -183,6 +270,8 @@ async def prepare_message(
         embedder=embedder,
         settings=settings,
         started=started,
+        previous_question=previous_question,
+        reuse=reuse,
     )
     await _add_message(
         session,
@@ -218,14 +307,16 @@ async def _store_answer(
         MessageSource(
             user_id=prepared.user_id,
             label=source.label,
-            rank=rank,
+            # Reused sources keep their labels, so the rank follows the label (S3 is 3).
+            rank=int(source.label[1:]),
+            chunk_id=source.chunk_id,
             material_id=source.material_id,
             material_title=source.material_title,
             page_number=source.page_number,
             page_title=source.page_title,
             cited=source.label in result.cited,
         )
-        for rank, source in enumerate(turn.sources, start=1)
+        for source in turn.sources
     ]
     return await _add_message(session, message)
 

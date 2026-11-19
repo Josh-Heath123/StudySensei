@@ -2577,6 +2577,69 @@
             }
           }
         }
+      },
+      "get": {
+        "tags": [
+          "tutor"
+        ],
+        "summary": "List For Module",
+        "description": "The module's tutor conversations, newest first, each with its messages.\n\n`?study_session_id=` keeps one session's (the tutor panel restores it after a reload).\nAnother user's session ID gives `[]`, like a missing one.",
+        "operationId": "list_for_module_modules__module_id__tutor_conversations_get",
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          },
+          {
+            "name": "study_session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Study Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConversationOut"
+                  },
+                  "title": "Response List For Module Modules  Module Id  Tutor Conversations Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/conversations/{conversation_id}": {

@@ -89,7 +89,7 @@ the web app calls the API through the typed `openapi-fetch` client. CI fails if 
 | Sessions | `POST /sessions`, `GET /sessions/active`, `GET/DELETE /sessions/{id}`, `POST /sessions/{id}/events`, `PUT /sessions/{id}/reflection`, `GET /modules/{id}/sessions?limit=&offset=` (a page `{items, total, limit, offset}`: the open session first, then newest first; limit 1–100, default 20), `GET /modules/{id}/sessions/summary?week_start=` (session count and active seconds, all time and since `week_start`) |
 | AI | `GET /ai/status`: per provider whether it's configured (`key_set` is yes/no only), each role's models in order, and per model `used_today` / `daily_budget` / `resets_at` for the current user |
 | AI | `POST /ai/ping` (no body): tests every configured model at once, one short request each (30 s limit each), logged in `ai_usage` as purpose `ping` against the caller. One result per model: `status` `ok` (`latency_ms`), `failed` (`error`: the provider's own text, never a key) or `skipped` (daily budget used up, so not called; `resets_at`), plus `in_models_list` (null with `models_list_error` when the provider's `/models` failed). No provider configured → `results: []` |
-| Tutor | `POST /modules/{id}/tutor/conversations` (`{study_session_id?, topic_id?}`, 201; both must be in the module; without a topic the session's is used), `GET /conversations/{id}` (messages oldest first; each answer has its `model`, `status`, `first_token_ms`, `total_ms`, `unknown_citations` and `sources` with `label`, `rank`, material, page, `cited`), `POST /conversations/{id}/messages` (`{question, mode}`, mode `answer` / `explain_differently` / `example` / `quiz`) → `text/event-stream`, below |
+| Tutor | `GET /modules/{id}/tutor/conversations?study_session_id=` (newest first, each with its messages; another user's session ID gives `[]`; the panel restores a session's conversation with it), `POST /modules/{id}/tutor/conversations` (`{study_session_id?, topic_id?}`, 201; both must be in the module; without a topic the session's is used), `GET /conversations/{id}` (messages oldest first; each answer has its `model`, `status`, `first_token_ms`, `total_ms`, `unknown_citations` and `sources` with `label`, `rank`, material, page, `cited`), `POST /conversations/{id}/messages` (`{question, mode}`, mode `answer` / `explain_differently` / `example` / `quiz`) → `text/event-stream`, below |
 | Materials | `POST /modules/{id}/materials` (multipart: `file`, `kind`, `title?`, `allow_ai`; 413 over 50 MB, 415 wrong type, 409 same file in the module), `GET /modules/{id}/materials`, `GET/PATCH/DELETE /materials/{id}` (PATCH: title, kind, allow_ai), `POST /materials/{id}/retry` (failed only), `GET /materials/{id}/pages` (page number, title, char count, is_scanned), `GET /materials/{id}/pages/{n}` (adds the text), `GET /materials/{id}/file` (the stored original, streamed through `Storage`: its own `Content-Type`, `Content-Disposition: inline` with the RFC 5987 filename, `X-Content-Type-Options: nosniff`, `ETag` = the sha256 with `Cache-Control: private, max-age=31536000, immutable`, and 304 for a matching `If-None-Match`; 404 for another user's material or a missing blob) |
 
 Notes on these endpoints:
@@ -344,6 +344,17 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
     A label that wasn't given (`S9`) is kept out of the citations and listed in `unknown_citations`, and the text is
     never rewritten.
   - **Timings** are measured from receiving the question.
+  - **Follow-ups** (19 Nov review of #36):
+    - `explain_differently`, `example` and `quiz` are given the last answer's sources again, with the same labels, so
+      their citations match. `message_sources.chunk_id` (migration 0018) keeps the exact passage; after a re-index,
+      the page's first chunk is used instead. A material whose AI was turned off since drops out, and the others keep
+      their labels.
+    - A new question in answer mode, once the conversation has one, runs a second search on the previous question
+      and this one together, fused with the first by RRF. On COS330's three eval follow-ups, an acceptable page was
+      in the 8 for 3 of 3, against 2 of 3 searched alone.
+  - **Startup:** the API (in a background thread from its lifespan, so `/health` answers at once) and the worker
+    load the embedding model as they start (`PRELOAD_EMBEDDER`), so the first question after a start is as quick
+    as the rest.
 - **CLI:** `uv run python -m app.tutor.ask --module COS330 "question" [--topic NAME] [--mode …] [--dry-run]` runs the
   same service. It prints the sources, streams the answer, then the model, time to first token, cited sources and AI
   calls. `--dry-run` writes nothing: the session is read-only in Postgres, and usage is kept in memory (today's
@@ -464,6 +475,45 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
      `explain_differently`, `example`, `quiz` (exactly 3 questions, no answers). Text only for now: task 2 decides
      the quiz schema. A `<material` inside a passage is escaped, so a passage can't close its own tag. Only the
      material title, page number and passage go in: no file names, student data or reflections.
+
+## The tutor panel (Phase 3)
+
+`apps/web/src/features/tutor/`, in the session screen (`RunningSession` → `TutorDock`):
+
+- **Layout:**
+  - From 1024 px, a collapsible right-hand panel. Its state is kept per browser, and collapsed it's one "Ask about
+    this topic…" line.
+  - Below 1024 px, a "Tutor" button opening a glass bottom sheet.
+  - One `useTutor` instance lives in the dock, so collapsing or closing the sheet never stops an answer.
+- **Conversation:**
+  - One per study session, created on the first question with the session's `study_session_id` and `topic_id`.
+  - The box is disabled until the session has reached the server.
+  - After a reload, it's found again with `GET …/tutor/conversations?study_session_id=`.
+- **Streaming:** `streamAnswer` POSTs with `fetch` (`EventSource` can't POST) and reads the body with the shared SSE
+  parser `lib/sse.ts`.
+  - The live turn shows until the stored copy comes back. A failed one stays as it was seen, with its reason and
+    retry time.
+  - Stop aborts the fetch, and the API stores the answer as `stopped`. The panel looks again 1.5 s later.
+- **Rendering:**
+  - `AnswerMarkdown` is lazy-loaded: react-markdown, remark-gfm and remark-math, with rehype-katex (`trust: false`).
+  - Raw HTML is never rendered (`skipHtml`, no rehype-raw), and link URLs pass react-markdown's safe-protocol
+    filter.
+  - `remarkCitations` turns `[S1]`, `[S2, S4]` and `【S1】` into chips, except in code, maths and links.
+  - Every `katex` copy is pinned to 0.19 with an npm override: the 0.16 that rehype-katex and
+    micromark-extension-math ask for has GHSA-238p-pmpm-9mq7.
+- **Bundle:** the main chunk grew by 26.6 kB (8.0 kB gzip). The lazy Markdown and KaTeX chunk is 440 kB (132 kB
+  gzip), plus 30 kB of CSS (8 kB gzip), and loads on the first answer; KaTeX's fonts load only when maths appears.
+- **Accessibility:**
+  - An `aria-live="polite"` region gets the answer one finished sentence at a time.
+  - Enter sends and Shift+Enter adds a line; focus returns to the box.
+  - Citations are buttons, with the material and page in their name and tooltip.
+  - Reduced motion is respected through the global rule.
+- **Privacy note:** shown once, until the first question: what goes to the free provider and what doesn't.
+- **Tests:**
+  - Vitest covers the SSE parser, citations in both forms, HTML and KaTeX safety, streaming, Stop, errors, Retry,
+    restore, the keyboard, the live region and the phone sheet.
+  - `e2e/tutor.spec.ts` fulfils the answer from `e2e/fixtures/tutor-answer.sse` with `page.route`; no AI fakes are
+    in app code.
 
 ## Camera and microphone (Phase 7 / 3)
 

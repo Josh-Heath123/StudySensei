@@ -830,7 +830,14 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /**
+     * List For Module
+     * @description The module's tutor conversations, newest first, each with its messages.
+     *
+     *     `?study_session_id=` keeps one session's (the tutor panel restores it after a reload).
+     *     Another user's session ID gives `[]`, like a missing one.
+     */
+    get: operations["list_for_module_modules__module_id__tutor_conversations_get"];
     put?: never;
     /**
      * Create
@@ -3795,6 +3802,39 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["SearchOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_for_module_modules__module_id__tutor_conversations_get: {
+    parameters: {
+      query?: {
+        study_session_id?: string | null;
+      };
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConversationOut"][];
         };
       };
       /** @description Validation Error */

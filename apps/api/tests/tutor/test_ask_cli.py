@@ -81,3 +81,42 @@ async def test_an_unknown_topic_stops_before_any_call(
             args, local, io.StringIO(), sessions_on(session), transport=fake_llm.transport
         )
     assert fake_llm.requests == []
+
+
+async def test_after_answers_the_earlier_question_then_the_follow_up_on_its_sources(
+    session: AsyncSession, module: Module, settings: Settings, fake_llm: FakeLLM
+) -> None:
+    user = await session.get(User, module.user_id)
+    assert user is not None
+    local = settings.model_copy(update={"local_user_email": user.email})
+    fake_llm.reply(
+        "flash", streamed("It tracks connections [S1]."), streamed("Like a doorman [S1].")
+    )
+    args = parse(
+        [
+            "--module",
+            "COS330",
+            "--dry-run",
+            "--mode",
+            "explain_differently",
+            "--after",
+            "How does a stateful inspection firewall work?",
+            "Explain that differently, as if to a first-year student",
+        ]
+    )
+    out = io.StringIO()
+
+    result, calls = await dry_run(
+        args, local, out, sessions_on(session), transport=fake_llm.transport
+    )
+
+    assert result is not None and result.cited == ["S1"]
+    assert len(calls) == 2
+    first, second = (r.body["messages"] for r in fake_llm.requests)
+    # The follow-up carries the earlier exchange and the very same source blocks.
+    assert [m["role"] for m in second] == ["system", "user", "assistant", "user"]
+    assert second[2]["content"] == "It tracks connections."
+    blocks = first[-1]["content"].split("Student's question:")[0]
+    assert blocks in second[-1]["content"]
+    assert "Earlier question: How does a stateful inspection firewall work?" in out.getvalue()
+    assert await counts(session) == (0, 0, 0)

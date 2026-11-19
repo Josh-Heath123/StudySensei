@@ -9,6 +9,10 @@ assessments, open tasks, a week of finished study sessions, and two slide decks 
 notes on TCP, which go through the real pipeline (extraction, chunking, local embeddings and
 indexing; no AI calls). The topic tree is inserted directly, with the pages each topic cites,
 and linked to the chunks the way the app does it (cited pages plus local similarity).
+
+It also opens a study session 18 minutes before ``now``, with one tutor exchange about it: a
+question and a stored answer written for the demo (no AI call), citing the demo's own pages,
+so the session screenshot shows the tutor panel.
 """
 
 import argparse
@@ -25,7 +29,16 @@ from app.core.config import get_settings
 from app.core.db import get_engine, get_sessionmaker
 from app.jobs.kinds import EXTRACT_TOPICS, LINK_TOPICS, MERGE_TOPICS
 from app.jobs.worker import run_once
-from app.models import Job, Material, TopicPage, User
+from app.models import (
+    Conversation,
+    Job,
+    Material,
+    MaterialPage,
+    Message,
+    MessageSource,
+    TopicPage,
+    User,
+)
 from app.schemas.academics import AssessmentCreate, ModuleCreate, TaskCreate, TopicCreate
 from app.schemas.materials import MaterialKind
 from app.schemas.sessions import EventBatch, ReflectionIn, SessionStart
@@ -154,6 +167,26 @@ NOTES = [
             "connection back to slow start.",
         ],
     ),
+]
+
+# The session screenshot's tutor exchange: original text about the demo's own slides.
+TUTOR_QUESTION = "Why does slow start stop doubling at ssthresh?"
+TUTOR_ANSWER = (
+    "In slow start every ACK grows the congestion window by one segment, so **cwnd doubles "
+    "every round trip** [S1]. That finds the path's capacity quickly, but the growth is "
+    "exponential【S1】.\n\n"
+    "The slow start threshold is where slow start hands over to congestion avoidance: above "
+    "it, cwnd grows by only about one segment per round trip [S2]. After a loss, ssthresh "
+    "drops to half the window in flight [S2][S3]:\n\n"
+    "$$\n\\text{ssthresh} = \\frac{\\text{flight size}}{2}\n$$"
+)
+# (label, material, page, cited): what the answer was given, in rank order.
+TUTOR_SOURCES = [
+    ("S1", "Week 6 slides", 3, True),
+    ("S2", "Week 6 slides", 4, True),
+    ("S3", "TCP notes", 2, True),
+    ("S4", "Week 6 slides", 5, False),
+    ("S5", "Week 6 slides", 6, False),
 ]
 
 # (topic, description, children: (name, description, cited pages as (material, page)))
@@ -425,9 +458,78 @@ async def seed(now: datetime) -> None:
             min_page_chars=settings.topic_link_min_page_chars,
         )
         await db.commit()
+
+        # The session the screenshot shows, 18 minutes in, and its tutor conversation.
+        study, _ = await sessions.start_session(
+            db,
+            SessionStart.model_validate(
+                {
+                    "module_id": module_id,
+                    "topic_id": topic_ids["Slow start and ssthresh"],
+                    # One second early: the screenshot's clock stands at now + 1 s.
+                    "start": {
+                        "id": uuid.uuid4(),
+                        "occurred_at": now - timedelta(minutes=18) + timedelta(seconds=1),
+                    },
+                }
+            ),
+            user_id=uid,
+        )
+        conversation = Conversation(
+            user_id=uid,
+            module_id=module_id,
+            study_session_id=study.id,
+            topic_id=topic_ids["Slow start and ssthresh"],
+        )
+        db.add(conversation)
+        await db.flush()
+        db.add(
+            Message(
+                user_id=uid,
+                conversation_id=conversation.id,
+                position=0,
+                role="user",
+                mode="answer",
+                text=TUTOR_QUESTION,
+                status="complete",
+            )
+        )
+        answer = Message(
+            user_id=uid,
+            conversation_id=conversation.id,
+            position=1,
+            role="assistant",
+            mode="answer",
+            text=TUTOR_ANSWER,
+            status="complete",
+            model="groq/openai/gpt-oss-120b",
+            first_token_ms=640,
+            total_ms=2100,
+        )
+        titles = await db.execute(
+            select(MaterialPage.material_id, MaterialPage.page_number, MaterialPage.title).where(
+                MaterialPage.user_id == uid
+            )
+        )
+        page_titles = {(material, page): title for material, page, title in titles}
+        answer.sources = [
+            MessageSource(
+                user_id=uid,
+                label=label,
+                rank=int(label[1:]),
+                material_id=materials[material],
+                material_title=material,
+                page_number=page,
+                page_title=page_titles.get((materials[material], page)),
+                cited=cited,
+            )
+            for label, material, page, cited in TUTOR_SOURCES
+        ]
+        db.add(answer)
+        await db.commit()
     print(
-        f"Demo seeded: NET201, {len(files)} materials ({ran} jobs), {len(week)} sessions, "
-        f"{len(topic_ids)} topics, {links} chunk links."
+        f"Demo seeded: NET201, {len(files)} materials ({ran} jobs), {len(week)} sessions "
+        f"and one open, {len(topic_ids)} topics, {links} chunk links, one tutor exchange."
     )
     await get_engine().dispose()
 

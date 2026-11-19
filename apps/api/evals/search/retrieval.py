@@ -147,6 +147,82 @@ async def run_all(
     return run
 
 
+@dataclass
+class FollowUp:
+    after: int
+    question: str
+    # (rank of the first acceptable page, acceptable pages in the 8, tokens, S1) per run.
+    alone: tuple[int | None, int, int, Page | None]
+    with_context: tuple[int | None, int, int, Page | None]
+
+
+async def run_follow_ups(
+    session: AsyncSession,
+    module_id: uuid.UUID,
+    user_id: uuid.UUID,
+    config: dict[str, Any],
+    topics: list[uuid.UUID],
+    embedder: Embedder,
+    boost: float,
+) -> list[FollowUp]:
+    """Each follow-up searched on its own words, then as the tutor does it: a second search
+    on the previous question and this one, fused by RRF (the query's topic, default boost)."""
+    queries = config["queries"]
+    results: list[FollowUp] = []
+    for item in config.get("follow_ups", []):
+        original = queries[int(item["after"]) - 1]
+        pages = {(p["material"], int(p["page"])) for p in original["pages"]}
+        measured = []
+        for previous in (None, original["query"]):
+            found = await retrieve(
+                session,
+                module_id,
+                item["question"],
+                user_id=user_id,
+                embedder=embedder,
+                topic_id=topics[int(item["after"]) - 1],
+                boost=boost,
+                max_tokens=get_settings().tutor_context_max_tokens,
+                previous_question=previous,
+            )
+            sources: list[Page] = [(s.material_title, s.page_number) for s in found.sources]
+            measured.append(
+                (
+                    first_rank(sources, pages),
+                    sum(1 for page in sources if page in pages),
+                    found.context_tokens,
+                    sources[0] if sources else None,
+                )
+            )
+        results.append(FollowUp(int(item["after"]), item["question"], measured[0], measured[1]))
+    return results
+
+
+def print_follow_ups(results: list[FollowUp], boost: float) -> None:
+    if not results:
+        return
+    print()
+    print(
+        f"Follow-ups (the query's topic, x{boost:g}): the first acceptable page's rank and how "
+        "many acceptable pages are in the 8,"
+    )
+    print("searched on the follow-up alone, then with the previous question (two searches, RRF).")
+    print(" after  alone          with context   S1 alone -> with context        question")
+    for r in results:
+        alone = f"{show(r.alone[0])} ({r.alone[1]} in 8)"
+        context = f"{show(r.with_context[0])} ({r.with_context[1]} in 8)"
+        print(
+            f"{r.after:>6}  {alone:<13}  {context:<13}  {r.alone[3]} -> {r.with_context[3]}  "
+            f"{r.question}"
+        )
+    found_alone = sum(1 for r in results if r.alone[0] is not None)
+    found_context = sum(1 for r in results if r.with_context[0] is not None)
+    print(
+        f"An acceptable page in the 8: alone {found_alone}/{len(results)}, "
+        f"with context {found_context}/{len(results)}"
+    )
+
+
 async def main(name: str) -> int:
     config = load_config(f"search/{name}.yaml")
     queries: list[dict[str, Any]] = config["queries"]
@@ -188,6 +264,9 @@ async def main(name: str) -> int:
                 await go(f"wrong x{boost:g}", boost, wrong)
         finally:
             retrieval._linked_chunks = stored
+        follow_ups = await run_follow_ups(
+            session, module_id, user_id, config, topics, embedder, settings.tutor_topic_boost
+        )
 
     print(
         f"Retrieval eval: {config['module']}, {len(queries)} queries, at most {MAX_SOURCES} "
@@ -224,4 +303,5 @@ async def main(name: str) -> int:
             f"{sum(run.boosted) / total:>13.1f}  "
             f"{sum(run.tokens) / total:>6.0f}/{max(run.tokens)}"
         )
+    print_follow_ups(follow_ups, settings.tutor_topic_boost)
     return 0

@@ -1,0 +1,12 @@
+event: sources
+data: {"sources":[{"label":"S1","material_id":"{{MATERIAL}}","material_title":"lecture","page_number":1,"page_title":null},{"label":"S2","material_id":"{{MATERIAL}}","material_title":"lecture","page_number":3,"page_title":null}]}
+
+event: delta
+data: {"text":"A **layered** style stacks components, so each layer only calls the one below it [S1]."}
+
+event: delta
+data: {"text":" Pipes and filters pass data along a chain of steps【S2】, and the cost is $O(n)$ for $n$ filters."}
+
+event: done
+data: {"message_id":"{{MESSAGE}}","status":"complete","model":"groq/openai/gpt-oss-120b","first_token_ms":640,"total_ms":1800,"cited":["S1","S2"],"unknown_citations":[]}
+

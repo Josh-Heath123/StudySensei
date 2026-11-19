@@ -12,6 +12,7 @@ import { useModule, useTopicTree } from "../modules/api";
 import type { SessionController, SessionMeta } from "./controller";
 import { timerView } from "./display";
 import { AwayDialog } from "./AwayDialog";
+import { TutorDock } from "../tutor/TutorDock";
 import { SessionNotes } from "./SessionPanels";
 import { SessionBanners } from "./SessionBanners";
 import { findTopicName } from "./topics";
@@ -29,8 +30,8 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 /**
  * docs/DESIGN.md "Screens: Session": a clean header, the timer inside its gradient ring
- * over a faint mist, the floating glass control bar, then a slim card for materials and
- * the tutor, all in one centred column.
+ * over a faint mist, the floating glass control bar, then a slim card for materials; the
+ * tutor beside it on a desktop, or in a bottom sheet on a phone.
  */
 export function RunningSession({
   controller,
@@ -72,9 +73,11 @@ export function RunningSession({
         <h1 className="type-h3 min-w-0 flex-1 break-words">{topicName ?? "Whole module"}</h1>
       </header>
 
-      {/* One centred column: the tutor gets a column of its own once it exists (Phase 3). */}
-      <main className="mx-auto max-w-[1440px] px-4 pt-2 pb-12 sm:px-8 lg:px-10">
-        <div className="mx-auto grid w-full max-w-[640px] min-w-0 gap-8">
+      {/* The timer's column, and the tutor beside it from 1024 px. The timer column never
+          narrows below 480 px (the ring's comfortable size); below 1024 px the tutor is a
+          bottom sheet, and the page keeps room for its button. */}
+      <main className="mx-auto grid max-w-[1440px] gap-8 px-4 pt-2 pb-28 sm:px-8 lg:grid-cols-[minmax(480px,1fr)_360px] lg:px-10 lg:pb-12 xl:grid-cols-[minmax(480px,1fr)_400px]">
+        <div className="mx-auto grid w-full max-w-[640px] min-w-0 content-start gap-8">
           <SessionBanners controller={controller} snapshot={snapshot} plan={PLAN} />
           <section aria-label="Timer" className="grid justify-items-center gap-6">
             <div className="relative grid aspect-square w-full max-w-[560px] place-items-center">
@@ -154,6 +157,7 @@ export function RunningSession({
           </section>
           <SessionNotes moduleId={meta.moduleId} />
         </div>
+        <TutorDock moduleId={meta.moduleId} sessionId={snapshot.sessionId} topicId={meta.topicId} />
       </main>
 
       {away && <AwayDialog message={away.message} controller={controller} />}

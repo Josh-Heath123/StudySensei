@@ -118,6 +118,8 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/modules/{my_module}/tutor/conversations", {"topic_id": "{topic}"}),
     ("POST", "/modules/{my_module}/tutor/conversations", {"study_session_id": "{session}"}),
     ("GET", "/conversations/{conversation}", None),
+    ("GET", "/modules/{module}/tutor/conversations", None),
+    ("GET", "/modules/{module}/tutor/conversations?study_session_id={session}", None),
     ("POST", "/conversations/{conversation}/messages", {"question": "What is a firewall?"}),
 ]
 

@@ -2,8 +2,7 @@ import { Link } from "react-router";
 
 /**
  * One slim, solid card under the timer: where the module's materials live (its Materials
- * tab: upload, search and the page viewer) and an honest note that the tutor isn't built
- * yet. It takes a whole column once the tutor arrives in Phase 3, not before.
+ * tab: upload, search and the page viewer). The tutor has its own panel (TutorDock).
  */
 export function SessionNotes({ moduleId }: { moduleId: string }) {
   return (
@@ -21,12 +20,6 @@ export function SessionNotes({ moduleId }: { moduleId: string }) {
             Open module
           </Link>
         </p>
-      </section>
-      <section aria-labelledby="tutor-heading" className="grid gap-1 py-4">
-        <h2 id="tutor-heading" className="type-label text-muted">
-          Tutor
-        </h2>
-        <p>The tutor arrives in Phase 3.</p>
       </section>
     </div>
   );

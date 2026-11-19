@@ -31,6 +31,7 @@ from app.jobs.tasks import (
     link_topics,
     merge_topics,
 )
+from app.services.search.embedding import get_embedder
 from app.storage.base import Storage
 from app.storage.local import get_storage
 
@@ -112,6 +113,9 @@ async def main() -> None:
     storage = get_storage()
     sessions = get_sessionmaker()
     idle = settings.worker_poll_seconds
+    if settings.preload_embedder:
+        # Indexing and topic linking need it; loading it now keeps the first job quick.
+        await asyncio.to_thread(get_embedder)
     log.info("Worker started; polling every %.1fs", idle)
     failures = 0
     try:

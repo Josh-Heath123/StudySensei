@@ -10,20 +10,27 @@
 5. The context budget: the lowest-ranked sources are dropped until the rendered blocks
    fit ``max_tokens``. A passage is never cut.
 6. Labels S1, S2, … in rank order.
+
+A follow-up in a conversation (``previous_question``) runs a second search on the previous
+question and this one together, fused with the first by RRF. A short follow-up ("why is
+it faster?") keeps its context, and a change of subject still finds its own pages.
+
+``reuse_sources`` gives a follow-up mode ("explain that differently", "give an example",
+"quiz me") the previous answer's sources again, with the same labels.
 """
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai.sources import chunks_for_prompt
+from app.ai.sources import chunks_for_prompt, first_chunks_on_pages
 from app.models import ChunkTopic, Topic
 from app.services.errors import NotFound
 from app.services.search.embedding import Embedder
-from app.services.search.search import CANDIDATES, search_module
+from app.services.search.search import CANDIDATES, reciprocal_rank_fusion, search_module
 from app.services.tutor.prompts import PromptSource, context_text, estimate_tokens
 
 MAX_SOURCES = 8
@@ -136,6 +143,7 @@ async def retrieve(
     topic_id: uuid.UUID | None,
     boost: float,
     max_tokens: int,
+    previous_question: str | None = None,
 ) -> Retrieval:
     """The question's sources in the user's module, labelled S1… in rank order.
 
@@ -144,12 +152,30 @@ async def retrieve(
     found = await search_module(
         session, module_id, question, user_id=user_id, embedder=embedder, limit=2 * CANDIDATES
     )
+    # (hit, fused score): the search's own, or both searches fused for a follow-up.
+    ranked = [(hit, hit.score) for hit in found.hits]
+    if previous_question and previous_question.strip() and question.strip():
+        combined = await search_module(
+            session,
+            module_id,
+            f"{previous_question.strip()} {question.strip()}",
+            user_id=user_id,
+            embedder=embedder,
+            limit=2 * CANDIDATES,
+        )
+        hits = {hit.chunk_id: hit for hit in [*combined.hits, *found.hits]}
+        ranked = [
+            (hits[chunk_id], score)
+            for chunk_id, score in reciprocal_rank_fusion(
+                [[h.chunk_id for h in found.hits], [h.chunk_id for h in combined.hits]]
+            )
+        ]
     topics = (
         await topic_and_subtopics(session, module_id, topic_id, user_id=user_id)
         if topic_id is not None
         else set()
     )
-    hit_ids = [hit.chunk_id for hit in found.hits]
+    hit_ids = [hit.chunk_id for hit, _ in ranked]
     linked = (
         await _linked_chunks(session, module_id, topics, hit_ids, user_id=user_id)
         if topics and hit_ids
@@ -159,13 +185,13 @@ async def retrieve(
     candidates = [
         _Candidate(
             chunk_id=hit.chunk_id,
-            score=hit.score * boost if hit.chunk_id in linked else hit.score,
-            search_score=hit.score,
+            score=score * boost if hit.chunk_id in linked else score,
+            search_score=score,
             boosted=hit.chunk_id in linked,
             vector_rank=hit.vector_rank,
             keyword_rank=hit.keyword_rank,
         )
-        for hit in found.hits
+        for hit, score in ranked
     ]
     # Stable: equal scores keep the search's order.
     candidates.sort(key=lambda c: c.score, reverse=True)
@@ -208,3 +234,70 @@ async def retrieve(
 
     kept = labelled(fit_budget(picked, cost, max_tokens))
     return Retrieval(kept, cost(kept), len(picked) - len(kept))
+
+
+@dataclass(frozen=True)
+class PreviousSource:
+    """A source an earlier answer was given (``message_sources``)."""
+
+    label: str
+    chunk_id: uuid.UUID | None
+    material_id: uuid.UUID | None
+    page_number: int
+
+
+async def reuse_sources(
+    session: AsyncSession,
+    previous: Sequence[PreviousSource],
+    *,
+    user_id: uuid.UUID,
+    max_tokens: int,
+) -> Retrieval:
+    """The previous answer's sources again, in its order and with its labels.
+
+    Each comes back as the same passage, or its page's first passage if that one is gone
+    (a re-index). Like retrieval, it reads through ``app/ai/sources.py``: a material whose
+    AI was turned off since is left out (the others keep their labels, so the earlier
+    citations still point at the same pages). The budget drops from the end.
+    """
+    chunks = {
+        chunk.chunk_id: chunk
+        for chunk in await chunks_for_prompt(
+            session, [p.chunk_id for p in previous if p.chunk_id is not None], user_id=user_id
+        )
+    }
+    missing = [
+        (p.material_id, p.page_number)
+        for p in previous
+        if p.material_id is not None and (p.chunk_id is None or p.chunk_id not in chunks)
+    ]
+    on_page = await first_chunks_on_pages(session, missing, user_id=user_id)
+    sources: list[Source] = []
+    for p in previous:
+        chunk = chunks.get(p.chunk_id) if p.chunk_id is not None else None
+        if chunk is None and p.material_id is not None:
+            chunk = on_page.get((p.material_id, p.page_number))
+        if chunk is None:
+            continue
+        sources.append(
+            Source(
+                label=p.label,
+                chunk_id=chunk.chunk_id,
+                material_id=chunk.material_id,
+                material_title=chunk.material_title,
+                page_number=chunk.page_number,
+                page_title=chunk.page_title,
+                text=chunk.text,
+                score=0.0,
+                search_score=0.0,
+                boosted=False,
+                vector_rank=None,
+                keyword_rank=None,
+            )
+        )
+
+    def cost(kept: list[Source]) -> int:
+        return estimate_tokens(context_text([s.for_prompt() for s in kept]))
+
+    kept = fit_budget(sources, cost, max_tokens)
+    return Retrieval(kept, cost(kept), len(sources) - len(kept))
