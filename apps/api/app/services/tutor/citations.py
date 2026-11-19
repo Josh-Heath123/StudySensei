@@ -1,6 +1,8 @@
 """Which sources an answer cited. Pure: text and labels in, labels out.
 
-An answer cites with ``[S1]``, ``[S2][S4]`` or ``[S2, S4]``. A label that wasn't among the
+An answer cites with ``[S1]``, ``[S2][S4]`` or ``[S2, S4]``. gpt-oss often writes
+full-width lenticular brackets instead (``【S1】``, its own citation style, seen on COS330
+on 19 Nov 2026), so those count too. A label that wasn't among the
 answer's sources (``[S9]``, or ``[S5]`` when there were three) is reported apart, so it can
 be left out of the citations and the message flagged. The text itself is never changed.
 """
@@ -9,7 +11,8 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-_GROUP = re.compile(r"\[\s*(S\d+(?:\s*[,;]\s*S\d+)*)\s*\]")
+# The labels inside one pair of brackets: ASCII [ ] or full-width 【 】 (any mix).
+GROUP = re.compile(r"[\[【]\s*(S\d+(?:\s*[,;]\s*S\d+)*)\s*[\]】]")
 _LABEL = re.compile(r"S\d+")
 
 
@@ -23,7 +26,7 @@ class Citations:
 
 def parse_citations(text: str, labels: Sequence[str]) -> Citations:
     found: list[str] = []
-    for group in _GROUP.finditer(text):
+    for group in GROUP.finditer(text):
         for label in _LABEL.findall(group.group(1)):
             if label not in found:
                 found.append(label)

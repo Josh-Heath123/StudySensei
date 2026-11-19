@@ -169,8 +169,12 @@ async def dry_run(
             user_id, module_id, topic_id = await find_module_and_topic(
                 session, settings, args.module, args.topic
             )
-            started = time.monotonic()
+            # The API loads the embedding model once per process (its first search), so
+            # it's loaded before the clock starts: the times below are a warm API's.
+            loading = time.monotonic()
             embedder = await asyncio.to_thread(get_embedder)
+            load_ms = int((time.monotonic() - loading) * 1000)
+            started = time.monotonic()
             turn = await build_turn(
                 session,
                 module_id,
@@ -185,8 +189,9 @@ async def dry_run(
             )
             print(
                 f"Context: {turn.context_tokens} estimated tokens of sources "
-                f"(budget {settings.tutor_context_max_tokens}); retrieval and model load "
-                f"{int((time.monotonic() - started) * 1000)} ms\n",
+                f"(budget {settings.tutor_context_max_tokens}); retrieval "
+                f"{int((time.monotonic() - started) * 1000)} ms (embedding model load "
+                f"{load_ms} ms, not counted)\n",
                 file=out,
             )
             async for event in answer(turn, client=client, user_id=user_id):

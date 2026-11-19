@@ -36,6 +36,15 @@ def test_citations_in_every_form_are_found_once_in_source_order() -> None:
     assert (found.cited, found.unknown) == (["S1", "S2", "S3"], [])
 
 
+def test_full_width_brackets_count_too() -> None:
+    """gpt-oss's own style, seen on COS330: 【S1】 and 【S1】【S4】."""
+    found = parse_citations(
+        "Reachable flaws【S1】. Ports【S1】【S4】 and [S2].", ["S1", "S2", "S4"]
+    )
+
+    assert (found.cited, found.unknown) == (["S1", "S2", "S4"], [])
+
+
 def test_labels_that_werent_given_are_reported_apart() -> None:
     found = parse_citations("A [S1]. B [S9]. C [S4, S2]. D [S9].", ["S1", "S2", "S3"])
 
@@ -52,7 +61,7 @@ def test_text_without_labels_cites_nothing() -> None:
 
 
 def test_history_goes_in_as_chat_turns_without_labels() -> None:
-    messages = history_messages([Exchange("What is a salt?", "Random data [S1][S2, S3].")])
+    messages = history_messages([Exchange("What is a salt?", "Random data [S1]【S2, S3】.")])
 
     assert [(m.role, m.text) for m in messages] == [
         ("user", "Student's question: What is a salt?"),
