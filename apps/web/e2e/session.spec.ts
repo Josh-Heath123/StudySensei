@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./base";
 
 import { uniqueCode } from "./env";
 
@@ -14,6 +14,8 @@ test("start → pause → resume → reload → break → end → reflect → su
   page,
   request,
 }, testInfo) => {
+  // About 22 s in CI, but close to the 30 s default on a busy Windows laptop.
+  test.setTimeout(60_000);
   // A module with a topic, made through the real API.
   const module = await (
     await request.post("/api/modules", {

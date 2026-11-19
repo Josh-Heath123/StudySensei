@@ -211,3 +211,17 @@ def test_not_covered_needs_the_phrase_and_no_citations() -> None:
     assert says_not_covered("The sources do not contain any information on that.", [])
     assert not says_not_covered("It doesn't cover UDP, but for TCP it tracks state [S1].", ["S1"])
     assert not says_not_covered("A stateful firewall tracks connections.", [])
+
+
+def test_the_tutor_eval_adds_its_own_pages_on_top_of_the_search_evals() -> None:
+    from evals.tutor.__main__ import questions_of
+
+    questions = questions_of(load_config("tutor/cos330.yaml"))
+
+    assert len(questions) == 20
+    q3, q20 = questions[2], questions[19]
+    assert ("COS330 Chapter3 Study Notes", 8) in q3.pages  # tutor-only extra page
+    assert ("CH03", 13) in q3.pages  # still the search eval's pages too
+    search_q3 = load_config("search/cos330.yaml")["queries"][2]["pages"]
+    assert {"material": "COS330 Chapter3 Study Notes", "page": 8, "slide": False} not in search_q3
+    assert ("COS330 Final Study Guide", 33) in q20.pages and ("CH01", 6) in q20.pages

@@ -6,6 +6,7 @@ import {
   createConversation,
   requestQuiz,
   saveQuizAnswers,
+  saveVoiceTiming,
   streamAnswer,
   useSessionConversation,
   type Conversation,
@@ -16,11 +17,21 @@ import {
   type TutorMode,
   TutorRequestError,
 } from "./api";
+import type { VoiceTiming } from "@/voice/timing";
+
 import type { QuizAnswers } from "./quiz";
 import { liveSources, turnsFromMessages, type AnswerStatus, type Turn } from "./turns";
 
 /** The turn being asked right now, shown until the stored copy comes back from the API. */
-type Live = {
+export type Live = {
+  /** Unique per question asked in this page (the speaker follows it). */
+  id: number;
+  /** Asked by voice: the answer is read aloud and its latency measured. */
+  voice: boolean;
+  /** performance.now() when the first answer token arrived. */
+  firstTokenAt: number | null;
+  /** Asked by voice: release to the first spoken word, shown as soon as it's measured. */
+  voiceLatencyMs: number | null;
   question: string;
   mode: MessageMode;
   /** How many stored messages there were when it was sent. */
@@ -54,6 +65,7 @@ export function useTutor({
   const conversation = useSessionConversation(moduleId, sessionId);
   const [live, setLive] = useState<Live | null>(null);
   const abort = useRef<AbortController | null>(null);
+  const asked = useRef(0);
   const stored = conversation.data?.messages ?? [];
 
   // Once the API has stored both the question and its answer, the stored copy shows. A
@@ -74,7 +86,7 @@ export function useTutor({
   );
 
   const send = useCallback(
-    async (question: string, mode: TutorMode = "answer") => {
+    async (question: string, mode: TutorMode = "answer", { voice = false } = {}) => {
       const text = question.trim();
       if (!text || sessionId === null || (live && isActive(live.status))) return;
       const controller = new AbortController();
@@ -83,6 +95,10 @@ export function useTutor({
       const update = (change: Partial<Live>) =>
         setLive((now) => (now ? { ...now, ...change } : now));
       setLive({
+        id: ++asked.current,
+        voice,
+        firstTokenAt: null,
+        voiceLatencyMs: null,
         question: text,
         mode,
         base,
@@ -112,7 +128,16 @@ export function useTutor({
           if (event.type === "sources") update({ sources: event.sources });
           else if (event.type === "delta") {
             answer += event.text;
-            update({ text: answer, status: "streaming" });
+            setLive((now) =>
+              now
+                ? {
+                    ...now,
+                    text: answer,
+                    status: "streaming",
+                    firstTokenAt: now.firstTokenAt ?? performance.now(),
+                  }
+                : now,
+            );
           } else if (event.type === "done") {
             ended = true;
             update({ status: event.done.status, done: event.done });
@@ -150,6 +175,10 @@ export function useTutor({
     if (sessionId === null || !current || (live && isActive(live.status))) return;
     const update = (change: Partial<Live>) => setLive((now) => (now ? { ...now, ...change } : now));
     setLive({
+      id: ++asked.current,
+      voice: false,
+      firstTokenAt: null,
+      voiceLatencyMs: null,
       question: "Quiz me",
       mode: "quiz",
       base: current.messages.length,
@@ -192,6 +221,30 @@ export function useTutor({
     [queryClient, moduleId, sessionId],
   );
 
+  /** Record how long a spoken question took to be answered aloud (on its answer). */
+  const recordVoiceTiming = useCallback(
+    async (messageId: string, timing: VoiceTiming) => {
+      setLive((now) =>
+        now?.done?.message_id === messageId
+          ? { ...now, voiceLatencyMs: timing.voice_latency_ms }
+          : now,
+      );
+      const saved = await saveVoiceTiming(messageId, timing);
+      queryClient.setQueryData<Conversation | null>(key, (now) =>
+        now
+          ? {
+              ...now,
+              messages: now.messages.map((m: StoredMessage) => (m.id === saved.id ? saved : m)),
+            }
+          : now,
+      );
+      // A refetch that left before the timing was saved mustn't hide it.
+      await queryClient.invalidateQueries({ queryKey: key });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [queryClient, moduleId, sessionId],
+  );
+
   const turns: Turn[] = turnsFromMessages(shown ? stored.slice(0, shown.base) : stored);
   if (shown) {
     const live = shown;
@@ -212,6 +265,7 @@ export function useTutor({
         quiz: null,
         quizAnswers: null,
         totalMs: live.done?.total_ms ?? null,
+        voiceLatencyMs: live.voiceLatencyMs,
       },
     });
   }
@@ -229,6 +283,9 @@ export function useTutor({
     stop,
     quiz,
     answerQuiz,
+    recordVoiceTiming,
+    /** The question asked last in this page, as it streams (and after), for the speaker. */
+    current: live,
   };
 }
 

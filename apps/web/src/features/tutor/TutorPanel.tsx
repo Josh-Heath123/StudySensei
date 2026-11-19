@@ -18,15 +18,26 @@ import type { QuizAnswers } from "./quiz";
 import { TutorAnswer } from "./TutorAnswer";
 import { spokenSentences, type SourceView, type Turn } from "./turns";
 import type { useTutor } from "./useTutor";
+import type { useVoice } from "./useVoice";
+import { MicButton, VoiceStatus } from "./VoiceControls";
 
 type Tutor = ReturnType<typeof useTutor>;
+type Voice = ReturnType<typeof useVoice>;
 
 /**
  * The tutor's conversation and its input bar (docs/DESIGN.md "Tutor panel"). The answers
  * are reading material on a solid surface; the input bar is glass. Enter sends,
  * Shift+Enter adds a line, and focus comes back to the box after sending.
  */
-export function TutorPanel({ tutor, autoFocus = false }: { tutor: Tutor; autoFocus?: boolean }) {
+export function TutorPanel({
+  tutor,
+  voice,
+  autoFocus = false,
+}: {
+  tutor: Tutor;
+  voice: Voice;
+  autoFocus?: boolean;
+}) {
   const [draft, setDraft] = useState("");
   const [viewing, setViewing] = useState<SourceView | null>(null);
   const [noteSeen, setNoteSeen] = useState(privacyNoteSeen);
@@ -153,8 +164,9 @@ export function TutorPanel({ tutor, autoFocus = false }: { tutor: Tutor; autoFoc
 
         <form onSubmit={submit} className="glass m-3 grid gap-2 rounded-2xl p-2">
           {!noteSeen && <p className="text-muted px-2 pt-1 text-xs">{PRIVACY_NOTE}</p>}
+          <VoiceStatus voice={voice} />
           <div className="flex items-end gap-2">
-            {/* Room for push-to-talk (task 5). */}
+            <MicButton voice={voice} disabled={!tutor.ready || tutor.busy} />
             <label htmlFor="tutor-question" className="sr-only">
               Ask about this topic
             </label>
@@ -174,7 +186,15 @@ export function TutorPanel({ tutor, autoFocus = false }: { tutor: Tutor; autoFoc
               )}
             />
             {tutor.streaming ? (
-              <Button type="button" variant="outline" size="icon" onClick={tutor.stop}>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  voice.stopSpeaking();
+                  tutor.stop();
+                }}
+              >
                 <Square aria-hidden className="fill-current" />
                 <span className="sr-only">Stop</span>
               </Button>

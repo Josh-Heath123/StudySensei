@@ -94,6 +94,10 @@ class Message(TimestampedBase):
             "AND (total_ms IS NULL OR total_ms >= 0)",
             name="ck_messages_timings",
         ),
+        CheckConstraint(
+            "voice_latency_ms IS NULL OR (role = 'assistant' AND voice_latency_ms >= 0)",
+            name="ck_messages_voice_latency",
+        ),
     )
 
     user_id: Mapped[uuid.UUID]
@@ -120,6 +124,11 @@ class Message(TimestampedBase):
     # question (null until answered). Graded by code, never by the model.
     quiz: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     quiz_answers: Mapped[list[int | None] | None] = mapped_column(JSONB)
+    # A question asked by voice (migration 0020), measured in the browser from releasing
+    # push-to-talk to the first spoken word of the answer, and its parts (ms from release:
+    # transcript, first_token, first_sentence). Speech itself is never sent or stored.
+    voice_latency_ms: Mapped[int | None] = mapped_column(Integer)
+    voice_timing: Mapped[dict[str, int] | None] = mapped_column(JSONB)
     # The sources an answer was given, S1 first (none for the student's messages).
     sources: Mapped[list["MessageSource"]] = relationship(
         order_by="MessageSource.rank", cascade="all, delete-orphan", lazy="raise"

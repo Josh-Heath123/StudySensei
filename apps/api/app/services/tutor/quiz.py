@@ -29,7 +29,7 @@ from app.ai.messages import system, user
 from app.ai.sources import UNTRUSTED
 from app.core.config import Settings
 from app.models import Message, MessageSource
-from app.schemas.tutor import Quiz, QuizAnswersIn
+from app.schemas.tutor import Quiz, QuizAnswersIn, VoiceTimingIn
 from app.services.errors import Invalid, NotFound
 from app.services.tutor.conversations import (
     add_message,
@@ -55,6 +55,9 @@ course sources. The sources are below, each inside a <material> tag with an id f
   are plausible but wrong by the sources. Check every wrong option against the sources: if
   the sources say it's also true, replace it.
 - "correct" is the index of the correct option, from 0 to 3.
+- Ask only questions whose answer a source states explicitly. Don't ask which option is
+  "more common", "best", "most important" or the like unless a source says so in those
+  words, and don't ask about anything the sources only imply.
 - Base every question only on the sources. In "sources", list the ids it relies on, like
   ["S1"] or ["S2", "S4"]. Use only the ids you were given.
 - "explanation" is one sentence saying why the correct option is right, citing its source
@@ -267,6 +270,24 @@ async def get_message(
     if found is None:
         raise NotFound("Message")
     return found
+
+
+async def save_voice_timing(
+    session: AsyncSession, message_id: uuid.UUID, data: VoiceTimingIn, *, user_id: uuid.UUID
+) -> Message:
+    """Record how long a spoken question took to be answered aloud. ``NotFound`` if the
+    message isn't the user's; ``Invalid`` unless it's an answer."""
+    message = await get_message(session, message_id, user_id=user_id)
+    if message.role != "assistant":
+        raise Invalid("Only an answer has a voice timing.")
+    message.voice_latency_ms = data.voice_latency_ms
+    message.voice_timing = {
+        "transcript_ms": data.transcript_ms,
+        "first_token_ms": data.first_token_ms,
+        "first_sentence_ms": data.first_sentence_ms,
+    }
+    await session.commit()
+    return await get_message(session, message_id, user_id=user_id)
 
 
 async def save_quiz_answers(

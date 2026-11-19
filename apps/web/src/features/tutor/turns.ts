@@ -31,6 +31,8 @@ export type AnswerView = {
   quiz: Quiz | null;
   quizAnswers: QuizAnswers | null;
   totalMs: number | null;
+  /** Asked by voice: release of push-to-talk to the first spoken word (measured). */
+  voiceLatencyMs: number | null;
 };
 
 export type Turn = {
@@ -76,6 +78,7 @@ export function turnsFromMessages(messages: StoredMessage[]): Turn[] {
       quiz: message.quiz ?? null,
       quizAnswers: message.quiz_answers ?? null,
       totalMs: message.total_ms,
+      voiceLatencyMs: message.voice_latency_ms ?? null,
     };
   }
   return turns;

@@ -42,6 +42,19 @@ export async function requestQuiz(conversationId: string): Promise<StoredMessage
   return data;
 }
 
+/** Record a spoken question's latency on its answer (measured here, in the browser). */
+export function saveVoiceTiming(
+  messageId: string,
+  timing: components["schemas"]["VoiceTimingIn"],
+): Promise<StoredMessage> {
+  return unwrap(
+    api.PATCH("/messages/{message_id}/voice-timing", {
+      params: { path: { message_id: messageId } },
+      body: timing,
+    }),
+  );
+}
+
 /** Save the picks for a quiz (one per question, null if not answered yet). */
 export function saveQuizAnswers(
   messageId: string,

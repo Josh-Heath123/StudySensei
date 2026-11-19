@@ -2,6 +2,41 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-19: Phase 3, task 5 (voice: on-device STT, local TTS, push-to-talk, latency), and two fixes from the review of #39
+
+- **Fixes:**
+  - **a. Tutor eval answer key** (pages read first):
+    - Q3 now also accepts Chapter3 Study Notes p8, which covers salting fully. p9 is about cracking and mentions
+      salts in one line, so it isn't added.
+    - Q20 now also accepts Chapter1 Study Notes p4 and Final Study Guide p33 and p14.
+    - `--rescore` scored run 1 again from its JSON with no AI calls: **18/20 → 20/20** cite an acceptable page, and
+      mean coverage **0.88 → 0.91** (now over 20 questions).
+  - **b. The quiz prompt** asks only questions whose answer a source states explicitly, so nothing is "more common"
+    unless a source says so.
+- **Voice** (ADR 0015, "Voice is on-device only"):
+  - `voice/stt.ts` uses on-device Web Speech only: `available()`, then a "Set up voice" `install()` when the pack is
+    downloadable. `processLocally = true` is set on every recognition, with no server fallback; a browser without
+    the on-device API gets no mic, and one line says typing works.
+  - Push-to-talk: hold the mic, or hold Space outside a text field or a focused control. "Listening…" shows the
+    words so far, and Escape cancels.
+  - `voice/tts.ts` uses local voices only and speaks sentence by sentence while the answer streams. Markdown,
+    citations, tables and code are left out. "Read aloud" is off by default and kept per browser, and a question
+    asked by voice is always read aloud.
+  - **Latency:** from release to the first spoken word, with its parts. It's shown as "spoken after X s
+    (measured)" and stored by migration 0020 with `PATCH /messages/{id}/voice-timing` (user-scoped, with a
+    cross-user case).
+- **Tests:**
+  - 21 unit tests (`src/voice/voice.test.ts`) and 11 panel tests (`TutorVoice.test.tsx`), all with the fakes in
+    `src/test/fakeSpeech.ts`.
+  - 6 API tests (`tests/tutor/test_voice_timing.py`) and a quiz prompt test.
+  - `e2e/voice.spec.ts`, with the browser's speech faked by `addInitScript`.
+- **Browser check (this machine):**
+  - Edge 157 says `unavailable` for en-GB and en-US, and Playwright's Chromium 158 says `downloadable`. Chrome isn't
+    installed.
+  - So the 2.5 s target hasn't been measured on a real device yet. The first spoken question in Chrome or Edge
+    with the pack will show it.
+- **Next:** measure voice latency on a device with the speech pack, then Phase 3 is done.
+
 ## 2026-11-19: Phase 3, task 6 (`evals/tutor`), done before task 5 by decision, and two fixes from the review of #38
 
 - **Fixes:**
@@ -22,18 +57,18 @@ Newest first. 3–5 lines per session: what was done, what was decided, what's n
   - 26 free-tier calls: 25 ok and 1 `invalid_json` (repaired on the same model). None was turned away, and pacing
     waited 900 s.
 
-  | Measure | Result | Target |
-  | --- | --- | --- |
-  | Correct-page citation rate | **18 / 20 (90 %)** | ≥ 85 % (17) |
-  | Mean coverage | **0.88** (19 questions; Q20 had no acceptable page among its sources) | |
-  | "Doesn't cover" answers / failed | 0 / 0 | |
-  | Time to first token, median / p90 / max | **654 / 1,342 / 1,530 ms** | under 2 s |
-  | Model | `groq/openai/gpt-oss-120b`, 20 of 20 | |
-
+  | Measure                                 | Result                                                                | Target      |
+  | --------------------------------------- | --------------------------------------------------------------------- | ----------- |
+  | Correct-page citation rate              | **18 / 20 (90 %)**                                                    | ≥ 85 % (17) |
+  | Mean coverage                           | **0.88** (19 questions; Q20 had no acceptable page among its sources) |             |
+  | "Doesn't cover" answers / failed        | 0 / 0                                                                 |             |
+  | Time to first token, median / p90 / max | **654 / 1,342 / 1,530 ms**                                            | under 2 s   |
+  | Model                                   | `groq/openai/gpt-oss-120b`, 20 of 20                                  |             |
   - **The misses:** Q3 is a citation choice (CH03 p14 was S2 but not cited). Q20 is a retrieval miss (CH01 p6 and
     p7 weren't among the 8 sources).
   - **No second run.** The targets were met, so the prompt wasn't changed and nothing was tuned against these 20
     questions.
+
 - **Quiz check** (by hand, against the cited pages):
   - The JSON was valid on the first try in 4 of 5 quizzes, and no questions were dropped.
   - The marked answer was supported in 13 of 15 questions:
@@ -76,15 +111,14 @@ Newest first. 3–5 lines per session: what was done, what was decided, what's n
 - **Real check** (`app.tutor.ask --dry-run --after <query> --mode …`, COS330, each query with its topic, all answered
   by `groq/openai/gpt-oss-120b`):
 
-  | After | Mode | Time | Quiz questions: is the correct answer supported by the cited page? |
-  | --- | --- | --- | --- |
-  | 5 (inference) | Explain differently | first token 764 ms | |
-  | 5 | Give an example | first token 531 ms | |
-  | 5 | Quiz me | total 1,796 ms | Q1 yes (notes p14: Start-Date in Salaries lets a Clerk infer names). Q2 yes (guide p19, CH05 p29: detection at query time denies or alters). Q3 yes (notes p20: views don't prevent inference), though "aggregated queries" leans on Ch1 notes p10 |
-  | 12 (stateful vs packet filter) | Explain differently | first token 547 ms | |
-  | 12 | Give an example | first token 703 ms | |
-  | 12 | Quiz me | total 1,077 ms | Q1: the answer is right (CH09 p14), **but distractor C ("inspects FTP and SIPS commands") is also true by p14**. Q2 yes (p10). Q3 yes (p6) |
-
+  | After                          | Mode                | Time               | Quiz questions: is the correct answer supported by the cited page?                                                                                                                                                                                 |
+  | ------------------------------ | ------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | 5 (inference)                  | Explain differently | first token 764 ms |                                                                                                                                                                                                                                                    |
+  | 5                              | Give an example     | first token 531 ms |                                                                                                                                                                                                                                                    |
+  | 5                              | Quiz me             | total 1,796 ms     | Q1 yes (notes p14: Start-Date in Salaries lets a Clerk infer names). Q2 yes (guide p19, CH05 p29: detection at query time denies or alters). Q3 yes (notes p20: views don't prevent inference), though "aggregated queries" leans on Ch1 notes p10 |
+  | 12 (stateful vs packet filter) | Explain differently | first token 547 ms |                                                                                                                                                                                                                                                    |
+  | 12                             | Give an example     | first token 703 ms |                                                                                                                                                                                                                                                    |
+  | 12                             | Quiz me             | total 1,077 ms     | Q1: the answer is right (CH09 p14), **but distractor C ("inspects FTP and SIPS commands") is also true by p14**. Q2 yes (p10). Q3 yes (p6)                                                                                                         |
   - **The first query-5 quiz failed.** It ran right after the other two modes: Groq returned invalid JSON twice, the
     repair hit Groq's minute limit, and Flash-Lite's reply was invalid too. I couldn't tell why: the CLI didn't print
     the usage details yet. It does now.
@@ -92,6 +126,7 @@ Newest first. 3–5 lines per session: what was done, what was decided, what's n
   - Spaced two minutes apart, both quizzes worked first time, with 0 questions dropped.
   - **About 20 free-tier calls** in all, every one on Groq except one Flash-Lite repair.
   - The quiz prompt now asks the model to check every wrong option against the sources. That isn't re-measured.
+
 - **Tests:**
   - **API:** 26 for the quiz (schema, repair, ungrounded, fewer than 3, none grounded, 422 before an answer, 503
     without waiting, not history, not streamed, answers saved, bad answers rejected); 3 for the session cascade;
@@ -136,22 +171,22 @@ Newest first. 3–5 lines per session: what was done, what was decided, what's n
   - `npm audit --omit=dev` finds 0.
 - **Bundle:**
 
-  | | Before | After |
-  | --- | --- | --- |
-  | Main JS | 637.28 kB (196.02 gzip) | 663.84 kB (204.03 gzip) |
-  | Main CSS | 52.40 kB (10.71 gzip) | 57.57 kB (11.70 gzip) |
-  | Lazy Markdown and KaTeX chunk, loaded on the first answer | — | 440.10 kB (132.47 gzip) + CSS 29.80 kB (7.97 gzip) |
+  |                                                           | Before                  | After                                              |
+  | --------------------------------------------------------- | ----------------------- | -------------------------------------------------- |
+  | Main JS                                                   | 637.28 kB (196.02 gzip) | 663.84 kB (204.03 gzip)                            |
+  | Main CSS                                                  | 52.40 kB (10.71 gzip)   | 57.57 kB (11.70 gzip)                              |
+  | Lazy Markdown and KaTeX chunk, loaded on the first answer | —                       | 440.10 kB (132.47 gzip) + CSS 29.80 kB (7.97 gzip) |
 
 - **Eval follow-ups** (`evals/search --retrieval`): an acceptable page in the 8 for 3 of 3 with context, against 2 of 3
   searched alone. The table is in `evals/README.md`.
 - **Real check** (`app.tutor.ask --dry-run --after …`, COS330, 8 free-tier calls, all `groq/openai/gpt-oss-120b`):
 
-  | Case | Sources | Cited | First token |
-  | --- | --- | --- | --- |
-  | The live bug: "Explain that differently…" after the stateful-vs-packet-filter question | the earlier answer's 8, all CH09 | CH09 p14, p10 | 625 ms |
-  | "how can a database stop that?" after query 5 | Ch5 notes p20, p14, guide p19, CH05 p29… | p20, notes p14, guide p19, CH05 p29 | 735 ms |
-  | "which of the two is faster?" after query 12 | CH09 p14, p13 among the 8 (S1 is Ch7 notes p38) | none: "the material doesn't cover their speed" (true) | 1,483 ms |
-  | "which one leaves the customer responsible for the most?" after query 15 | CH13 p15, p14, p13… | CH13 p15, p14, p13 | 531 ms |
+  | Case                                                                                   | Sources                                         | Cited                                                 | First token |
+  | -------------------------------------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------- | ----------- |
+  | The live bug: "Explain that differently…" after the stateful-vs-packet-filter question | the earlier answer's 8, all CH09                | CH09 p14, p10                                         | 625 ms      |
+  | "how can a database stop that?" after query 5                                          | Ch5 notes p20, p14, guide p19, CH05 p29…        | p20, notes p14, guide p19, CH05 p29                   | 735 ms      |
+  | "which of the two is faster?" after query 12                                           | CH09 p14, p13 among the 8 (S1 is Ch7 notes p38) | none: "the material doesn't cover their speed" (true) | 1,483 ms    |
+  | "which one leaves the customer responsible for the most?" after query 15               | CH13 p15, p14, p13…                             | CH13 p15, p14, p13                                    | 531 ms      |
 
 - **Tests:**
   - **API:** 14 for follow-ups, the list endpoint and preloading; 2 new cross-user cases; 1 for the CLI.
@@ -184,19 +219,19 @@ Newest first. 3–5 lines per session: what was done, what was decided, what's n
     cross-user cases.
 - **Real check** (dry run, COS330, `--topic` per query, about 70 s apart for Groq's 8K tokens a minute):
 
-  | # | Question | First token | Model | Cites an acceptable page |
-  | --- | --- | --- | --- | --- |
-  | 1 | attack surface | 703 ms | groq/openai/gpt-oss-120b | yes: notes p15, CH01 p35, p36 |
-  | 5 | inference | 827 ms | groq/openai/gpt-oss-120b | yes: Ch5 notes p14 |
-  | 9 | SYN spoofing | 843 ms | groq/openai/gpt-oss-120b | yes: Ch7 notes p9 |
-  | 12 | stateful inspection | 828 ms | groq/openai/gpt-oss-120b | yes: CH09 p14 |
-  | 15 | IaaS / PaaS / SaaS | 796 ms | groq/openai/gpt-oss-120b | yes: CH13 p13, 14, 15 |
-
+  | #   | Question            | First token | Model                    | Cites an acceptable page      |
+  | --- | ------------------- | ----------- | ------------------------ | ----------------------------- |
+  | 1   | attack surface      | 703 ms      | groq/openai/gpt-oss-120b | yes: notes p15, CH01 p35, p36 |
+  | 5   | inference           | 827 ms      | groq/openai/gpt-oss-120b | yes: Ch5 notes p14            |
+  | 9   | SYN spoofing        | 843 ms      | groq/openai/gpt-oss-120b | yes: Ch7 notes p9             |
+  | 12  | stateful inspection | 828 ms      | groq/openai/gpt-oss-120b | yes: CH09 p14                 |
+  | 15  | IaaS / PaaS / SaaS  | 796 ms      | groq/openai/gpt-oss-120b | yes: CH13 p13, 14, 15         |
   - Free-tier calls: 6, all `groq/openai/gpt-oss-120b`, all ok. That's these 5 plus a first run of question 1, which
     found the citation bug below.
   - Times are measured from receiving the question, and include retrieval (46–77 ms). Loading the embedding model
     (about 850 ms, once per API process) isn't counted.
   - The first run of question 1 took 3,687 ms, with a cold model load and the old prompt.
+
 - **Found on real data:**
   - gpt-oss cites in full-width brackets, `【S1】`: 3 of 5 answers did, even after the prompt asked for `[S1]`. The
     first run parsed no citations at all.
@@ -222,7 +257,7 @@ Newest first. 3–5 lines per session: what was done, what was decided, what's n
   - **Linking threshold 0.75** (was 0.63), with migration 0016 queuing a relink (not run on the dev database). The
     real-model fixture test now checks the fixtures at their own 0.63 and that no unrelated passage reaches 0.75.
   - `evals/search --retrieval`, with each query's topic in `search/cos330.yaml`.
-  - #34 review: search result and page-list titles strip Markdown ("… essay *(Ch5, 5 marks)*" → "… essay (Ch5,
+  - #34 review: search result and page-list titles strip Markdown ("… essay _(Ch5, 5 marks)_" → "… essay (Ch5,
     5 marks)"). The session's Materials link and tutor note were already below the timer; the flow test now asserts
     the order and the link (checked in tests; no dev server was running to look at it).
   - Tests: 16 retrieval (cross-user module and topic, a topic from another module, `allow_ai`, one per page, the cap,
@@ -686,8 +721,7 @@ Newest first. 3–5 lines per session: what was done, what was decided, what's n
 - **Done:**
   - each route in config has a `reasoning_effort` (bulk `minimal`, smart `low`), sent only to Gemini and Groq's gpt-oss
     (`minimal` is sent as `low`, its lowest); a call can override it
-  - a 10 s connect timeout and a separate 90 s read timeout; a timeout is retryable, logged as `timeout` (migration
-    0009) and counts against the budget
+  - a 10 s connect timeout and a separate 90 s read timeout; a timeout is retryable, logged as `timeout` (migration 0009) and counts against the budget
   - the ping prints `→ provider/model …` first, flushed, and then `ok`/`FAIL`. It uses `minimal` and gives each model
     30 s in total, then moves on
   - 16 new tests on the fake transport, including a slow fake that trips the ping limit while the next model still answers

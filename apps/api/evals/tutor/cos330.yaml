@@ -29,5 +29,17 @@ questions:
     pages:
       - {material: CH01, page: 6}
       - {material: CH01, page: 7}
+      # Added after the #39 review (read 19 Nov 2026): the notes define the triad, the guide
+      # names the FIPS 199 impact levels and applies them to C, I and A.
+      - {material: COS330 Chapter1 Study Notes, page: 4}
+      - {material: COS330 Final Study Guide, page: 33}
+      - {material: COS330 Final Study Guide, page: 14}
+# Pages the tutor may also cite for questions 1-15, on top of the search eval's (which stay
+# as they are, so its baselines don't move). Added after the #39 review, each read first:
+# Q3: the Ch3 notes' "Hashed passwords and salting" explains what a salt does (p9 doesn't:
+# it's about cracking, with one line on salts, so it isn't added).
+extra_pages:
+  3:
+    - {material: COS330 Chapter3 Study Notes, page: 8}
 # "Quiz me" after these questions (1-based), on that answer's sources.
 quiz_after: [5, 12, 16, 17, 18]

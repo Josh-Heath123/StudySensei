@@ -1,0 +1,2121 @@
+{
+  "eval": "tutor/cos330",
+  "label": "run1",
+  "started_at": "2026-11-19T14:52:33+00:00",
+  "prompts": "80669df9781f",
+  "settings": {
+    "tutor_topic_boost": 1.25,
+    "tutor_context_max_tokens": 4500,
+    "ai_smart": [
+      "groq/openai/gpt-oss-120b",
+      "gemini/gemini-3.5-flash-lite",
+      "gemini/gemini-3.8-flash"
+    ]
+  },
+  "pacing": {
+    "tokens_a_minute": 7000,
+    "seconds_waited": 900
+  },
+  "calls": {
+    "groq/openai/gpt-oss-120b ok": 25,
+    "groq/openai/gpt-oss-120b invalid_json": 1
+  },
+  "free_tier_calls": 26,
+  "totals": {
+    "questions": 20,
+    "cites_an_acceptable_page": 20,
+    "correct_page_citation_rate": 1.0,
+    "mean_coverage": 0.9125,
+    "coverage_measured_for": 20,
+    "said_not_covered": 0,
+    "failed": 0,
+    "first_token_ms_median": 654.0,
+    "first_token_ms_p90": 1342.0,
+    "first_token_ms_max": 1530.0,
+    "models": {
+      "groq/openai/gpt-oss-120b": 20
+    }
+  },
+  "questions": [
+    {
+      "number": 1,
+      "question": "what makes up the attack surface of a system",
+      "topic": "Attack Surfaces and Security Design Principles",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 608,
+      "total_ms": 1062,
+      "retrieval_ms": 125,
+      "context_tokens": 1834,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "COS330 Chapter1 Study Notes",
+          "page": 15
+        },
+        {
+          "label": "S2",
+          "material": "COS330 Chapter1 Study Notes",
+          "page": 14
+        },
+        {
+          "label": "S3",
+          "material": "CH01",
+          "page": 41
+        },
+        {
+          "label": "S4",
+          "material": "CH01",
+          "page": 35
+        },
+        {
+          "label": "S5",
+          "material": "COS330 Final Study Guide",
+          "page": 33
+        },
+        {
+          "label": "S6",
+          "material": "CH01",
+          "page": 36
+        },
+        {
+          "label": "S7",
+          "material": "COS330 Chapter1 Study Notes",
+          "page": 23
+        },
+        {
+          "label": "S8",
+          "material": "COS330 Chapter1 Study Notes",
+          "page": 9
+        }
+      ],
+      "cited": ["S1", "S4", "S6"],
+      "cited_pages": [
+        {
+          "material": "COS330 Chapter1 Study Notes",
+          "page": 15
+        },
+        {
+          "material": "CH01",
+          "page": 35
+        },
+        {
+          "material": "CH01",
+          "page": 36
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH01",
+          "page": 35
+        },
+        {
+          "material": "CH01",
+          "page": 36
+        },
+        {
+          "material": "COS330 Chapter1 Study Notes",
+          "page": 14
+        },
+        {
+          "material": "COS330 Chapter1 Study Notes",
+          "page": 15
+        }
+      ],
+      "acceptable_in_sources": 4,
+      "cites_acceptable": true,
+      "coverage": 0.75,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 2,
+      "question": "why use triple DES instead of DES",
+      "topic": "Symmetric Encryption and Block Ciphers",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 904,
+      "total_ms": 1358,
+      "retrieval_ms": 46,
+      "context_tokens": 1583,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "CH02",
+          "page": 12
+        },
+        {
+          "label": "S2",
+          "material": "COS330 Chapter2 Study Notes",
+          "page": 6
+        },
+        {
+          "label": "S3",
+          "material": "CH02",
+          "page": 10
+        },
+        {
+          "label": "S4",
+          "material": "CH02",
+          "page": 13
+        },
+        {
+          "label": "S5",
+          "material": "COS330 Chapter2 Study Notes",
+          "page": 17
+        },
+        {
+          "label": "S6",
+          "material": "COS330 Chapter2 Study Notes",
+          "page": 21
+        },
+        {
+          "label": "S7",
+          "material": "CH11",
+          "page": 20
+        },
+        {
+          "label": "S8",
+          "material": "CH10",
+          "page": 21
+        }
+      ],
+      "cited": ["S1", "S2", "S3"],
+      "cited_pages": [
+        {
+          "material": "CH02",
+          "page": 12
+        },
+        {
+          "material": "COS330 Chapter2 Study Notes",
+          "page": 6
+        },
+        {
+          "material": "CH02",
+          "page": 10
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH02",
+          "page": 10
+        },
+        {
+          "material": "CH02",
+          "page": 12
+        }
+      ],
+      "acceptable_in_sources": 2,
+      "cites_acceptable": true,
+      "coverage": 1.0,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 3,
+      "question": "what does a salt do in password storage",
+      "topic": "Password-Based Authentication",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 654,
+      "total_ms": 1201,
+      "retrieval_ms": 46,
+      "context_tokens": 1999,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "COS330 Chapter3 Study Notes",
+          "page": 8
+        },
+        {
+          "label": "S2",
+          "material": "CH03",
+          "page": 14
+        },
+        {
+          "label": "S3",
+          "material": "COS330 Chapter3 Study Notes",
+          "page": 20
+        },
+        {
+          "label": "S4",
+          "material": "COS330 Chapter3 Study Notes",
+          "page": 22
+        },
+        {
+          "label": "S5",
+          "material": "CH03",
+          "page": 18
+        },
+        {
+          "label": "S6",
+          "material": "COS330 Chapter3 Study Notes",
+          "page": 6
+        },
+        {
+          "label": "S7",
+          "material": "COS330 Chapter3 Study Notes",
+          "page": 9
+        },
+        {
+          "label": "S8",
+          "material": "CH03",
+          "page": 15
+        }
+      ],
+      "cited": ["S1", "S7", "S8"],
+      "cited_pages": [
+        {
+          "material": "COS330 Chapter3 Study Notes",
+          "page": 8
+        },
+        {
+          "material": "COS330 Chapter3 Study Notes",
+          "page": 9
+        },
+        {
+          "material": "CH03",
+          "page": 15
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH03",
+          "page": 13
+        },
+        {
+          "material": "CH03",
+          "page": 14
+        },
+        {
+          "material": "COS330 Chapter3 Study Notes",
+          "page": 8
+        }
+      ],
+      "acceptable_in_sources": 2,
+      "cites_acceptable": true,
+      "coverage": 0.5,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 4,
+      "question": "compare discretionary, mandatory, role-based and attribute-based access control",
+      "topic": "Access Control Policies and Models",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 515,
+      "total_ms": 1593,
+      "retrieval_ms": 46,
+      "context_tokens": 2299,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "CH04",
+          "page": 11
+        },
+        {
+          "label": "S2",
+          "material": "CH04",
+          "page": 22
+        },
+        {
+          "label": "S3",
+          "material": "CH04",
+          "page": 42
+        },
+        {
+          "label": "S4",
+          "material": "CH04",
+          "page": 25
+        },
+        {
+          "label": "S5",
+          "material": "COS330 Chapter4 Study Notes",
+          "page": 15
+        },
+        {
+          "label": "S6",
+          "material": "COS330 Chapter4 Study Notes",
+          "page": 2
+        },
+        {
+          "label": "S7",
+          "material": "COS330 Chapter4 Study Notes",
+          "page": 11
+        },
+        {
+          "label": "S8",
+          "material": "COS330 Chapter4 Study Notes",
+          "page": 10
+        }
+      ],
+      "cited": ["S1", "S2", "S4", "S7", "S8"],
+      "cited_pages": [
+        {
+          "material": "CH04",
+          "page": 11
+        },
+        {
+          "material": "CH04",
+          "page": 22
+        },
+        {
+          "material": "CH04",
+          "page": 25
+        },
+        {
+          "material": "COS330 Chapter4 Study Notes",
+          "page": 11
+        },
+        {
+          "material": "COS330 Chapter4 Study Notes",
+          "page": 10
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH04",
+          "page": 11
+        },
+        {
+          "material": "CH04",
+          "page": 22
+        }
+      ],
+      "acceptable_in_sources": 2,
+      "cites_acceptable": true,
+      "coverage": 1.0,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 5,
+      "question": "how can someone infer sensitive data from queries they are allowed to run",
+      "topic": "Inference and Inference Detection",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 1015,
+      "total_ms": 1750,
+      "retrieval_ms": 62,
+      "context_tokens": 2834,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "COS330 Chapter5 Study Notes",
+          "page": 14
+        },
+        {
+          "label": "S2",
+          "material": "COS330 Chapter5 Study Notes",
+          "page": 20
+        },
+        {
+          "label": "S3",
+          "material": "COS330 Final Study Guide",
+          "page": 19
+        },
+        {
+          "label": "S4",
+          "material": "COS330 Chapter1 Study Notes",
+          "page": 10
+        },
+        {
+          "label": "S5",
+          "material": "CH05",
+          "page": 29
+        },
+        {
+          "label": "S6",
+          "material": "CH05",
+          "page": 5
+        },
+        {
+          "label": "S7",
+          "material": "COS330 Final Study Guide",
+          "page": 37
+        },
+        {
+          "label": "S8",
+          "material": "ST1 2025",
+          "page": 2
+        }
+      ],
+      "cited": ["S1", "S2", "S3", "S4", "S5", "S8"],
+      "cited_pages": [
+        {
+          "material": "COS330 Chapter5 Study Notes",
+          "page": 14
+        },
+        {
+          "material": "COS330 Chapter5 Study Notes",
+          "page": 20
+        },
+        {
+          "material": "COS330 Final Study Guide",
+          "page": 19
+        },
+        {
+          "material": "COS330 Chapter1 Study Notes",
+          "page": 10
+        },
+        {
+          "material": "CH05",
+          "page": 29
+        },
+        {
+          "material": "ST1 2025",
+          "page": 2
+        }
+      ],
+      "unknown_citations": ["S9"],
+      "acceptable_pages": [
+        {
+          "material": "CH05",
+          "page": 29
+        },
+        {
+          "material": "COS330 Chapter5 Study Notes",
+          "page": 14
+        },
+        {
+          "material": "COS330 Final Study Guide",
+          "page": 18
+        },
+        {
+          "material": "COS330 Final Study Guide",
+          "page": 19
+        }
+      ],
+      "acceptable_in_sources": 3,
+      "cites_acceptable": true,
+      "coverage": 1.0,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 6,
+      "question": "out-of-band SQL injection",
+      "topic": "SQL Injection Attacks and Countermeasures",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 576,
+      "total_ms": 1169,
+      "retrieval_ms": 30,
+      "context_tokens": 2500,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "COS330 Chapter5 Study Notes",
+          "page": 9
+        },
+        {
+          "label": "S2",
+          "material": "COS330 Chapter5 Study Notes",
+          "page": 24
+        },
+        {
+          "label": "S3",
+          "material": "CH05",
+          "page": 22
+        },
+        {
+          "label": "S4",
+          "material": "CH05",
+          "page": 20
+        },
+        {
+          "label": "S5",
+          "material": "COS330 Final Study Guide",
+          "page": 37
+        },
+        {
+          "label": "S6",
+          "material": "CH05",
+          "page": 17
+        },
+        {
+          "label": "S7",
+          "material": "COS330 Chapter5 Study Notes",
+          "page": 20
+        },
+        {
+          "label": "S8",
+          "material": "CH05",
+          "page": 21
+        }
+      ],
+      "cited": ["S1", "S3"],
+      "cited_pages": [
+        {
+          "material": "COS330 Chapter5 Study Notes",
+          "page": 9
+        },
+        {
+          "material": "CH05",
+          "page": 22
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH05",
+          "page": 22
+        },
+        {
+          "material": "COS330 Chapter5 Study Notes",
+          "page": 9
+        }
+      ],
+      "acceptable_in_sources": 2,
+      "cites_acceptable": true,
+      "coverage": 1.0,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 7,
+      "question": "how does a rootkit hide itself",
+      "topic": "Payloads, Backdoors, and Rootkits",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 1469,
+      "total_ms": 2235,
+      "retrieval_ms": 32,
+      "context_tokens": 2074,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 13
+        },
+        {
+          "label": "S2",
+          "material": "CH06",
+          "page": 48
+        },
+        {
+          "label": "S3",
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 3
+        },
+        {
+          "label": "S4",
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 25
+        },
+        {
+          "label": "S5",
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 5
+        },
+        {
+          "label": "S6",
+          "material": "CH06",
+          "page": 49
+        },
+        {
+          "label": "S7",
+          "material": "CH06",
+          "page": 50
+        },
+        {
+          "label": "S8",
+          "material": "CH06",
+          "page": 4
+        }
+      ],
+      "cited": ["S1", "S2", "S7"],
+      "cited_pages": [
+        {
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 13
+        },
+        {
+          "material": "CH06",
+          "page": 48
+        },
+        {
+          "material": "CH06",
+          "page": 50
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH06",
+          "page": 48
+        },
+        {
+          "material": "CH06",
+          "page": 50
+        }
+      ],
+      "acceptable_in_sources": 2,
+      "cites_acceptable": true,
+      "coverage": 1.0,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 8,
+      "question": "what makes an APT advanced and persistent",
+      "topic": "Malware Terminology and Classification",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 654,
+      "total_ms": 1062,
+      "retrieval_ms": 30,
+      "context_tokens": 1654,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "CH06",
+          "page": 14
+        },
+        {
+          "label": "S2",
+          "material": "CH06",
+          "page": 12
+        },
+        {
+          "label": "S3",
+          "material": "CH06",
+          "page": 13
+        },
+        {
+          "label": "S4",
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 6
+        },
+        {
+          "label": "S5",
+          "material": "CH06",
+          "page": 15
+        },
+        {
+          "label": "S6",
+          "material": "CH06",
+          "page": 16
+        },
+        {
+          "label": "S7",
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 13
+        },
+        {
+          "label": "S8",
+          "material": "CH08",
+          "page": 20
+        }
+      ],
+      "cited": ["S1", "S3", "S4"],
+      "cited_pages": [
+        {
+          "material": "CH06",
+          "page": 14
+        },
+        {
+          "material": "CH06",
+          "page": 13
+        },
+        {
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 6
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH06",
+          "page": 12
+        },
+        {
+          "material": "CH06",
+          "page": 13
+        },
+        {
+          "material": "CH06",
+          "page": 14
+        },
+        {
+          "material": "CH06",
+          "page": 15
+        }
+      ],
+      "acceptable_in_sources": 4,
+      "cites_acceptable": true,
+      "coverage": 0.5,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 9,
+      "question": "SYN spoofing attack on TCP",
+      "topic": "DoS Techniques and Flooding Attacks",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 608,
+      "total_ms": 2029,
+      "retrieval_ms": 30,
+      "context_tokens": 3530,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 9
+        },
+        {
+          "label": "S2",
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 34
+        },
+        {
+          "label": "S3",
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 31
+        },
+        {
+          "label": "S4",
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 5
+        },
+        {
+          "label": "S5",
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 10
+        },
+        {
+          "label": "S6",
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 17
+        },
+        {
+          "label": "S7",
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 33
+        },
+        {
+          "label": "S8",
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 4
+        }
+      ],
+      "cited": ["S1", "S4", "S6", "S7", "S8"],
+      "cited_pages": [
+        {
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 9
+        },
+        {
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 5
+        },
+        {
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 17
+        },
+        {
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 33
+        },
+        {
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 4
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH07",
+          "page": 8
+        },
+        {
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 9
+        }
+      ],
+      "acceptable_in_sources": 1,
+      "cites_acceptable": true,
+      "coverage": 1.0,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 10,
+      "question": "DNS amplification attack",
+      "topic": "Distributed Denial-of-Service and Application-Layer Attacks",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 733,
+      "total_ms": 1312,
+      "retrieval_ms": 30,
+      "context_tokens": 3190,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "CH07",
+          "page": 18
+        },
+        {
+          "label": "S2",
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 15
+        },
+        {
+          "label": "S3",
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 38
+        },
+        {
+          "label": "S4",
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 35
+        },
+        {
+          "label": "S5",
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 4
+        },
+        {
+          "label": "S6",
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 31
+        },
+        {
+          "label": "S7",
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 5
+        },
+        {
+          "label": "S8",
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 22
+        }
+      ],
+      "cited": ["S1", "S2", "S6"],
+      "cited_pages": [
+        {
+          "material": "CH07",
+          "page": 18
+        },
+        {
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 15
+        },
+        {
+          "material": "COS330 Chapter7 Study Notes",
+          "page": 31
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH07",
+          "page": 17
+        },
+        {
+          "material": "CH07",
+          "page": 18
+        }
+      ],
+      "acceptable_in_sources": 1,
+      "cites_acceptable": true,
+      "coverage": 1.0,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 11,
+      "question": "low versus high interaction honeypots",
+      "topic": "Honeypots and Data Exchange Formats",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 796,
+      "total_ms": 1453,
+      "retrieval_ms": 32,
+      "context_tokens": 2780,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "CH08",
+          "page": 38
+        },
+        {
+          "label": "S2",
+          "material": "CH08",
+          "page": 37
+        },
+        {
+          "label": "S3",
+          "material": "COS330 Chapter8 Study Notes",
+          "page": 26
+        },
+        {
+          "label": "S4",
+          "material": "COS330 Chapter8 Study Notes",
+          "page": 65
+        },
+        {
+          "label": "S5",
+          "material": "COS330 Chapter8 Study Notes",
+          "page": 25
+        },
+        {
+          "label": "S6",
+          "material": "COS330 Chapter8 Study Notes",
+          "page": 43
+        },
+        {
+          "label": "S7",
+          "material": "COS330 Chapter8 Study Notes",
+          "page": 59
+        },
+        {
+          "label": "S8",
+          "material": "COS330 Chapter8 Study Notes",
+          "page": 52
+        }
+      ],
+      "cited": ["S1", "S6"],
+      "cited_pages": [
+        {
+          "material": "CH08",
+          "page": 38
+        },
+        {
+          "material": "COS330 Chapter8 Study Notes",
+          "page": 43
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH08",
+          "page": 37
+        },
+        {
+          "material": "CH08",
+          "page": 38
+        },
+        {
+          "material": "COS330 Chapter8 Study Notes",
+          "page": 27
+        }
+      ],
+      "acceptable_in_sources": 2,
+      "cites_acceptable": true,
+      "coverage": 0.5,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 12,
+      "question": "stateful inspection firewall compared to a packet filter",
+      "topic": "Types of Firewalls",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 1530,
+      "total_ms": 2515,
+      "retrieval_ms": 46,
+      "context_tokens": 1120,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "CH09",
+          "page": 14
+        },
+        {
+          "label": "S2",
+          "material": "CH09",
+          "page": 6
+        },
+        {
+          "label": "S3",
+          "material": "CH09",
+          "page": 13
+        },
+        {
+          "label": "S4",
+          "material": "CH09",
+          "page": 41
+        },
+        {
+          "label": "S5",
+          "material": "CH09",
+          "page": 10
+        },
+        {
+          "label": "S6",
+          "material": "CH09",
+          "page": 9
+        },
+        {
+          "label": "S7",
+          "material": "CH09",
+          "page": 11
+        },
+        {
+          "label": "S8",
+          "material": "CH09",
+          "page": 2
+        }
+      ],
+      "cited": ["S1", "S3", "S4", "S5"],
+      "cited_pages": [
+        {
+          "material": "CH09",
+          "page": 14
+        },
+        {
+          "material": "CH09",
+          "page": 13
+        },
+        {
+          "material": "CH09",
+          "page": 41
+        },
+        {
+          "material": "CH09",
+          "page": 10
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH09",
+          "page": 13
+        },
+        {
+          "material": "CH09",
+          "page": 14
+        }
+      ],
+      "acceptable_in_sources": 2,
+      "cites_acceptable": true,
+      "coverage": 1.0,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 13,
+      "question": "random canary value to protect the return address",
+      "topic": "Compile-Time and Run-Time Defenses",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 437,
+      "total_ms": 654,
+      "retrieval_ms": 30,
+      "context_tokens": 1196,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "CH10",
+          "page": 30
+        },
+        {
+          "label": "S2",
+          "material": "CH10",
+          "page": 35
+        },
+        {
+          "label": "S3",
+          "material": "CH10",
+          "page": 32
+        },
+        {
+          "label": "S4",
+          "material": "CH07",
+          "page": 2
+        },
+        {
+          "label": "S5",
+          "material": "CH11",
+          "page": 27
+        },
+        {
+          "label": "S6",
+          "material": "CH07",
+          "page": 21
+        },
+        {
+          "label": "S7",
+          "material": "CH10",
+          "page": 23
+        },
+        {
+          "label": "S8",
+          "material": "CH10",
+          "page": 3
+        }
+      ],
+      "cited": ["S1"],
+      "cited_pages": [
+        {
+          "material": "CH10",
+          "page": 30
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH10",
+          "page": 30
+        }
+      ],
+      "acceptable_in_sources": 1,
+      "cites_acceptable": true,
+      "coverage": 1.0,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 14,
+      "question": "cross-site scripting attack",
+      "topic": "Defensive Programming and Input Handling",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 719,
+      "total_ms": 1469,
+      "retrieval_ms": 32,
+      "context_tokens": 1131,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "CH11",
+          "page": 17
+        },
+        {
+          "label": "S2",
+          "material": "CH11",
+          "page": 18
+        },
+        {
+          "label": "S3",
+          "material": "CH11",
+          "page": 14
+        },
+        {
+          "label": "S4",
+          "material": "CH06",
+          "page": 34
+        },
+        {
+          "label": "S5",
+          "material": "CH07",
+          "page": 2
+        },
+        {
+          "label": "S6",
+          "material": "CH10",
+          "page": 3
+        },
+        {
+          "label": "S7",
+          "material": "CH06",
+          "page": 2
+        },
+        {
+          "label": "S8",
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 12
+        }
+      ],
+      "cited": ["S1", "S2", "S4"],
+      "cited_pages": [
+        {
+          "material": "CH11",
+          "page": 17
+        },
+        {
+          "material": "CH11",
+          "page": 18
+        },
+        {
+          "material": "CH06",
+          "page": 34
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH11",
+          "page": 17
+        },
+        {
+          "material": "CH11",
+          "page": 18
+        }
+      ],
+      "acceptable_in_sources": 2,
+      "cites_acceptable": true,
+      "coverage": 1.0,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 15,
+      "question": "differences between IaaS, PaaS and SaaS",
+      "topic": "Cloud Computing Models and Security",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 654,
+      "total_ms": 1499,
+      "retrieval_ms": 30,
+      "context_tokens": 1555,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "CH13",
+          "page": 12
+        },
+        {
+          "label": "S2",
+          "material": "CH13",
+          "page": 14
+        },
+        {
+          "label": "S3",
+          "material": "CH13",
+          "page": 15
+        },
+        {
+          "label": "S4",
+          "material": "CH13",
+          "page": 13
+        },
+        {
+          "label": "S5",
+          "material": "CH13",
+          "page": 16
+        },
+        {
+          "label": "S6",
+          "material": "COS330 Chapter4 Study Notes",
+          "page": 19
+        },
+        {
+          "label": "S7",
+          "material": "COS330 Chapter4 Study Notes",
+          "page": 15
+        },
+        {
+          "label": "S8",
+          "material": "COS330 Final Study Guide",
+          "page": 30
+        }
+      ],
+      "cited": ["S1", "S2", "S3", "S4"],
+      "cited_pages": [
+        {
+          "material": "CH13",
+          "page": 12
+        },
+        {
+          "material": "CH13",
+          "page": 14
+        },
+        {
+          "material": "CH13",
+          "page": 15
+        },
+        {
+          "material": "CH13",
+          "page": 13
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH13",
+          "page": 13
+        },
+        {
+          "material": "CH13",
+          "page": 14
+        },
+        {
+          "material": "CH13",
+          "page": 15
+        }
+      ],
+      "acceptable_in_sources": 3,
+      "cites_acceptable": true,
+      "coverage": 1.0,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 16,
+      "question": "How does a bastion host fit into a firewall setup?",
+      "topic": "Firewall Characteristics and Topologies",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 1327,
+      "total_ms": 1718,
+      "retrieval_ms": 31,
+      "context_tokens": 1302,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "CH09",
+          "page": 28
+        },
+        {
+          "label": "S2",
+          "material": "CH09",
+          "page": 27
+        },
+        {
+          "label": "S3",
+          "material": "CH09",
+          "page": 41
+        },
+        {
+          "label": "S4",
+          "material": "CH09",
+          "page": 3
+        },
+        {
+          "label": "S5",
+          "material": "CH09",
+          "page": 7
+        },
+        {
+          "label": "S6",
+          "material": "CH09",
+          "page": 6
+        },
+        {
+          "label": "S7",
+          "material": "CH09",
+          "page": 21
+        },
+        {
+          "label": "S8",
+          "material": "CH09",
+          "page": 15
+        }
+      ],
+      "cited": ["S2", "S7"],
+      "cited_pages": [
+        {
+          "material": "CH09",
+          "page": 27
+        },
+        {
+          "material": "CH09",
+          "page": 21
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH09",
+          "page": 21
+        },
+        {
+          "material": "CH09",
+          "page": 27
+        }
+      ],
+      "acceptable_in_sources": 2,
+      "cites_acceptable": true,
+      "coverage": 1.0,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 17,
+      "question": "What is the difference between a virus and a worm?",
+      "topic": "Viruses, Worms, and Web Propagation",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 1342,
+      "total_ms": 2265,
+      "retrieval_ms": 46,
+      "context_tokens": 2477,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 5
+        },
+        {
+          "label": "S2",
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 10
+        },
+        {
+          "label": "S3",
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 16
+        },
+        {
+          "label": "S4",
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 8
+        },
+        {
+          "label": "S5",
+          "material": "CH06",
+          "page": 17
+        },
+        {
+          "label": "S6",
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 17
+        },
+        {
+          "label": "S7",
+          "material": "CH06",
+          "page": 24
+        },
+        {
+          "label": "S8",
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 18
+        }
+      ],
+      "cited": ["S2", "S5", "S6", "S7"],
+      "cited_pages": [
+        {
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 10
+        },
+        {
+          "material": "CH06",
+          "page": 17
+        },
+        {
+          "material": "COS330 Chapter6 Study Notes",
+          "page": 17
+        },
+        {
+          "material": "CH06",
+          "page": 24
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH06",
+          "page": 17
+        },
+        {
+          "material": "CH06",
+          "page": 23
+        }
+      ],
+      "acceptable_in_sources": 1,
+      "cites_acceptable": true,
+      "coverage": 1.0,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 18,
+      "question": "How do stack canaries and ASLR each stop buffer overflows?",
+      "topic": "Compile-Time and Run-Time Defenses",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 689,
+      "total_ms": 1298,
+      "retrieval_ms": 32,
+      "context_tokens": 1240,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "CH10",
+          "page": 25
+        },
+        {
+          "label": "S2",
+          "material": "CH10",
+          "page": 38
+        },
+        {
+          "label": "S3",
+          "material": "CH10",
+          "page": 34
+        },
+        {
+          "label": "S4",
+          "material": "CH10",
+          "page": 35
+        },
+        {
+          "label": "S5",
+          "material": "CH10",
+          "page": 30
+        },
+        {
+          "label": "S6",
+          "material": "CH10",
+          "page": 2
+        },
+        {
+          "label": "S7",
+          "material": "CH10",
+          "page": 32
+        },
+        {
+          "label": "S8",
+          "material": "ST1 2014",
+          "page": 5
+        }
+      ],
+      "cited": ["S5", "S7"],
+      "cited_pages": [
+        {
+          "material": "CH10",
+          "page": 30
+        },
+        {
+          "material": "CH10",
+          "page": 32
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH10",
+          "page": 30
+        },
+        {
+          "material": "CH10",
+          "page": 32
+        }
+      ],
+      "acceptable_in_sources": 2,
+      "cites_acceptable": true,
+      "coverage": 1.0,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 19,
+      "question": "What are the four means of authenticating a user?",
+      "topic": "Authentication Models and Factors",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 483,
+      "total_ms": 779,
+      "retrieval_ms": 30,
+      "context_tokens": 2400,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "CH03",
+          "page": 5
+        },
+        {
+          "label": "S2",
+          "material": "COS330 Final Study Guide",
+          "page": 35
+        },
+        {
+          "label": "S3",
+          "material": "COS330 Chapter3 Study Notes",
+          "page": 3
+        },
+        {
+          "label": "S4",
+          "material": "COS330 Chapter3 Study Notes",
+          "page": 5
+        },
+        {
+          "label": "S5",
+          "material": "CH03",
+          "page": 3
+        },
+        {
+          "label": "S6",
+          "material": "COS330 Chapter3 Study Notes",
+          "page": 2
+        },
+        {
+          "label": "S7",
+          "material": "COS330 Chapter3 Study Notes",
+          "page": 21
+        },
+        {
+          "label": "S8",
+          "material": "COS330 Final Study Guide",
+          "page": 16
+        }
+      ],
+      "cited": ["S1", "S4", "S8"],
+      "cited_pages": [
+        {
+          "material": "CH03",
+          "page": 5
+        },
+        {
+          "material": "COS330 Chapter3 Study Notes",
+          "page": 5
+        },
+        {
+          "material": "COS330 Final Study Guide",
+          "page": 16
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH03",
+          "page": 5
+        }
+      ],
+      "acceptable_in_sources": 1,
+      "cites_acceptable": true,
+      "coverage": 1.0,
+      "said_not_covered": false,
+      "error": null
+    },
+    {
+      "number": 20,
+      "question": "Explain the CIA triad and its levels of impact.",
+      "topic": "Computer Security Concepts and Terminology",
+      "status": "complete",
+      "model": "groq/openai/gpt-oss-120b",
+      "first_token_ms": 579,
+      "total_ms": 1172,
+      "retrieval_ms": 32,
+      "context_tokens": 2891,
+      "sources": [
+        {
+          "label": "S1",
+          "material": "COS330 Chapter1 Study Notes",
+          "page": 23
+        },
+        {
+          "label": "S2",
+          "material": "COS330 Final Study Guide",
+          "page": 33
+        },
+        {
+          "label": "S3",
+          "material": "COS330 Final Study Guide",
+          "page": 14
+        },
+        {
+          "label": "S4",
+          "material": "COS330 Chapter1 Study Notes",
+          "page": 4
+        },
+        {
+          "label": "S5",
+          "material": "ST1 2017",
+          "page": 2
+        },
+        {
+          "label": "S6",
+          "material": "COS330 Final Study Guide",
+          "page": 5
+        },
+        {
+          "label": "S7",
+          "material": "COS330 Chapter1 Study Notes",
+          "page": 10
+        },
+        {
+          "label": "S8",
+          "material": "COS330 Final Study Guide",
+          "page": 7
+        }
+      ],
+      "cited": ["S2", "S3", "S4"],
+      "cited_pages": [
+        {
+          "material": "COS330 Final Study Guide",
+          "page": 33
+        },
+        {
+          "material": "COS330 Final Study Guide",
+          "page": 14
+        },
+        {
+          "material": "COS330 Chapter1 Study Notes",
+          "page": 4
+        }
+      ],
+      "unknown_citations": [],
+      "acceptable_pages": [
+        {
+          "material": "CH01",
+          "page": 6
+        },
+        {
+          "material": "CH01",
+          "page": 7
+        },
+        {
+          "material": "COS330 Chapter1 Study Notes",
+          "page": 4
+        },
+        {
+          "material": "COS330 Final Study Guide",
+          "page": 14
+        },
+        {
+          "material": "COS330 Final Study Guide",
+          "page": 33
+        }
+      ],
+      "acceptable_in_sources": 3,
+      "cites_acceptable": true,
+      "coverage": 1.0,
+      "said_not_covered": false,
+      "error": null
+    }
+  ],
+  "quizzes": [
+    {
+      "after": 5,
+      "model": "groq/openai/gpt-oss-120b",
+      "total_ms": 1578,
+      "calls": ["groq/openai/gpt-oss-120b ok"],
+      "valid_first_try": true,
+      "kept": 3,
+      "dropped": 0,
+      "error": null,
+      "questions": [
+        {
+          "number": 1,
+          "correct": 1,
+          "sources": [
+            {
+              "label": "S1",
+              "material": "COS330 Chapter5 Study Notes",
+              "page": 14
+            },
+            {
+              "label": "S2",
+              "material": "COS330 Chapter5 Study Notes",
+              "page": 20
+            }
+          ],
+          "answer_supported": true,
+          "a_wrong_option_is_also_true": false,
+          "note": "Its explanation also cites [S9], which wasn't among the sources (shown as plain text)."
+        },
+        {
+          "number": 2,
+          "correct": 2,
+          "sources": [
+            {
+              "label": "S1",
+              "material": "COS330 Chapter5 Study Notes",
+              "page": 14
+            }
+          ],
+          "answer_supported": true,
+          "a_wrong_option_is_also_true": false
+        },
+        {
+          "number": 3,
+          "correct": 2,
+          "sources": [
+            {
+              "label": "S3",
+              "material": "COS330 Final Study Guide",
+              "page": 19
+            },
+            {
+              "label": "S5",
+              "material": "CH05",
+              "page": 29
+            }
+          ],
+          "answer_supported": true,
+          "a_wrong_option_is_also_true": false
+        }
+      ]
+    },
+    {
+      "after": 12,
+      "model": "groq/openai/gpt-oss-120b",
+      "total_ms": 2719,
+      "calls": ["groq/openai/gpt-oss-120b ok"],
+      "valid_first_try": true,
+      "kept": 3,
+      "dropped": 0,
+      "error": null,
+      "questions": [
+        {
+          "number": 1,
+          "correct": 0,
+          "sources": [
+            {
+              "label": "S1",
+              "material": "CH09",
+              "page": 14
+            },
+            {
+              "label": "S5",
+              "material": "CH09",
+              "page": 10
+            }
+          ],
+          "answer_supported": true,
+          "a_wrong_option_is_also_true": false,
+          "note": "The distractor that was also true in #38 is now worded so it's false."
+        },
+        {
+          "number": 2,
+          "correct": 0,
+          "sources": [
+            {
+              "label": "S5",
+              "material": "CH09",
+              "page": 10
+            }
+          ],
+          "answer_supported": false,
+          "a_wrong_option_is_also_true": true,
+          "note": "CH09 p10 gives both default policies but not which is more common; B is the other policy on the page and D restates A."
+        },
+        {
+          "number": 3,
+          "correct": 0,
+          "sources": [
+            {
+              "label": "S2",
+              "material": "CH09",
+              "page": 6
+            },
+            {
+              "label": "S5",
+              "material": "CH09",
+              "page": 10
+            }
+          ],
+          "answer_supported": true,
+          "a_wrong_option_is_also_true": false,
+          "note": "Ports for stateful inspection come from CH09 p14, which this question doesn't cite."
+        }
+      ]
+    },
+    {
+      "after": 16,
+      "model": "groq/openai/gpt-oss-120b",
+      "total_ms": 1203,
+      "calls": ["groq/openai/gpt-oss-120b ok"],
+      "valid_first_try": true,
+      "kept": 3,
+      "dropped": 0,
+      "error": null,
+      "questions": [
+        {
+          "number": 1,
+          "correct": 1,
+          "sources": [
+            {
+              "label": "S2",
+              "material": "CH09",
+              "page": 27
+            }
+          ],
+          "answer_supported": false,
+          "a_wrong_option_is_also_true": false,
+          "note": "By CH09 p27 the marked topology isn't the one with a DMZ interface, and none of the options is."
+        },
+        {
+          "number": 2,
+          "correct": 2,
+          "sources": [
+            {
+              "label": "S7",
+              "material": "CH09",
+              "page": 21
+            }
+          ],
+          "answer_supported": true,
+          "a_wrong_option_is_also_true": false
+        },
+        {
+          "number": 3,
+          "correct": 1,
+          "sources": [
+            {
+              "label": "S2",
+              "material": "CH09",
+              "page": 27
+            }
+          ],
+          "answer_supported": true,
+          "a_wrong_option_is_also_true": false
+        }
+      ]
+    },
+    {
+      "after": 17,
+      "model": "groq/openai/gpt-oss-120b",
+      "total_ms": 3280,
+      "calls": [
+        "groq/openai/gpt-oss-120b invalid_json",
+        "groq/openai/gpt-oss-120b ok"
+      ],
+      "valid_first_try": false,
+      "kept": 3,
+      "dropped": 0,
+      "error": null,
+      "questions": [
+        {
+          "number": 1,
+          "correct": 0,
+          "sources": [
+            {
+              "label": "S1",
+              "material": "COS330 Chapter6 Study Notes",
+              "page": 5
+            },
+            {
+              "label": "S2",
+              "material": "COS330 Chapter6 Study Notes",
+              "page": 10
+            },
+            {
+              "label": "S5",
+              "material": "CH06",
+              "page": 17
+            },
+            {
+              "label": "S6",
+              "material": "COS330 Chapter6 Study Notes",
+              "page": 17
+            }
+          ],
+          "answer_supported": true,
+          "a_wrong_option_is_also_true": false
+        },
+        {
+          "number": 2,
+          "correct": 2,
+          "sources": [
+            {
+              "label": "S2",
+              "material": "COS330 Chapter6 Study Notes",
+              "page": 10
+            },
+            {
+              "label": "S7",
+              "material": "CH06",
+              "page": 24
+            }
+          ],
+          "answer_supported": true,
+          "a_wrong_option_is_also_true": false
+        },
+        {
+          "number": 3,
+          "correct": 1,
+          "sources": [
+            {
+              "label": "S3",
+              "material": "COS330 Chapter6 Study Notes",
+              "page": 16
+            },
+            {
+              "label": "S1",
+              "material": "COS330 Chapter6 Study Notes",
+              "page": 5
+            }
+          ],
+          "answer_supported": true,
+          "a_wrong_option_is_also_true": false
+        }
+      ]
+    },
+    {
+      "after": 18,
+      "model": "groq/openai/gpt-oss-120b",
+      "total_ms": 1578,
+      "calls": ["groq/openai/gpt-oss-120b ok"],
+      "valid_first_try": true,
+      "kept": 3,
+      "dropped": 0,
+      "error": null,
+      "questions": [
+        {
+          "number": 1,
+          "correct": 1,
+          "sources": [
+            {
+              "label": "S5",
+              "material": "CH10",
+              "page": 30
+            }
+          ],
+          "answer_supported": true,
+          "a_wrong_option_is_also_true": false
+        },
+        {
+          "number": 2,
+          "correct": 1,
+          "sources": [
+            {
+              "label": "S7",
+              "material": "CH10",
+              "page": 32
+            }
+          ],
+          "answer_supported": true,
+          "a_wrong_option_is_also_true": false
+        },
+        {
+          "number": 3,
+          "correct": 0,
+          "sources": [
+            {
+              "label": "S5",
+              "material": "CH10",
+              "page": 30
+            },
+            {
+              "label": "S7",
+              "material": "CH10",
+              "page": 32
+            }
+          ],
+          "answer_supported": true,
+          "a_wrong_option_is_also_true": false
+        }
+      ]
+    }
+  ],
+  "quiz_check": {
+    "checked_by": "hand, against the cited pages' text (19 Nov 2026)",
+    "quizzes": 5,
+    "valid_first_try": 4,
+    "questions": 15,
+    "dropped": 0,
+    "answer_supported": 13,
+    "a_wrong_option_is_also_true": 1
+  },
+  "rescored": {
+    "from": "tutor-2026-11-19-run1.json",
+    "at": "2026-11-19T16:21:20+00:00",
+    "why": "the answer key widened after the #39 review (evals/tutor/cos330.yaml)",
+    "before": {
+      "questions": 20,
+      "cites_an_acceptable_page": 18,
+      "correct_page_citation_rate": 0.9,
+      "mean_coverage": 0.881578947368421,
+      "coverage_measured_for": 19,
+      "said_not_covered": 0,
+      "failed": 0,
+      "first_token_ms_median": 654,
+      "first_token_ms_p90": 1342,
+      "first_token_ms_max": 1530,
+      "models": {
+        "groq/openai/gpt-oss-120b": 20
+      }
+    }
+  }
+}

@@ -920,6 +920,28 @@ export interface paths {
     patch: operations["quiz_answers_messages__message_id__quiz_answers_patch"];
     trace?: never;
   };
+  "/messages/{message_id}/voice-timing": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Voice Timing
+     * @description Record a spoken question's latency, measured in the browser: from releasing
+     *     push-to-talk to the first spoken word, with its parts. No audio is ever sent. 422 unless
+     *     the message is an answer.
+     */
+    patch: operations["voice_timing_messages__message_id__voice_timing_patch"];
+    trace?: never;
+  };
   "/conversations/{conversation_id}/messages": {
     parameters: {
       query?: never;
@@ -1555,6 +1577,12 @@ export interface components {
       quiz?: components["schemas"]["Quiz"] | null;
       /** Quiz Answers */
       quiz_answers?: (number | null)[] | null;
+      /** Voice Latency Ms */
+      voice_latency_ms?: number | null;
+      /** Voice Timing */
+      voice_timing?: {
+        [key: string]: number;
+      } | null;
     };
     /**
      * MessageSourceOut
@@ -2176,6 +2204,22 @@ export interface components {
       input?: unknown;
       /** Context */
       ctx?: Record<string, never>;
+    };
+    /**
+     * VoiceTimingIn
+     * @description Measured in the browser for a question asked by voice, in ms from releasing
+     *     push-to-talk: the final transcript, the first answer token, the first full sentence,
+     *     and the first spoken word (``voice_latency_ms``, the Phase 3 target is under 2,500).
+     */
+    VoiceTimingIn: {
+      /** Voice Latency Ms */
+      voice_latency_ms: number;
+      /** Transcript Ms */
+      transcript_ms: number;
+      /** First Token Ms */
+      first_token_ms: number;
+      /** First Sentence Ms */
+      first_sentence_ms: number;
     };
   };
   responses: never;
@@ -4047,6 +4091,41 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["QuizAnswersIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MessageOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  voice_timing_messages__message_id__voice_timing_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        message_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceTimingIn"];
       };
     };
     responses: {

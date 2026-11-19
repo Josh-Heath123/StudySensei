@@ -8,6 +8,8 @@ import { Button } from "@/ui/button";
 import { SourcesContext, sourceLabel, type OpenSource } from "./sourcesContext";
 import type { QuizAnswers } from "./quiz";
 import { QuizCard } from "./QuizCard";
+import { spokenAfter } from "@/voice/timing";
+
 import { answeredBy, errorMessage, writtenBy, type AnswerView, type SourceView } from "./turns";
 
 // KaTeX and the Markdown pipeline load on the first answer, not with the app.
@@ -32,9 +34,11 @@ export function TutorAnswer({
 }) {
   const streaming = answer.status === "waiting" || answer.status === "streaming";
   const isQuiz = answer.mode === "quiz";
-  const byline = isQuiz
+  const written = isQuiz
     ? writtenBy(answer.model, answer.totalMs)
     : answeredBy(answer.model, answer.firstTokenMs);
+  const spoken = answer.voiceLatencyMs !== null ? spokenAfter(answer.voiceLatencyMs) : null;
+  const byline = [written, spoken].filter(Boolean).join(" · ");
   return (
     <SourcesContext.Provider value={{ sources: answer.sources, open: onOpen }}>
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
