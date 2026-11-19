@@ -9,9 +9,14 @@ from evals.metrics import (
     ChunkScore,
     LinkRule,
     compare_trees,
+    coverage,
     first_rank,
     in_top,
+    mean,
     mean_reciprocal_rank,
+    percentile,
+    rate,
+    says_not_covered,
     similarity_pages,
     top_level_names,
 )
@@ -166,3 +171,43 @@ def test_the_relative_rule_keeps_scores_near_the_best_cited_one() -> None:
 def test_rule_labels_say_what_they_do() -> None:
     assert LinkRule(0.76, 12).label == "threshold 0.76, cap 12"
     assert LinkRule(0.63, 8, 0.05).label == "threshold 0.63, cap 8, within 0.05 of best cited"
+
+
+# --- tutor ---
+
+
+def test_coverage_counts_only_acceptable_pages_that_were_given() -> None:
+    sources = [("CH09", 13), ("CH09", 14), ("CH05", 2)]
+    acceptable = [("CH09", 13), ("CH09", 14), ("CH09", 99)]  # p99 wasn't among the sources
+
+    assert coverage([("CH09", 13)], sources, acceptable) == 0.5
+    assert coverage([("CH09", 13), ("CH09", 14)], sources, acceptable) == 1.0
+    assert coverage([("CH05", 2)], sources, acceptable) == 0.0
+    assert coverage([], [("CH05", 2)], acceptable) is None  # nothing acceptable to cite
+
+
+def test_rate_and_mean() -> None:
+    assert rate([True, False, True, True]) == 0.75
+    assert rate([]) == 0.0
+    assert mean([1.0, None, 0.5]) == 0.75
+    assert mean([None]) is None
+
+
+def test_percentile_is_nearest_rank() -> None:
+    times = [700.0, 640.0, 1500.0, 820.0, 910.0, 760.0, 690.0, 3100.0, 800.0, 720.0]
+
+    assert percentile(times, 50) == 760.0
+    assert percentile(times, 90) == 1500.0
+    assert percentile(times, 100) == 3100.0
+    assert percentile(times, 0) == 640.0
+    assert percentile([], 50) is None
+    assert percentile([5.0], 90) == 5.0
+    with pytest.raises(ValueError):
+        percentile(times, 101)
+
+
+def test_not_covered_needs_the_phrase_and_no_citations() -> None:
+    assert says_not_covered("Your course material doesn't cover how fast they are.", [])
+    assert says_not_covered("The sources do not contain any information on that.", [])
+    assert not says_not_covered("It doesn't cover UDP, but for TCP it tracks state [S1].", ["S1"])
+    assert not says_not_covered("A stateful firewall tracks connections.", [])

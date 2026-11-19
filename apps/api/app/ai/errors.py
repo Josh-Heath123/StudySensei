@@ -11,9 +11,13 @@ class AIUnavailable(Exception):
     until a key is added. The message is safe to show the student.
     """
 
-    def __init__(self, message: str, *, retry_at: datetime | None) -> None:
+    def __init__(self, message: str, *, retry_at: datetime | None, exhausted: bool = False) -> None:
         super().__init__(message)
         self.retry_at = retry_at
+        # True when every model tried turned the request away (busy, rate limited, too
+        # large, timed out, cooling down or out of budget), rather than one failing with a
+        # 5xx. An interactive JSON repair moves on to the next model only then (ADR 0014).
+        self.exhausted = exhausted
 
 
 class AIInvalidOutput(Exception):

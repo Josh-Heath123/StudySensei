@@ -1,0 +1,33 @@
+# The tutor eval on COS330 (Phase 3 task 6): 20 questions with their session topic and the
+# pages an answer should cite. Questions 1-15 are the search eval's (search/cos330.yaml, read
+# from there so the two never drift); 16-20 are below. Only questions, topic names, material
+# titles and page numbers: never course text.
+module: COS330
+search_queries: search/cos330.yaml
+questions:
+  - query: How does a bastion host fit into a firewall setup?
+    topic: {chapter: Ch9, name: "Firewall Characteristics and Topologies"}
+    pages:
+      - {material: CH09, page: 21}
+      - {material: CH09, page: 27}
+  - query: What is the difference between a virus and a worm?
+    topic: {chapter: Ch6, name: "Viruses, Worms, and Web Propagation"}
+    pages:
+      - {material: CH06, page: 17}
+      - {material: CH06, page: 23}
+  - query: How do stack canaries and ASLR each stop buffer overflows?
+    topic: {chapter: Ch10, name: "Compile-Time and Run-Time Defenses"}
+    pages:
+      - {material: CH10, page: 30}
+      - {material: CH10, page: 32}
+  - query: What are the four means of authenticating a user?
+    topic: {chapter: Ch3, name: "Authentication Models and Factors"}
+    pages:
+      - {material: CH03, page: 5}
+  - query: Explain the CIA triad and its levels of impact.
+    topic: {chapter: Ch1, name: "Computer Security Concepts and Terminology"}
+    pages:
+      - {material: CH01, page: 6}
+      - {material: CH01, page: 7}
+# "Quiz me" after these questions (1-based), on that answer's sources.
+quiz_after: [5, 12, 16, 17, 18]

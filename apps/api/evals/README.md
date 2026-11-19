@@ -1,8 +1,9 @@
 # Evals
 
 Fixed yardsticks for the AI and search features, run **locally against the dev database** (the real
-COS330 data). They never run in CI and never call an AI provider: search and linking use the local
-embedding model, and the topic eval only reads what's stored. The database session is read-only in
+COS330 data). They never run in CI. All but one never call an AI provider: search and linking use the local
+embedding model, and the topic eval only reads what's stored. **The tutor eval is the exception**: it makes
+real calls on the free tier (below). The database session is read-only in
 Postgres itself (`default_transaction_read_only`), so an eval can't write.
 
 Run them from the repo root with the Docker database up (`npm run db:up`; `npm run dev` can be stopped):
@@ -13,6 +14,36 @@ Run them from the repo root with the Docker database up (`npm run db:up`; `npm r
 | Retrieval | `uv run --directory apps/api python -m evals.search cos330 --retrieval` | The same queries through the tutor's `retrieve` (at most 8 sources, one per page, `allow_ai` only, the context budget): with no topic, with the query's topic at ×1.25, ×1.5, ×2 and ×3, with only the links a relink at the current threshold keeps, and with a topic from another chapter. Per run: an acceptable page in the 8, its rank (S1 = 1), acceptable pages in the 8, and the context's estimated tokens. No pass mark |
 | Linking | `uv run --directory apps/api python -m evals.linking cos330` | The current similarity links (count, near-empty pages, same vs cross-chapter), then a sweep of link rules re-scored the way `linking.py` does |
 | Topic extraction | `uv run --directory apps/api python -m evals.topic_extraction cos330` | The current tree against the reviewed reference (matched, missing, extra, moved), and citation precision per material kind |
+| Tutor (**real AI calls**) | `uv run --directory apps/api python -m evals.tutor cos330 --label run1 --review <file outside the repo>` | 20 questions through the tutor in answer mode, each with its topic: cited pages, whether one is acceptable, coverage, "doesn't cover" answers, time to first token, the model; then "Quiz me" after 5 of them. Writes `evals/results/tutor-<date>-<label>.json`. **Target:** a correct page cited for ≥ 17 of 20 (85 %), first token under 2 s |
+
+### The tutor eval
+
+- **Questions:** `tutor/cos330.yaml`. Questions 1–15 are the search eval's (read from `search/cos330.yaml`, with
+  their topics and acceptable pages), and 16–20 are its own. "Quiz me" runs after the questions in `quiz_after`
+  (5, 12, 16, 17, 18), on that answer's sources.
+- **The real service, dry:** each question goes through `build_turn` and `answer`, as `app.tutor.ask --dry-run`
+  does. The database session is read-only, and usage is kept in memory, though today's earlier calls still count
+  toward the daily budgets. Nothing is stored.
+- **Cost:** about 25 free-tier calls a run (20 answers and 5 quizzes, plus any repair or fallback), almost all on
+  `groq/openai/gpt-oss-120b`. That's well inside its 1,000 a day, but don't run it in a loop.
+- **Pacing:** Groq's free tier allows 8,000 tokens a minute. Before each call the runner waits until the last
+  minute's Groq tokens plus an estimate of the request (its text at 3.5 characters a token, plus 1,500 for the
+  reply) stay under 7,000. A run takes 10–15 minutes, so start it in the background. Calls turned away anyway are
+  counted in the results (`calls`).
+- **Timings** start after the pacing wait: they're the tutor's, not the eval's. Retrieval is timed apart.
+- **Metrics** (`metrics.py`, unit-tested):
+  - **Correct-page citation rate:** answers citing at least one acceptable page.
+  - **Coverage:** of the acceptable pages that were among the 8 sources, the share cited. It isn't counted when
+    none was among them.
+  - **"Doesn't cover":** a heuristic, the system prompt's phrasing with no citations.
+  - **Time to first token:** median and 90th percentile, by nearest rank (measured values, never interpolated).
+  - **The model mix.**
+- **Quiz check:** each quiz records whether its JSON was valid on the first try and how many questions were
+  dropped. Whether each marked answer is supported by its cited page, and whether a wrong option is also true, is
+  checked **by hand** against the page text and written into the results.
+- **What's committed:** `evals/results/` holds numbers, labels and page references only, never answer or course
+  text. `--review FILE` writes the answers and the quiz questions for checking; keep that file outside the
+  repository.
 
 `... python -m evals.topic_extraction cos330 --export` rewrites the reference from the dev database
 (after a deliberate review, not to make the eval pass).
