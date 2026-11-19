@@ -14,7 +14,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AIUsage, Conversation, Material, TopicReview, User
+from app.models import AIUsage, Conversation, Material, Message, TopicReview, User
 from app.storage.local import LocalStorage
 from tests.academics.conftest import Rows
 from tests.fakes import FakeLLM, ok
@@ -121,6 +121,8 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("GET", "/modules/{module}/tutor/conversations", None),
     ("GET", "/modules/{module}/tutor/conversations?study_session_id={session}", None),
     ("POST", "/conversations/{conversation}/messages", {"question": "What is a firewall?"}),
+    ("POST", "/conversations/{conversation}/quiz", None),
+    ("PATCH", "/messages/{message}/quiz-answers", {"answers": [0]}),
 ]
 
 
@@ -170,16 +172,52 @@ async def dismissed(session: AsyncSession, alice: Rows, bob: Rows) -> dict[str, 
 
 @pytest.fixture
 async def conversations(session: AsyncSession, alice: Rows, bob: Rows) -> dict[str, Conversation]:
-    """One tutor conversation each, on their own topic."""
+    """One tutor conversation each, for their own study session, with a quiz in it."""
     made = {}
     for name, rows in (("alice", alice), ("bob", bob)):
         conversation = Conversation(
-            user_id=rows.user.id, module_id=rows.module.id, topic_id=rows.topic.id
+            user_id=rows.user.id,
+            module_id=rows.module.id,
+            topic_id=rows.topic.id,
+            study_session_id=rows.study_session.id,
         )
         session.add(conversation)
+        await session.flush()
+        quiz_message = Message(
+            user_id=rows.user.id,
+            conversation_id=conversation.id,
+            position=0,
+            role="assistant",
+            mode="quiz",
+            text="Quiz: 1 question.",
+            status="complete",
+            quiz={
+                "questions": [
+                    {
+                        "prompt": "Which?",
+                        "options": ["a", "b", "c", "d"],
+                        "correct": 0,
+                        "explanation": "Because [S1].",
+                        "sources": ["S1"],
+                    }
+                ]
+            },
+            quiz_answers=[None],
+        )
+        session.add(quiz_message)
+        await session.flush()
+        _MESSAGES[conversation.id] = quiz_message.id
         made[name] = conversation
     await session.commit()
     return made
+
+
+_MESSAGES: dict[uuid.UUID, uuid.UUID] = {}
+
+
+def message_of(conversation: Conversation) -> uuid.UUID:
+    """The quiz message the fixture put in the conversation (looked up once, then kept)."""
+    return _MESSAGES[conversation.id]
 
 
 def fill(value: Any, ids: dict[str, str]) -> Any:
@@ -208,6 +246,7 @@ def ids_of(
         "my_session": str(bob.study_session.id),
         "my_material": str(materials["bob"].id),
         "my_conversation": str(conversations["bob"].id),
+        "my_message": str(message_of(conversations["bob"])),
     }
     hers = {
         "module": str(alice.module.id),
@@ -218,6 +257,7 @@ def ids_of(
         "material": str(materials["alice"].id),
         "dismissed": str(dismissed["alice"].id),
         "conversation": str(conversations["alice"].id),
+        "message": str(message_of(conversations["alice"])),
     }
     missing = {key: str(uuid.uuid4()) for key in hers}
     return {**hers, **mine}, {**missing, **mine}

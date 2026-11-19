@@ -41,8 +41,9 @@ light or dark to match your GitHub theme.
 
 | | |
 | --- | --- |
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/today-dark.png" /><img src="docs/assets/screenshots/today-light.png" alt="Today" /></picture> **Today:** countdowns and upcoming deadlines | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/session-dark.png" /><img src="docs/assets/screenshots/session-light.png" alt="A study session" /></picture> **Session:** the focus timer, 18 minutes in |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/today-dark.png" /><img src="docs/assets/screenshots/today-light.png" alt="Today" /></picture> **Today:** countdowns and upcoming deadlines | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/session-dark.png" /><img src="docs/assets/screenshots/session-light.png" alt="A study session" /></picture> **Session:** the focus timer, 18 minutes in, with the tutor's cited answer |
 | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/topics-dark.png" /><img src="docs/assets/screenshots/topics-light.png" alt="Topics" /></picture> **Topics:** a topic's cited and similar pages | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/viewer-dark.png" /><img src="docs/assets/screenshots/viewer-light.png" alt="Viewer" /></picture> **Viewer:** a search for "slow start threshold", opened at the slide |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/quiz-dark.png" /><img src="docs/assets/screenshots/quiz-light.png" alt="Tutor quiz" /></picture> **Quiz me:** three questions on the tutor's sources, graded in code | |
 
 ## Engineering highlights
 

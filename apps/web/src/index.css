@@ -379,6 +379,13 @@
   & th {
     font-weight: 600;
   }
+  /* A wide table scrolls in its box (AnswerMarkdown's Table) rather than squash its
+     columns into slivers on a phone. */
+  & .answer-table th,
+  & .answer-table td {
+    min-width: 7rem;
+    max-width: 18rem;
+  }
   & blockquote {
     border-left: 3px solid var(--line-strong);
     padding-left: 0.8em;

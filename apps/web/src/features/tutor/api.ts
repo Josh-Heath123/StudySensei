@@ -11,7 +11,49 @@ export type StoredSource = components["schemas"]["MessageSourceOut"];
 export type StreamSource = components["schemas"]["SourceOut"];
 export type DoneEvent = components["schemas"]["DoneEvent"];
 export type ErrorEvent = components["schemas"]["ErrorEvent"];
-export type TutorMode = components["schemas"]["MessageCreate"]["mode"];
+/** The modes that stream text (`quiz` has its own endpoint). */
+export type TutorMode = NonNullable<components["schemas"]["MessageCreate"]["mode"]>;
+/** Every mode a stored message can have. */
+export type MessageMode = StoredMessage["mode"];
+
+/** A request the API turned down, with when to try again if the AI was only busy. */
+export class TutorRequestError extends ApiError {
+  readonly retryAt: string | null;
+
+  constructor(status: number, message: string, retryAt: string | null) {
+    super(status, message);
+    this.retryAt = retryAt;
+  }
+}
+
+/** "Quiz me": the stored answer (its `quiz`, or `failed` with a readable `text`). */
+export async function requestQuiz(conversationId: string): Promise<StoredMessage> {
+  const { data, error, response } = await api.POST("/conversations/{conversation_id}/quiz", {
+    params: { path: { conversation_id: conversationId } },
+  });
+  if (!response.ok || !data) {
+    const wait = Number(response.headers.get("Retry-After"));
+    const retryAt =
+      response.status === 503 && Number.isFinite(wait) && wait > 0
+        ? new Date(Date.now() + wait * 1000).toISOString()
+        : null;
+    throw new TutorRequestError(response.status, messageFromBody(error), retryAt);
+  }
+  return data;
+}
+
+/** Save the picks for a quiz (one per question, null if not answered yet). */
+export function saveQuizAnswers(
+  messageId: string,
+  answers: (number | null)[],
+): Promise<StoredMessage> {
+  return unwrap(
+    api.PATCH("/messages/{message_id}/quiz-answers", {
+      params: { path: { message_id: messageId } },
+      body: { answers },
+    }),
+  );
+}
 
 /** One event of an answer, in the order the API sends them (ARCHITECTURE "The tutor's stream"). */
 export type TutorEvent =

@@ -126,3 +126,25 @@ describe("AnswerMarkdown's citations", () => {
     expect(answer.querySelectorAll("code")).toHaveLength(2);
   });
 });
+
+test("re-rendering with fresh objects keeps each chip's DOM node and focus", () => {
+  const view = (sources: SourceView[]) => (
+    <TooltipProvider>
+      <SourcesContext.Provider value={{ sources, open: () => undefined }}>
+        <AnswerMarkdown text="It tracks state [S1] in a table【S2】." />
+      </SourcesContext.Provider>
+    </TooltipProvider>
+  );
+  const { rerender } = render(view(SOURCES));
+  const chip = screen.getByRole("button", { name: /^Source S2/ });
+  const paragraph = chip.closest("p");
+  chip.focus();
+
+  // New arrays and objects, the same content: what every parent re-render passes down.
+  rerender(view(SOURCES.map((s) => ({ ...s }))));
+  rerender(view(SOURCES.map((s) => ({ ...s }))));
+
+  expect(screen.getByRole("button", { name: /^Source S2/ })).toBe(chip);
+  expect(chip.closest("p")).toBe(paragraph);
+  expect(chip).toHaveFocus();
+});

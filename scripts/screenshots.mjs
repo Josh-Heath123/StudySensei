@@ -270,6 +270,9 @@ async function main() {
         .getByRole("timer")
         .filter({ hasText: "32:00" })
         .waitFor();
+      // The panel opens on its newest turn (the quiz): show the answer for this one.
+      const log = tutor.getByRole("log", { name: "Tutor conversation" });
+      await log.evaluate((box) => (box.scrollTop = 0));
       await settle(sessionPage, 400);
       await frame(
         browser,
@@ -277,6 +280,29 @@ async function main() {
         `session-${theme}.png`,
         theme,
       );
+
+      // The quiz: question 1 answered (right), its explanation and citation showing.
+      const quiz = tutor.getByRole("region", { name: "Quiz" });
+      await quiz.scrollIntoViewIfNeeded();
+      await quiz.getByRole("button", { name: /^B\. It doubles every round trip/ }).click();
+      await quiz.getByText("Right.").waitFor();
+      await quiz.locator(".answer-prose button").first().waitFor();
+      // The quiz from its first line ("Question 1 of 3") at the top of the box.
+      await quiz.evaluate((element) => {
+        const box = element.closest('[role="log"]');
+        box.scrollTop +=
+          element.getBoundingClientRect().top - box.getBoundingClientRect().top - 16;
+      });
+      await settle(sessionPage, 400);
+      await frame(browser, await sessionPage.screenshot(), `quiz-${theme}.png`, theme);
+      // Undo the pick, so the other theme's shot starts from the same question.
+      const [conversation] = await (
+        await sessionPage.request.get(`/api/modules/${module.id}/tutor/conversations`)
+      ).json();
+      const quizMessage = conversation.messages.find((m) => m.mode === "quiz" && m.quiz);
+      await sessionPage.request.patch(`/api/messages/${quizMessage.id}/quiz-answers`, {
+        data: { answers: [null, null, null] },
+      });
       await sessionCtx.close();
     }
 

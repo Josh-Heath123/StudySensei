@@ -42,7 +42,7 @@ from app.services.tutor.retrieval import PreviousSource
 from app.services.tutor.turn import HISTORY_EXCHANGES, Answer, Turn, answer, build_turn
 
 # Modes that work on the last answer's sources rather than searching again.
-FOLLOW_UP_MODES = ("explain_differently", "example", "quiz")
+FOLLOW_UP_MODES = ("explain_differently", "example")
 # Answers that count as history for the next question (a failed or stopped one doesn't).
 HISTORY_STATUSES = ("complete", "truncated")
 
@@ -91,7 +91,7 @@ class ConversationView:
 async def get_conversation(
     session: AsyncSession, conversation_id: uuid.UUID, *, user_id: uuid.UUID
 ) -> ConversationView:
-    conversation = await _conversation(session, conversation_id, user_id=user_id)
+    conversation = await find_conversation(session, conversation_id, user_id=user_id)
     messages = list(
         await session.scalars(
             select(Message)
@@ -128,7 +128,7 @@ async def list_conversations(
     return [await get_conversation(session, found, user_id=user_id) for found in ids]
 
 
-async def _conversation(
+async def find_conversation(
     session: AsyncSession, conversation_id: uuid.UUID, *, user_id: uuid.UUID
 ) -> Conversation:
     conversation = await session.scalar(
@@ -144,19 +144,24 @@ async def _conversation(
 async def recent_exchanges(
     session: AsyncSession, conversation_id: uuid.UUID, *, user_id: uuid.UUID
 ) -> list[Exchange]:
-    """The last ``HISTORY_EXCHANGES`` questions that got an answer, oldest first."""
+    """The last ``HISTORY_EXCHANGES`` questions that got an answer, oldest first.
+
+    Quizzes aren't history: their text is only a summary, and the questions are the
+    student's to answer, not context for the next one.
+    """
     rows = list(
         await session.execute(
-            select(Message.role, Message.text, Message.status)
+            select(Message.role, Message.text, Message.status, Message.mode)
             .where(Message.conversation_id == conversation_id, Message.user_id == user_id)
             .order_by(Message.position)
         )
     )
     exchanges: list[Exchange] = []
-    for (role, question, _), (next_role, reply, status) in itertools.pairwise(rows):
+    for (role, question, _, mode), (next_role, reply, status, _) in itertools.pairwise(rows):
         if (
             role == "user"
             and next_role == "assistant"
+            and mode != "quiz"
             and status in HISTORY_STATUSES
             and reply.strip()
         ):
@@ -164,7 +169,7 @@ async def recent_exchanges(
     return exchanges[-HISTORY_EXCHANGES:]
 
 
-async def _add_message(session: AsyncSession, message: Message) -> Message:
+async def add_message(session: AsyncSession, message: Message) -> Message:
     """Store a message at the end of its conversation."""
     last = await session.scalar(
         select(func.max(Message.position)).where(
@@ -245,7 +250,7 @@ async def prepare_message(
     """Find the conversation, build the turn and store the question. ``NotFound`` if the
     conversation isn't the user's."""
     started = time.monotonic()
-    conversation = await _conversation(session, conversation_id, user_id=user_id)
+    conversation = await find_conversation(session, conversation_id, user_id=user_id)
     history = await recent_exchanges(session, conversation.id, user_id=user_id)
     # A follow-up mode works on the last answer's sources; a new question searches with the
     # previous question as context (ARCHITECTURE "AI integration": the tutor turn).
@@ -273,7 +278,7 @@ async def prepare_message(
         previous_question=previous_question,
         reuse=reuse,
     )
-    await _add_message(
+    await add_message(
         session,
         Message(
             user_id=user_id,
@@ -318,7 +323,7 @@ async def _store_answer(
         )
         for source in turn.sources
     ]
-    return await _add_message(session, message)
+    return await add_message(session, message)
 
 
 async def run_turn(

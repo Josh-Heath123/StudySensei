@@ -1,0 +1,30 @@
+{
+  "questions": [
+    {
+      "prompt": "In a layered style, which layer may a component call?",
+      "options": ["Any layer", "Only the layer below it", "Only the layer above it", "None"],
+      "correct": 1,
+      "explanation": "Each layer only calls the one below it [S1].",
+      "sources": ["S1"]
+    },
+    {
+      "prompt": "How do pipes and filters pass data?",
+      "options": [
+        "Through a shared database",
+        "By broadcasting events",
+        "Along a chain of steps",
+        "Through a central controller"
+      ],
+      "correct": 2,
+      "explanation": "Pipes and filters pass data along a chain of steps [S2].",
+      "sources": ["S2"]
+    },
+    {
+      "prompt": "Which style stacks components so each depends only on the one beneath?",
+      "options": ["Pipes and filters", "Layered", "Event-driven", "Blackboard"],
+      "correct": 1,
+      "explanation": "The layered style stacks components [S1].",
+      "sources": ["S1"]
+    }
+  ]
+}

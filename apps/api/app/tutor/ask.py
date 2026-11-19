@@ -28,6 +28,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.ai.client import LLMClient, TextDelta
+from app.ai.errors import AIUnavailable
 from app.ai.usage import COUNTED_OUTCOMES, DbUsageStore, UsageRecord, UsageStore
 from app.core.config import Settings, get_settings
 from app.models import Module, Topic, User
@@ -48,6 +49,7 @@ from app.services.tutor.conversations import (
     run_turn,
 )
 from app.services.tutor.prompts import TUTOR_MODES, Exchange, TutorMode
+from app.services.tutor.quiz import QuizResult, build_quiz
 from app.services.tutor.retrieval import PreviousSource, Source
 from app.services.tutor.turn import Answer, answer, build_turn
 
@@ -142,6 +144,10 @@ def print_calls(rows: list[UsageRecord], out: TextIO) -> None:
     calls = ", ".join(f"{r.provider}/{r.model} {r.outcome} ({r.latency_ms} ms)" for r in rows)
     counted = sum(1 for r in rows if r.outcome in COUNTED_OUTCOMES)
     print(f"AI calls: {len(rows)} ({counted} counted against the free tier): {calls}", file=out)
+    for row in rows:
+        if row.outcome != "ok" and row.detail:
+            # Why it failed (a status and the provider's message, or what didn't validate).
+            print(f"  {row.provider}/{row.model} {row.outcome}: {row.detail}", file=out)
 
 
 @asynccontextmanager
@@ -207,13 +213,37 @@ async def dry_run(
                     print(file=out)
                     if earlier.status in HISTORY_STATUSES and earlier.text.strip():
                         history = [Exchange(args.after, earlier.text)]
-                if args.mode in FOLLOW_UP_MODES:
+                if args.mode in FOLLOW_UP_MODES or args.mode == "quiz":
                     reuse = [
                         PreviousSource(s.label, s.chunk_id, s.material_id, s.page_number)
                         for s in before.sources
                     ]
                 else:
                     previous_question = args.after
+            if args.mode == "quiz":
+                try:
+                    quiz = await build_quiz(
+                        session,
+                        reuse,
+                        focus=args.after,
+                        user_id=user_id,
+                        client=client,
+                        settings=settings,
+                    )
+                except AIUnavailable as exc:
+                    quiz = QuizResult(None, 0, None, 0, list(before.sources), str(exc))
+                print_quiz(quiz, out)
+                failed = Answer(
+                    status="complete" if quiz.quiz else "failed",
+                    text="",
+                    model=quiz.model,
+                    first_token_ms=None,
+                    total_ms=quiz.total_ms,
+                    cited=[],
+                    unknown_citations=[],
+                    error=quiz.error,
+                )
+                return failed, usage.rows
             started = time.monotonic()
             turn = await build_turn(
                 session,
@@ -249,6 +279,29 @@ async def dry_run(
     finally:
         await client.aclose()
     return result, usage.rows
+
+
+def print_quiz(result: QuizResult, out: TextIO) -> None:
+    """The quiz as the student would get it, with the answers, for checking by hand."""
+    by_label = {s.label: s for s in result.sources}
+    print(
+        f"Quiz: {len(result.quiz.questions) if result.quiz else 0} question(s), "
+        f"{result.dropped} dropped as ungrounded · model {result.model or '-'} · "
+        f"total {result.total_ms} ms",
+        file=out,
+    )
+    if result.error:
+        print(f"Error: {result.error}", file=out)
+    for number, question in enumerate(result.quiz.questions if result.quiz else [], start=1):
+        print(f"\nQ{number}. {question.prompt}", file=out)
+        for index, option in enumerate(question.options):
+            mark = "*" if index == question.correct else " "
+            print(f"  {mark} {'ABCD'[index]}. {option}", file=out)
+        print(f"  Why: {question.explanation}", file=out)
+        for label in question.sources:
+            source = by_label.get(label)
+            where = f"{source.material_title} p{source.page_number}" if source else "?"
+            print(f"  {label}: {where}", file=out)
 
 
 def print_result(result: Answer, sources: list[Source], out: TextIO) -> None:
@@ -326,7 +379,7 @@ def parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("question")
     parser.add_argument("--module", required=True, help="module code, e.g. COS330")
     parser.add_argument("--topic", help="the session topic retrieval boosts (its exact name)")
-    parser.add_argument("--mode", choices=TUTOR_MODES, default="answer")
+    parser.add_argument("--mode", choices=[*TUTOR_MODES, "quiz"], default="answer")
     parser.add_argument("--dry-run", action="store_true", help="write nothing to the database")
     parser.add_argument(
         "--after",
@@ -343,6 +396,8 @@ async def main(argv: list[str], out: TextIO = sys.stdout) -> int:
     settings = get_settings()
     if args.after and not args.dry_run:
         raise SystemExit("--after works with --dry-run only.")
+    if args.mode == "quiz" and not (args.after and args.dry_run):
+        raise SystemExit("--mode quiz needs --dry-run and --after (the answer it quizzes on).")
     if args.dry_run:
         async with read_only_sessions(settings) as sessions:
             result, rows = await dry_run(args, settings, out, sessions)

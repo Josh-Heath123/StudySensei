@@ -20,6 +20,8 @@ from app.schemas.tutor import (
     DoneEvent,
     ErrorEvent,
     MessageCreate,
+    MessageOut,
+    QuizAnswersIn,
     SourcesEvent,
 )
 from app.services.search.embedding import get_embedder
@@ -32,6 +34,7 @@ from app.services.tutor.conversations import (
     prepare_message,
     run_turn,
 )
+from app.services.tutor.quiz import make_quiz, save_quiz_answers
 
 router = APIRouter(tags=["tutor"])
 
@@ -94,6 +97,39 @@ async def read(
 ) -> ConversationOut:
     """The conversation with its messages, oldest first, and each answer's sources."""
     return _out(await get_conversation(session, conversation_id, user_id=user.id))
+
+
+@router.post(
+    "/conversations/{conversation_id}/quiz",
+    response_model=MessageOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        503: {"description": "No AI model can take it now; Retry-After says when to try again"}
+    },
+)
+async def quiz(conversation_id: uuid.UUID, session: SessionDep, user: CurrentUser) -> MessageOut:
+    """ "Quiz me": 3 multiple-choice questions on the last answer's sources (not streamed).
+
+    The question ("Quiz me") and the answer are stored like any other turn; the answer is
+    `failed` with a readable `text` when the AI's quiz couldn't be used. Questions whose
+    sources weren't among the answer's are dropped, so there may be fewer than 3. 422 when
+    nothing has been answered yet; 503 (with Retry-After) when the AI is busy."""
+    message = await make_quiz(
+        session, conversation_id, user_id=user.id, client=get_llm_client(), settings=get_settings()
+    )
+    return MessageOut.model_validate(message)
+
+
+@router.patch("/messages/{message_id}/quiz-answers", response_model=MessageOut)
+async def quiz_answers(
+    message_id: uuid.UUID, data: QuizAnswersIn, session: SessionDep, user: CurrentUser
+) -> MessageOut:
+    """Save the student's picks for a quiz: one per question, null if not answered yet.
+
+    The app grades them in code (the correct index is in the quiz); nothing about mastery or
+    the plan changes. 422 if the message isn't a quiz or the count doesn't match."""
+    message = await save_quiz_answers(session, message_id, data, user_id=user.id)
+    return MessageOut.model_validate(message)
 
 
 async def _prepared(

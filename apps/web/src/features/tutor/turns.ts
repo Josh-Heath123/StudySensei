@@ -1,5 +1,6 @@
 import { citedLabels } from "./citations";
-import type { StoredMessage, StreamSource, TutorMode } from "./api";
+import type { MessageMode, StoredMessage, StreamSource } from "./api";
+import type { Quiz, QuizAnswers } from "./quiz";
 
 export type AnswerStatus =
   "waiting" | "streaming" | "complete" | "truncated" | "failed" | "stopped";
@@ -23,9 +24,21 @@ export type AnswerView = {
   error: string | null;
   /** When the providers expect to take requests again (busy or out of quota). */
   retryAt: string | null;
+  /** The stored message (null while it's still being written). */
+  messageId: string | null;
+  mode: MessageMode;
+  /** "Quiz me": its questions and the picks so far. */
+  quiz: Quiz | null;
+  quizAnswers: QuizAnswers | null;
+  totalMs: number | null;
 };
 
-export type Turn = { key: string; question: string; mode: TutorMode; answer: AnswerView | null };
+export type Turn = {
+  key: string;
+  question: string;
+  mode: MessageMode;
+  answer: AnswerView | null;
+};
 
 /** Stored messages as question-and-answer turns, oldest first. */
 export function turnsFromMessages(messages: StoredMessage[]): Turn[] {
@@ -50,8 +63,19 @@ export function turnsFromMessages(messages: StoredMessage[]): Turn[] {
       })),
       model: message.model,
       firstTokenMs: message.first_token_ms,
-      error: message.status === "failed" ? "The tutor couldn't answer this one." : null,
+      // A quiz that couldn't be used says why in its text; a streamed one just failed.
+      error:
+        message.status !== "failed"
+          ? null
+          : message.mode === "quiz" && message.text
+            ? message.text
+            : "The tutor couldn't answer this one.",
       retryAt: null,
+      messageId: message.id,
+      mode: message.mode,
+      quiz: message.quiz ?? null,
+      quizAnswers: message.quiz_answers ?? null,
+      totalMs: message.total_ms,
     };
   }
   return turns;
@@ -84,6 +108,14 @@ export function answeredBy(model: string | null, firstTokenMs: number | null): s
   const by = `Answered by ${modelName(model)}`;
   if (firstTokenMs === null) return by;
   return `${by} · first words in ${(firstTokenMs / 1000).toFixed(1)} s (measured)`;
+}
+
+/** "Written by gpt-oss-120b (Groq) · in 3.4 s (measured)": a quiz arrives whole. */
+export function writtenBy(model: string | null, totalMs: number | null): string | null {
+  if (model === null) return null;
+  const by = `Written by ${modelName(model)}`;
+  if (totalMs === null) return by;
+  return `${by} · in ${(totalMs / 1000).toFixed(1)} s (measured)`;
 }
 
 /** The readable message for an answer that couldn't be given. */

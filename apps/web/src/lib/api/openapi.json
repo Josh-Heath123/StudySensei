@@ -2686,6 +2686,107 @@
         }
       }
     },
+    "/conversations/{conversation_id}/quiz": {
+      "post": {
+        "tags": [
+          "tutor"
+        ],
+        "summary": "Quiz",
+        "description": "\"Quiz me\": 3 multiple-choice questions on the last answer's sources (not streamed).\n\nThe question (\"Quiz me\") and the answer are stored like any other turn; the answer is\n`failed` with a readable `text` when the AI's quiz couldn't be used. Questions whose\nsources weren't among the answer's are dropped, so there may be fewer than 3. 422 when\nnothing has been answered yet; 503 (with Retry-After) when the AI is busy.",
+        "operationId": "quiz_conversations__conversation_id__quiz_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageOut"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No AI model can take it now; Retry-After says when to try again"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/messages/{message_id}/quiz-answers": {
+      "patch": {
+        "tags": [
+          "tutor"
+        ],
+        "summary": "Quiz Answers",
+        "description": "Save the student's picks for a quiz: one per question, null if not answered yet.\n\nThe app grades them in code (the correct index is in the quiz); nothing about mastery or\nthe plan changes. 422 if the message isn't a quiz or the count doesn't match.",
+        "operationId": "quiz_answers_messages__message_id__quiz_answers_patch",
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Message Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuizAnswersIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{conversation_id}/messages": {
       "post": {
         "tags": [
@@ -4130,8 +4231,7 @@
             "enum": [
               "answer",
               "explain_differently",
-              "example",
-              "quiz"
+              "example"
             ],
             "title": "Mode",
             "default": "answer"
@@ -4234,6 +4334,37 @@
             },
             "type": "array",
             "title": "Sources"
+          },
+          "quiz": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Quiz"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quiz_answers": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiz Answers"
           }
         },
         "type": "object",
@@ -4568,6 +4699,105 @@
         ],
         "title": "PageSummary",
         "description": "A page in the list (no text): for choosing one to open."
+      },
+      "Quiz": {
+        "properties": {
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuizQuestion"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Questions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "questions"
+        ],
+        "title": "Quiz",
+        "description": "What the model is asked for (3 questions); up to 6 are accepted, then filtered."
+      },
+      "QuizAnswersIn": {
+        "properties": {
+          "answers": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 3.0,
+                  "minimum": 0.0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Answers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "answers"
+        ],
+        "title": "QuizAnswersIn",
+        "description": "The student's pick for each question, in order (null for one not answered yet)."
+      },
+      "QuizQuestion": {
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Prompt"
+          },
+          "options": {
+            "items": {
+              "type": "string",
+              "maxLength": 300,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Options"
+          },
+          "correct": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Correct"
+          },
+          "explanation": {
+            "type": "string",
+            "maxLength": 600,
+            "minLength": 1,
+            "title": "Explanation"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prompt",
+          "options",
+          "correct",
+          "explanation",
+          "sources"
+        ],
+        "title": "QuizQuestion",
+        "description": "One multiple-choice question. Extra keys from the model are ignored."
       },
       "ReflectionIn": {
         "properties": {

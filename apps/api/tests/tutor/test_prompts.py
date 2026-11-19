@@ -82,7 +82,8 @@ def test_every_mode_has_its_instruction_after_the_question(mode: TutorMode) -> N
 
 
 def test_the_modes_ask_for_what_the_roadmap_names() -> None:
-    assert "exactly 3 questions" in MODE_INSTRUCTIONS["quiz"]
+    # "Quiz me" isn't a streamed mode: it's structured (app/services/tutor/quiz.py).
+    assert "quiz" not in MODE_INSTRUCTIONS
     assert "different way" in MODE_INSTRUCTIONS["explain_differently"]
     assert "worked example" in MODE_INSTRUCTIONS["example"]
 

@@ -304,11 +304,13 @@ class LLMClient:
         user_id: uuid.UUID,
         reasoning_effort: ReasoningEffort | None = None,
         budget: CallBudget | None = None,
+        interactive: bool = False,
     ) -> T:
         """Ask for JSON, validate it against ``schema``, and repair it once if needed.
 
         Raises ``AIInvalidOutput`` if the repaired reply still doesn't validate (or the
         budget allows no repair). ``reasoning_effort`` overrides the routes' level.
+        ``interactive``: a student is waiting, so a 429 or 503 moves straight on (ADR 0013).
         """
         result = await self.complete_json_result(
             role,
@@ -318,6 +320,7 @@ class LLMClient:
             user_id=user_id,
             reasoning_effort=reasoning_effort,
             budget=budget,
+            interactive=interactive,
         )
         return result.value
 
@@ -331,6 +334,7 @@ class LLMClient:
         user_id: uuid.UUID,
         reasoning_effort: ReasoningEffort | None = None,
         budget: CallBudget | None = None,
+        interactive: bool = False,
     ) -> AIResult[T]:
         """``complete_json``, also saying which provider and model answered."""
         result: list[T] = []
@@ -352,6 +356,7 @@ class LLMClient:
                 check=check,
                 effort=reasoning_effort,
                 budget=budget,
+                interactive=interactive,
             )
             return AIResult(result[-1], route)
         except _InvalidReply as first:
@@ -380,6 +385,7 @@ class LLMClient:
                 check=check,
                 effort=reasoning_effort,
                 budget=budget,
+                interactive=interactive,
             )
             return AIResult(result[-1], route)
         except _InvalidReply as second:
@@ -698,6 +704,7 @@ class LLMClient:
         check: Callable[[str], None] | None,
         effort: ReasoningEffort | None,
         budget: CallBudget | None,
+        interactive: bool = False,
     ) -> tuple[str, Route]:
         role, routes = self._usable_routes(role, messages)
         waits: list[datetime] = []
@@ -730,7 +737,7 @@ class LLMClient:
                         route, role, purpose, user_id, started, None, exc, budget=budget
                     )
                     log.warning("%s failed (%s) for %s", route.key, exc, purpose)
-                    wait = self._after_failure(route, exc, attempt, waits, interactive=False)
+                    wait = self._after_failure(route, exc, attempt, waits, interactive=interactive)
                     if wait is None:
                         break
                     attempt += 1
