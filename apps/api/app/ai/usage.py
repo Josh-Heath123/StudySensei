@@ -15,8 +15,9 @@ from app.models import AIUsage
 SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 
 # Outcomes that used up a request of the provider's quota. A timeout counts: the provider
-# may well have answered after we stopped waiting. A refusal ran (and was filtered).
-COUNTED_OUTCOMES = ("ok", "error", "invalid_json", "timeout", "truncated", "refused")
+# may well have answered after we stopped waiting. A refusal ran (and was filtered). A
+# stream the student stopped part-way ran too.
+COUNTED_OUTCOMES = ("ok", "error", "invalid_json", "timeout", "truncated", "refused", "stopped")
 # Requests the provider turned away before running them: 429, 503 "high demand", and 413
 # "request too large" (ADR 0009).
 TURNED_AWAY_OUTCOMES = ("rate_limited", "overloaded", "too_large")

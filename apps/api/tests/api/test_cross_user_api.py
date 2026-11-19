@@ -1,4 +1,5 @@
-"""Over HTTP, Bob can't reach Alice's modules, topics, assessments, tasks, sessions or materials.
+"""Over HTTP, Bob can't reach Alice's modules, topics, assessments, tasks, sessions, materials
+or tutor conversations.
 
 Every request Bob makes with one of Alice's IDs must get exactly the response
 a random, non-existent ID gets, so he can't even tell her rows exist. Afterwards
@@ -13,7 +14,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AIUsage, Material, TopicReview, User
+from app.models import AIUsage, Conversation, Material, TopicReview, User
 from app.storage.local import LocalStorage
 from tests.academics.conftest import Rows
 from tests.fakes import FakeLLM, ok
@@ -111,6 +112,13 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("DELETE", "/topics/{topic}/pages/{material}/1", None),
     # Unlinking a page of her material from his topic.
     ("DELETE", "/topics/{my_topic}/pages/{material}/1", None),
+    # Tutor
+    ("POST", "/modules/{module}/tutor/conversations", {}),
+    # His conversation on her topic, or for her study session.
+    ("POST", "/modules/{my_module}/tutor/conversations", {"topic_id": "{topic}"}),
+    ("POST", "/modules/{my_module}/tutor/conversations", {"study_session_id": "{session}"}),
+    ("GET", "/conversations/{conversation}", None),
+    ("POST", "/conversations/{conversation}/messages", {"question": "What is a firewall?"}),
 ]
 
 
@@ -158,6 +166,20 @@ async def dismissed(session: AsyncSession, alice: Rows, bob: Rows) -> dict[str, 
     return made
 
 
+@pytest.fixture
+async def conversations(session: AsyncSession, alice: Rows, bob: Rows) -> dict[str, Conversation]:
+    """One tutor conversation each, on their own topic."""
+    made = {}
+    for name, rows in (("alice", alice), ("bob", bob)):
+        conversation = Conversation(
+            user_id=rows.user.id, module_id=rows.module.id, topic_id=rows.topic.id
+        )
+        session.add(conversation)
+        made[name] = conversation
+    await session.commit()
+    return made
+
+
 def fill(value: Any, ids: dict[str, str]) -> Any:
     if isinstance(value, str):
         return value.format(**ids)
@@ -173,6 +195,7 @@ def ids_of(
     bob: Rows,
     materials: dict[str, Material],
     dismissed: dict[str, TopicReview],
+    conversations: dict[str, Conversation],
 ) -> tuple[dict[str, str], dict[str, str]]:
     """(Alice's real IDs, the same keys with random IDs). Bob's own IDs are in both."""
     mine = {
@@ -182,6 +205,7 @@ def ids_of(
         "my_task": str(bob.task.id),
         "my_session": str(bob.study_session.id),
         "my_material": str(materials["bob"].id),
+        "my_conversation": str(conversations["bob"].id),
     }
     hers = {
         "module": str(alice.module.id),
@@ -191,14 +215,16 @@ def ids_of(
         "session": str(alice.study_session.id),
         "material": str(materials["alice"].id),
         "dismissed": str(dismissed["alice"].id),
+        "conversation": str(conversations["alice"].id),
     }
     missing = {key: str(uuid.uuid4()) for key in hers}
     return {**hers, **mine}, {**missing, **mine}
 
 
-async def snapshot(api: AsyncClient, rows: Rows) -> tuple[Any, ...]:
+async def snapshot(api: AsyncClient, rows: Rows, conversation: Conversation) -> tuple[Any, ...]:
     """Everything a user owns, as their own client sees it."""
     return (
+        (await api.get(f"/conversations/{conversation.id}")).json(),
         (await api.get("/modules")).json(),
         (await api.get(f"/modules/{rows.module.id}/topics")).json(),
         (await api.get("/assessments")).json(),
@@ -218,12 +244,19 @@ async def test_bob_gets_the_same_404_as_for_a_missing_id(
     bob: Rows,
     materials: dict[str, Material],
     dismissed: dict[str, TopicReview],
+    conversations: dict[str, Conversation],
     method: str,
     path: str,
     body: dict[str, Any] | None,
 ) -> None:
-    before = (await snapshot(alice_api, alice), await snapshot(bob_api, bob))
-    hers, missing = ids_of(alice, bob, materials, dismissed)
+    async def snapshots() -> tuple[Any, ...]:
+        return (
+            await snapshot(alice_api, alice, conversations["alice"]),
+            await snapshot(bob_api, bob, conversations["bob"]),
+        )
+
+    before = await snapshots()
+    hers, missing = ids_of(alice, bob, materials, dismissed, conversations)
 
     attempt = await bob_api.request(method, fill(path, hers), json=fill(body, hers))
     baseline = await bob_api.request(method, fill(path, missing), json=fill(body, missing))
@@ -231,7 +264,7 @@ async def test_bob_gets_the_same_404_as_for_a_missing_id(
     assert attempt.status_code == 404
     assert (attempt.status_code, attempt.json()) == (baseline.status_code, baseline.json())
     # Neither Alice's data nor Bob's changed (a rejected write leaves nothing behind).
-    assert (await snapshot(alice_api, alice), await snapshot(bob_api, bob)) == before
+    assert await snapshots() == before
 
 
 @pytest.mark.parametrize(

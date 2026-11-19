@@ -89,6 +89,7 @@ the web app calls the API through the typed `openapi-fetch` client. CI fails if 
 | Sessions | `POST /sessions`, `GET /sessions/active`, `GET/DELETE /sessions/{id}`, `POST /sessions/{id}/events`, `PUT /sessions/{id}/reflection`, `GET /modules/{id}/sessions?limit=&offset=` (a page `{items, total, limit, offset}`: the open session first, then newest first; limit 1–100, default 20), `GET /modules/{id}/sessions/summary?week_start=` (session count and active seconds, all time and since `week_start`) |
 | AI | `GET /ai/status`: per provider whether it's configured (`key_set` is yes/no only), each role's models in order, and per model `used_today` / `daily_budget` / `resets_at` for the current user |
 | AI | `POST /ai/ping` (no body): tests every configured model at once, one short request each (30 s limit each), logged in `ai_usage` as purpose `ping` against the caller. One result per model: `status` `ok` (`latency_ms`), `failed` (`error`: the provider's own text, never a key) or `skipped` (daily budget used up, so not called; `resets_at`), plus `in_models_list` (null with `models_list_error` when the provider's `/models` failed). No provider configured → `results: []` |
+| Tutor | `POST /modules/{id}/tutor/conversations` (`{study_session_id?, topic_id?}`, 201; both must be in the module; without a topic the session's is used), `GET /conversations/{id}` (messages oldest first; each answer has its `model`, `status`, `first_token_ms`, `total_ms`, `unknown_citations` and `sources` with `label`, `rank`, material, page, `cited`), `POST /conversations/{id}/messages` (`{question, mode}`, mode `answer` / `explain_differently` / `example` / `quiz`) → `text/event-stream`, below |
 | Materials | `POST /modules/{id}/materials` (multipart: `file`, `kind`, `title?`, `allow_ai`; 413 over 50 MB, 415 wrong type, 409 same file in the module), `GET /modules/{id}/materials`, `GET/PATCH/DELETE /materials/{id}` (PATCH: title, kind, allow_ai), `POST /materials/{id}/retry` (failed only), `GET /materials/{id}/pages` (page number, title, char count, is_scanned), `GET /materials/{id}/pages/{n}` (adds the text), `GET /materials/{id}/file` (the stored original, streamed through `Storage`: its own `Content-Type`, `Content-Disposition: inline` with the RFC 5987 filename, `X-Content-Type-Options: nosniff`, `ETag` = the sha256 with `Cache-Control: private, max-age=31536000, immutable`, and 304 for a matching `If-None-Match`; 404 for another user's material or a missing blob) |
 
 Notes on these endpoints:
@@ -98,6 +99,21 @@ Notes on these endpoints:
 - Dates (`due_at`) must include a timezone; a bare local time is a 422.
 - Lists come soonest first, with undated items last.
 - List filters with someone else's ID return `[]`, exactly like a non-existent ID.
+
+**The tutor's stream** (decision 0013): `POST /conversations/{id}/messages` answers 404 (another user's or a missing
+conversation) or 422 before the stream opens. A dependency finds the conversation, runs retrieval and stores the
+question first. Then it streams these events, in order:
+
+| Event | Data | When |
+| --- | --- | --- |
+| `sources` | `{sources: [{label, material_id, material_title, page_number, page_title}]}` | First, before any text (may be empty) |
+| `delta` | `{text}` | Each piece of the answer (never the model's thinking) |
+| `done` | `{message_id, status (complete or truncated), model, first_token_ms, total_ms, cited, unknown_citations}` | Last, when an answer was given |
+| `error` | `{message_id, message, retry_at}` | Last, when it wasn't: `retry_at` is set when the AI is busy or out of quota, null when retrying won't help |
+
+- The events are typed in the OpenAPI (an SSE item schema over `SourcesEvent | DeltaEvent | DoneEvent | ErrorEvent`).
+  FastAPI adds keep-alive comments.
+- If the client disconnects, the provider's stream is stopped and the partial answer is stored as `stopped`.
 
 Topic `position` is the index among siblings. New topics append, and moves/deletes renumber the siblings to 0..n-1.
 
@@ -132,7 +148,8 @@ Derived tables can always be rebuilt from source tables.
 | Sessions | `study_sessions`, `session_events`, `session_minutes` | No images or audio, ever |
 | Practice | `practice_items`, `reviews` (grade + FSRS state) | |
 | Derived | `topic_mastery`, `profile_metrics` (value, sample size, label), `recommendations` | Rebuilt nightly and after each session |
-| AI | `conversations`, `messages` (with citations), `ai_usage` | Usage drives budget and rate-limit handling |
+| Tutor | `conversations` (module, optional study session and topic), `messages` (`position` in the conversation, role `user`/`assistant`, mode, text, status `complete`/`truncated`/`failed`/`stopped`, model, `first_token_ms`, `total_ms`, `unknown_citations`), `message_sources` (label S1–S8, rank, material, page, titles copied, `cited`) | Migration 0017. Every table has `user_id` and composite FKs: a conversation's session and topic must be in its module (set to null if deleted); a source's material is the same user's (set to null if deleted, titles kept). The prompt itself is never stored |
+| AI | `ai_usage` | Usage drives budget and rate-limit handling; outcome `stopped` (0017) is a stream the student stopped |
 | System | `jobs` (kind, payload, status, attempts, run_after, error) | |
 
 **Built so far:**
@@ -309,6 +326,28 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   installs a client whose transport fails any request. AI tests script replies with `FakeLLM` (`tests/fakes.py`).
 - **AI suggests, code decides:** AI never changes the plan, deletes data or sends notifications.
 - **Untrusted input:** uploaded documents are untrusted, and retrieved text is labelled as source material in prompts.
+- **Streaming** (decision 0013): `stream_text(role, messages, *, purpose, user_id, interactive=True)` yields
+  `TextDelta` (answer text and the model writing it) and then one `StreamDone`.
+  - The routes, budgets, pacing, timeouts and effort levels are `complete_text`'s, with one `ai_usage` row per
+    attempt.
+  - **Fallback only before the first answer token** (thinking deltas don't count). After it, a failure raises
+    `AIStreamFailed`, so two models are never spliced.
+  - **Interactive calls never wait:** a 429 or 503 moves straight on, and another 5xx is `AIUnavailable` at once.
+    Background calls keep 0007's short retry. `_after_failure` holds both rules.
+  - `finish_reason` "length" ends normally, marked truncated. Closing the iterator closes the provider's stream
+    (outcome `stopped`).
+- **The tutor turn** (`app/services/tutor/turn.py`, `conversations.py`):
+  - **History:** the last 2 answered exchanges (`complete` or `truncated`) go in as chat turns, inside
+    `TUTOR_CONTEXT_MAX_TOKENS`. The sources take what they need first, then the oldest exchange is dropped until
+    the rest fits. An earlier answer's `[Sn]` labels are stripped, because they pointed at that turn's sources.
+  - **Citations** are parsed when the stream ends. Both `[S1]`, `[S2, S4]` and gpt-oss's full-width `【S1】` count.
+    A label that wasn't given (`S9`) is kept out of the citations and listed in `unknown_citations`, and the text is
+    never rewritten.
+  - **Timings** are measured from receiving the question.
+- **CLI:** `uv run python -m app.tutor.ask --module COS330 "question" [--topic NAME] [--mode …] [--dry-run]` runs the
+  same service. It prints the sources, streams the answer, then the model, time to first token, cited sources and AI
+  calls. `--dry-run` writes nothing: the session is read-only in Postgres, and usage is kept in memory (today's
+  earlier calls still count toward budgets).
 - **Later:** per-feature token limits, cached practice items, user-supplied keys (`ai_credentials`, Phase 9) and a
   read-only MCP server (`get_modules`, `get_plan`, `get_weak_topics`, `search_materials`).
 

@@ -2,6 +2,54 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-19: Phase 3, task 2 (SSE tutor endpoint and conversation storage)
+
+- **Done:**
+  - **Streaming:** `LLMClient.stream_text` and the adapter's `stream` (SSE over httpx), with ADR 0013's rules.
+    - Fallback happens only before the first answer token, and never after it.
+    - Interactive calls never wait on a 429 or 503.
+    - Thinking deltas are hidden, "length" marks the answer truncated, and stopping the stream is logged as `stopped`.
+    - `complete_text`'s failure handling moved into one shared `_after_failure` (behaviour unchanged).
+  - **Migration 0017:** `conversations`, `messages` (ordered by `position`) and `message_sources`, all with `user_id`
+    and composite FKs; plus the `ai_usage` outcome `stopped`.
+  - **Endpoints:** `POST /modules/{id}/tutor/conversations`, `GET /conversations/{id}`, and
+    `POST /conversations/{id}/messages`, which streams `sources`, `delta`, then `done` or `error`. It uses FastAPI's
+    native SSE, and a dependency returns 404 before the stream opens. `npm run gen:api` was run.
+  - **History:** the last 2 answered exchanges go in the prompt, within the context budget (sources first, oldest
+    exchange dropped first), with their `[Sn]` labels stripped.
+  - **Citations:** parsed when the stream ends; unknown labels are flagged, and the text is never rewritten.
+  - **Disconnect:** the provider's stream is stopped and the partial answer is stored as `stopped` (shielded).
+  - **CLI:** `python -m app.tutor.ask` (`--dry-run` writes nothing).
+  - **Tests:** 23 streaming, 16 HTTP (including a raw-ASGI disconnect), 9 turn and citation, 2 CLI, and 5 new
+    cross-user cases.
+- **Real check** (dry run, COS330, `--topic` per query, about 70 s apart for Groq's 8K tokens a minute):
+
+  | # | Question | First token | Model | Cites an acceptable page |
+  | --- | --- | --- | --- | --- |
+  | 1 | attack surface | 703 ms | groq/openai/gpt-oss-120b | yes: notes p15, CH01 p35, p36 |
+  | 5 | inference | 827 ms | groq/openai/gpt-oss-120b | yes: Ch5 notes p14 |
+  | 9 | SYN spoofing | 843 ms | groq/openai/gpt-oss-120b | yes: Ch7 notes p9 |
+  | 12 | stateful inspection | 828 ms | groq/openai/gpt-oss-120b | yes: CH09 p14 |
+  | 15 | IaaS / PaaS / SaaS | 796 ms | groq/openai/gpt-oss-120b | yes: CH13 p13, 14, 15 |
+
+  - Free-tier calls: 6, all `groq/openai/gpt-oss-120b`, all ok. That's these 5 plus a first run of question 1, which
+    found the citation bug below.
+  - Times are measured from receiving the question, and include retrieval (46–77 ms). Loading the embedding model
+    (about 850 ms, once per API process) isn't counted.
+  - The first run of question 1 took 3,687 ms, with a cold model load and the old prompt.
+- **Found on real data:**
+  - gpt-oss cites in full-width brackets, `【S1】`: 3 of 5 answers did, even after the prompt asked for `[S1]`. The
+    first run parsed no citations at all.
+  - The parser and the history stripping now accept both forms. The text is stored as written, so task 3 must render
+    `【Sn】` as a citation too.
+- **Decided (ADR 0013):**
+  - Interactive calls never wait, and there's no fallback after the first token.
+  - Failed and stopped answers are kept with their partial text, but don't count as history.
+  - `message_sources` copies the titles, so a deleted material leaves the citation readable.
+- **Migration 0017 isn't applied to the dev database.** Run `npm run db:migrate` before using the endpoints or the
+  CLI without `--dry-run`.
+- **Next:** Phase 3 task 3: the tutor panel (streamed answers, clickable [S1]–[S8] citations into the viewer, KaTeX).
+
 ## 2026-11-18: Phase 3, task 1 (tutor retrieval and prompt templates)
 
 - **Done:**

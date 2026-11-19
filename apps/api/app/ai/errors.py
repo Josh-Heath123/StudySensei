@@ -48,6 +48,17 @@ class AITruncated(Exception):
     Not repaired: asking again gives the same cut. Callers send less (smaller parts)."""
 
 
+class AIStreamFailed(Exception):
+    """A streamed answer failed after its first token (a lost connection, a timeout, an
+    error event or a refusal part-way). Not passed on to another model: two models' text
+    would be spliced into one answer (ADR 0013). The text so far was already streamed.
+    ``model`` is the "provider/model" that was answering. The message is safe to show."""
+
+    def __init__(self, message: str, *, model: str) -> None:
+        super().__init__(message)
+        self.model = model
+
+
 NOT_CONFIGURED = (
     "AI isn't set up yet. Add GEMINI_API_KEY or GROQ_API_KEY to apps/api/.env "
     "(or set OLLAMA_MODEL), then restart the API and worker."
