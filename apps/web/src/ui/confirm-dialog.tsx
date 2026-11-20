@@ -16,16 +16,22 @@ type Props = {
   title: string;
   description: ReactNode;
   confirmLabel: string;
+  /** Shown on the button while it works (default "Deleting…"). */
+  busyLabel?: string;
+  /** "destructive" (default) or "default" for a non-destructive confirmation. */
+  tone?: "destructive" | "default";
   onConfirm: () => Promise<unknown>;
 };
 
-/** A destructive yes/no dialog. Stays open and shows the error if onConfirm fails. */
+/** A yes/no dialog (destructive by default). Stays open and shows the error if onConfirm fails. */
 export function ConfirmDialog({
   open,
   onOpenChange,
   title,
   description,
   confirmLabel,
+  busyLabel = "Deleting…",
+  tone = "destructive",
   onConfirm,
 }: Props) {
   const [busy, setBusy] = useState(false);
@@ -60,8 +66,12 @@ export function ConfirmDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={confirm} disabled={busy}>
-            {busy ? "Deleting…" : confirmLabel}
+          <Button
+            variant={tone === "destructive" ? "destructive" : "default"}
+            onClick={confirm}
+            disabled={busy}
+          >
+            {busy ? busyLabel : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

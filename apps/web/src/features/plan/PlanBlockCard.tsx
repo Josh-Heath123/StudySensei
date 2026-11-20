@@ -1,0 +1,86 @@
+import { Check } from "lucide-react";
+import type { CSSProperties, ComponentProps } from "react";
+
+import { cn } from "@/lib/utils";
+
+import type { PlanBlock } from "./api";
+import { blockTitle, isNow, measuredText, METHOD_LABELS } from "./planText";
+import { clock, zoned } from "./week";
+
+type Props = Omit<ComponentProps<"button">, "children"> & {
+  block: PlanBlock;
+  timeZone: string;
+  now: number;
+  /** Tight layout for short grid cards. */
+  compact?: boolean;
+  style?: CSSProperties;
+};
+
+/**
+ * docs/DESIGN.md "Plan block card": a solid card with the module colour as its left edge,
+ * the topic (or "Final review · …"), the time and the method. Done shows a check and the
+ * measured minutes; skipped is muted and struck through; missed is muted and labelled; a
+ * block happening now says "Now". It's a button: it opens the block's details.
+ */
+export function PlanBlockCard({
+  block,
+  timeZone,
+  now,
+  compact = false,
+  className,
+  style,
+  ...props
+}: Props) {
+  const start = zoned(block.start, timeZone);
+  const end = zoned(block.end, timeZone);
+  const measured = measuredText(block);
+  const quiet = block.status === "skipped" || block.status === "missed";
+  const live = isNow(block, now);
+  const title = blockTitle(block);
+  return (
+    <button
+      type="button"
+      data-block-id={block.id}
+      data-status={live ? "now" : block.status}
+      className={cn(
+        "bg-surface border-line text-fg focus-visible:outline-ring flex w-full min-w-0 cursor-pointer flex-col items-start gap-0.5 overflow-hidden rounded-md border border-l-4 px-2.5 py-1.5 text-left shadow-sm transition-[box-shadow,opacity] hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2",
+        quiet && "text-muted opacity-75 shadow-none",
+        live && "ring-ring ring-2",
+        className,
+      )}
+      style={{ borderLeftColor: block.module_colour, ...style }}
+      aria-label={`${title}, ${clock(start.minutes)} to ${clock(end.minutes)}${
+        block.status !== "planned" ? `, ${block.status}` : live ? ", now" : ""
+      }`}
+      {...props}
+    >
+      <span
+        className={cn(
+          "w-full truncate text-[13px] leading-tight font-semibold",
+          block.status === "skipped" && "line-through",
+        )}
+      >
+        {title}
+      </span>
+      <span className="text-muted flex w-full min-w-0 items-center gap-1.5 text-xs tabular-nums">
+        <span>
+          {clock(start.minutes)}–{clock(end.minutes)}
+        </span>
+        {!compact && <span className="truncate">· {METHOD_LABELS[block.method]}</span>}
+      </span>
+      {(live || block.status !== "planned") && (
+        <span className="flex items-center gap-1 text-xs font-semibold">
+          {live && <span className="text-link">Now</span>}
+          {block.status === "done" && (
+            <span className="text-success flex items-center gap-1">
+              <Check className="size-3.5" aria-hidden />
+              {measured ?? "Done"}
+            </span>
+          )}
+          {block.status === "missed" && <span>Missed</span>}
+          {block.status === "skipped" && <span>Skipped</span>}
+        </span>
+      )}
+    </button>
+  );
+}
