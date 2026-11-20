@@ -108,7 +108,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 **Depends on:** Phases 1 and 2.
 
 - [x] Availability models (`availability_rules`, `availability_exceptions`), workload and starting confidence per topic
-- [ ] `services/planning/plan()` as a pure function. **Property tests first:**
+- [x] `services/planning/plan()` as a pure function. **Property tests first:**
   - no overlaps
   - stays within availability
   - respects the daily cap

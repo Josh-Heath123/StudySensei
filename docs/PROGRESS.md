@@ -2,6 +2,28 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-20: Phase 4, task 2 (the pure planner, property tests first)
+
+- **Fix from the review of #41:** the topic dialog scrolls in one place (the dialog), not also in its page list.
+- **`plan()`** (`services/planning/planner.py`, ADR 0017, "Planner v1 rules"): a pure function of frozen dataclasses.
+  - 50-minute blocks with the timer's 10-minute break, 25 only where no 50 fits, on a 5-minute grid.
+  - Three passes, sooner deadlines first: a final review in the last 3 days (as late as fits), two blocks per topic
+    on different days (as early as fits), then the rest of the workload, spread over days.
+  - Each block has a machine-readable reason, and the plan lists shortfalls for task 3's feasibility report.
+- **Property tests first** (Hypothesis, a dev dependency, MPL-2.0; the licence check accepts it), committed before
+  `plan()`. What failed first:
+  - the strategy itself: on the first green run, spacing was only exercised in 0.3 % of examples. A "roomy" mode
+    (windows every day, deadlines 2+ days out) brought it to about 22 % and reviews to about 50 %;
+  - then **no overlaps**: free time over local midnight is split by day, and each day only checked its own blocks, so a
+    block ended 23:55 and the next began 00:00. A day now sees its neighbours' blocks.
+  - "time allows" for spacing first meant two days that each fit every topic, which never held in the scenario
+    (evenings hold 2 blocks). It is now Hall's condition (ADR 0017), and held over 3,000 examples.
+  - Mutations (no cap check, no different-day rule, no reviews) are each caught.
+- **Scenario** (2 modules, exams in 10 and 20 days, 12 h a week): every property holds, every topic is spaced, the
+  reviews sit on the last free evening before each exam, and the one shortfall is A4's "no estimate". Skipping a block
+  re-places its topic's time. 60 topics over 30 days plan in about 5 ms (the test allows 200).
+- **Next:** task 3, the feasibility report, the study-method rules table and the reason text.
+
 ## 2026-11-20: Phase 4, task 1 (availability, workload and starting confidence)
 
 - **Data** (migration 0021):

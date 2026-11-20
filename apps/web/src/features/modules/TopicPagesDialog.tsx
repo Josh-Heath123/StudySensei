@@ -64,7 +64,8 @@ export function TopicPagesDialog({
         {pages.data?.length === 0 && (
           <EmptyState icon={FileText}>No pages are linked to this topic yet.</EmptyState>
         )}
-        <div className="-mx-1 max-h-[60vh] space-y-5 overflow-y-auto px-1">
+        {/* One scroll area: the dialog scrolls as a whole (ui/dialog), not the page list. */}
+        <div className="space-y-5">
           {pages.data?.map((material) => (
             <section key={material.material_id} aria-label={material.title}>
               <h3 className="type-label text-muted mb-2 break-words">{material.title}</h3>

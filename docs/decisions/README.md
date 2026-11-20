@@ -21,3 +21,4 @@ after they're accepted (apart from redacting personal identifiers); a later reco
 | [0014](0014-interactive-repairs-move-on.md) | An interactive JSON repair that's turned away moves to the next model, afresh | Accepted; amends 0013 |
 | [0015](0015-voice-on-device-only.md) | Voice is on-device only: on-device Web Speech, local voices, no server fallback | Accepted |
 | [0016](0016-workload-estimate.md) | A topic's workload is estimated from its pages, at 3 minutes a slide and 6 a page of text | Accepted |
+| [0017](0017-planner-v1-rules.md) | Planner v1 rules: 50-minute blocks, two spaced blocks per topic, a final review, deadline order | Accepted |

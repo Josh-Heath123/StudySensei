@@ -622,11 +622,27 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   the rules and the next 7 days with exceptions). Each topic's detail dialog holds its confidence and workload; the
   tree shows them only on hover or focus.
 
-- **Planner:** `services/planning/` is a pure function: (availability, assessments, workload, mastery, past-paper importance,
-  block length) → plan blocks + a feasibility report.
-  - Priority = importance × (1 − mastery) × urgency.
-  - Each topic gets at least 2 spaced sessions and a final review where time allows.
-  - Daily caps apply, and the next 24 h stay fixed.
+### Planner (Phase 4, task 2; ADR 0017)
+
+- **`plan(PlanInput) -> Plan`** (`services/planning/planner.py`) is pure: no database, no clock, no AI. Inputs are
+  frozen dataclasses: `now`, the free intervals (UTC, from `expand()`), the daily cap and timezone, assessments (id,
+  module, due, weight, topic ids), topics (id, module, workload minutes or None, confidence or None) and the minutes
+  studied per topic. The same input gives the same plan, in any order.
+- **Blocks** are 50 minutes (25 only where a 50 doesn't fit) on a 5-minute grid, with a 10-minute break between
+  neighbours, inside free time, under the cap per local day, after now and before their assessment's deadline.
+- **Three passes,** sooner deadlines first (then weight, then lower confidence, then ids): a final review in the last
+  72 h before each assessment, as late as fits; two blocks per topic on different days, as early as fits (a later
+  assessment looks first after the previous deadline); then the rest of each topic's required minutes
+  (`max(0, workload − studied)`, +50 % at confidence 1 to −30 % at 5), spread over days.
+- **Output:** blocks with a kind (`study`/`review`) and a machine-readable reason (`final_review`, `spacing`,
+  `no_estimate`, `low_confidence`, `urgency`, `workload`), and shortfalls (`not_enough_time`, `not_spaced`,
+  `no_estimate`, `no_review_time`, `no_topics`) for the feasibility report (task 3).
+- **Tests:** Hypothesis properties (`tests/planning/test_plan_properties.py`, checks in `plan_checks.py`), the rules
+  one at a time, and the Phase 4 scenario with a skipped block and a 200 ms budget for 60 topics over 30 days.
+- **Later:** mastery and past-paper importance join the priority (Phases 5–6); the next 24 h stay fixed when
+  re-planning (task 4).
+### Re-planning, timers and reminders
+
 - **Re-planning:** on a new assessment or material, a skipped or finished block, a mastery change, and nightly.
 - **Timers:** live in the browser and are based on start and end timestamps, so a reload or throttling can't drift them. Every change is logged as a server event.
   - `src/session-engine/`: `timer.ts` holds pure functions of the events and an injected `now`: replay, live totals, focus/break
