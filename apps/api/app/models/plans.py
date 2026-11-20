@@ -48,6 +48,7 @@ TRIGGERS = (
     "material",
     "nightly",
     "manual",
+    "move",
 )
 BLOCK_KINDS = ("study", "review")
 BLOCK_REASONS = ("final_review", "spacing", "no_estimate", "low_confidence", "urgency", "workload")
@@ -122,5 +123,7 @@ class PlanBlock(TimestampedBase):
     method_text: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(10), default="planned", server_default="planned")
     status_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    # Carried from the previous version (it started within the next 24 h).
+    # Carried from the previous version (it started within the next 24 h, or is pinned).
     fixed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # The student moved it (decision 0022): re-plans keep it at its time while it's valid.
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")

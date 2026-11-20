@@ -340,6 +340,7 @@ class PlanVersionOut(BaseModel):
         "material",
         "nightly",
         "manual",
+        "move",
     ]
     # Why this version exists, in one code-written sentence.
     summary: str
