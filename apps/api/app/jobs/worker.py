@@ -24,6 +24,7 @@ from app.jobs.kinds import (
     INDEX_MATERIAL,
     LINK_TOPICS,
     MERGE_TOPICS,
+    PUSH_REMINDER,
     REPLAN,
 )
 from app.jobs.tasks import (
@@ -32,9 +33,11 @@ from app.jobs.tasks import (
     index_material,
     link_topics,
     merge_topics,
+    push_reminder,
     replan,
 )
 from app.services.planning.replan import queue_nightly_replans
+from app.services.push.reminders import queue_reminders
 from app.services.search.embedding import get_embedder
 from app.storage.base import Storage
 from app.storage.local import get_storage
@@ -48,8 +51,10 @@ HANDLERS: Mapping[str, Handler] = {
     MERGE_TOPICS: Handler(run=merge_topics.run),
     LINK_TOPICS: Handler(run=link_topics.run),
     REPLAN: Handler(run=replan.run),
+    PUSH_REMINDER: Handler(run=push_reminder.run),
 }
-# How often the main loop looks for users due a nightly re-plan (decision 0021).
+# How often the main loop looks for users due a nightly re-plan (decision 0021) and for
+# blocks due a push reminder (decision 0024).
 NIGHTLY_CHECK_SECONDS = 60.0
 
 UNEXPECTED = "Something went wrong while processing this file. It will be retried."
@@ -136,6 +141,10 @@ async def main() -> None:
                         queued = await queue_nightly_replans(session, _now())
                     if queued:
                         log.info("Queued %s nightly re-plan(s)", queued)
+                    async with sessions() as session:
+                        reminders = await queue_reminders(session, _now())
+                    if reminders:
+                        log.info("Queued %s push reminder(s)", reminders)
                 ran = await run_once(sessions, storage)
                 failures = 0
             except Exception:
