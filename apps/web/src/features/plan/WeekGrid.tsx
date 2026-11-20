@@ -181,8 +181,13 @@ export function WeekGrid({
     : placed;
 
   return (
-    <div className="surface-card overflow-hidden rounded-xl" data-testid="week-grid">
-      <div className="border-line grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] border-b">
+    // overflow-clip, not hidden: a hidden overflow would be the sticky header's scroll box.
+    <div className="surface-card overflow-clip rounded-xl" data-testid="week-grid">
+      {/* The day headers stay under the floating nav while a long grid scrolls. */}
+      <div
+        data-testid="week-grid-header"
+        className="border-line bg-surface sticky top-[4.5rem] z-20 grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] rounded-t-xl border-b"
+      >
         <div />
         {week.map((date) => {
           const off = unavailable.has(date);
