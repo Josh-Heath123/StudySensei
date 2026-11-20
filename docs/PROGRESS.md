@@ -2,6 +2,22 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-20: Phase 4, task 3 (feasibility report, study methods and reason text)
+
+- **Fixes from the review of #42:** docs/README lists decisions 0001–0018; the evals README intro names the tutor eval.
+- **Inputs from the database** (`services/planning/inputs.py`): free time for 1–62 local days, upcoming assessments
+  due in the window (later ones are listed, not planned), workload and confidence, and measured minutes per topic
+  (a subtopic's sessions count for it only). Tests: another user's rows never count, a past assessment is left out,
+  an exception empties its day.
+- **Methods, text and feasibility** (ADR 0018, all pure): a four-row method table; one or two code-written sentences
+  per block, every minute labelled estimated, yours or measured; per-topic, per-assessment and overall required,
+  planned, short, free and booked minutes with fits/tight/short and levers. Hypothesis checks planned + short =
+  required, the sums and the status (about 11 % of examples tight, 35 % short).
+- **Preview:** `GET /plan/preview?days=` (cross-user case) and `python -m app.planning.preview`. The dev DB has no
+  assessments or study time yet, so the CLI ran on the demo seed, which now has weekly study time. It showed that
+  a parent topic whose pages are linked to its subtopics gets a tiny estimate (5 min) and two default-length blocks.
+- **Next:** task 4, `plan_blocks` with `plan_version` and the re-planning triggers.
+
 ## 2026-11-20: Phase 4, task 2 (the pure planner, property tests first)
 
 - **Fix from the review of #41:** the topic dialog scrolls in one place (the dialog), not also in its page list.

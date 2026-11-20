@@ -12,7 +12,8 @@ deadlines first:
 
 Times are on a 5-minute grid (free time is rounded inward to it). Blocks are 50 minutes, or
 25 where a 50 doesn't fit, with the timer's 10-minute break between neighbours. Task 3 turns
-the shortfalls into the feasibility report and the reasons into text; task 4 stores blocks.
+the shortfalls into the feasibility report (``feasibility.py``) and the reasons into text
+(``explain.py``); task 4 stores blocks.
 """
 
 import math
@@ -331,33 +332,59 @@ def _study_reason(topic: _Topic, start: int) -> Reason:
     return "workload"
 
 
-def plan(request: PlanInput) -> Plan:
-    """The plan for ``request`` (see the module docstring and decision 0017)."""
-    start = _ceil5(_minutes(request.now))
-    upcoming = sorted(
-        (a for a in request.assessments if a.due_at > request.now), key=_assessment_key
+@dataclass(frozen=True)
+class Scope:
+    """What ``plan()`` plans for: the upcoming assessments in priority order, each one's
+    topics (known topics of its own module), and each in-scope topic with the assessment it's
+    planned for (the soonest that covers it) and its required minutes."""
+
+    upcoming: tuple[AssessmentInput, ...]
+    covered: Mapping[UUID, tuple[UUID, ...]]
+    topics: Mapping[UUID, tuple[AssessmentInput, int]]
+
+
+def scope(request: PlanInput) -> Scope:
+    upcoming = tuple(
+        sorted((a for a in request.assessments if a.due_at > request.now), key=_assessment_key)
     )
-    if not upcoming:
-        return Plan((), ())
     topics_by_id = {t.id: t for t in request.topics}
-
-    def covered(assessment: AssessmentInput) -> list[UUID]:
-        ids = {
-            i
-            for i in assessment.topic_ids
-            if i in topics_by_id and topics_by_id[i].module_id == assessment.module_id
-        }
-        return sorted(ids, key=str)
-
+    covered = {
+        a.id: tuple(
+            sorted(
+                {
+                    i
+                    for i in a.topic_ids
+                    if i in topics_by_id and topics_by_id[i].module_id == a.module_id
+                },
+                key=str,
+            )
+        )
+        for a in upcoming
+    }
     # Each topic with work left is planned for the soonest assessment that covers it.
-    topics: dict[UUID, _Topic] = {}
+    topics: dict[UUID, tuple[AssessmentInput, int]] = {}
     for assessment in upcoming:
-        for topic_id in covered(assessment):
+        for topic_id in covered[assessment.id]:
             need = required_minutes(
                 topics_by_id[topic_id], request.studied_minutes.get(topic_id, 0)
             )
             if topic_id not in topics and need > 0:
-                topics[topic_id] = _Topic(topics_by_id[topic_id], assessment, need)
+                topics[topic_id] = (assessment, need)
+    return Scope(upcoming, covered, topics)
+
+
+def plan(request: PlanInput) -> Plan:
+    """The plan for ``request`` (see the module docstring and decision 0017)."""
+    start = _ceil5(_minutes(request.now))
+    found = scope(request)
+    upcoming = list(found.upcoming)
+    if not upcoming:
+        return Plan((), ())
+    topics_by_id = {t.id: t for t in request.topics}
+    topics = {
+        topic_id: _Topic(topics_by_id[topic_id], assessment, need)
+        for topic_id, (assessment, need) in found.topics.items()
+    }
     groups = [
         (a, sorted((t for t in topics.values() if t.assessment.id == a.id), key=_topic_key))
         for a in upcoming
@@ -369,7 +396,7 @@ def plan(request: PlanInput) -> Plan:
 
     # 1. A final review in the 3 days before each assessment, as late as fits.
     for assessment in upcoming:
-        if not covered(assessment):
+        if not found.covered[assessment.id]:
             shortfalls.append(Shortfall("no_topics", assessment.id))
             continue
         lo = max(start, _ceil5(_minutes(assessment.due_at - timedelta(days=REVIEW_DAYS))))

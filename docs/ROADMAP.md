@@ -114,7 +114,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
   - respects the daily cap
   - two or more sessions per topic when time allows
   - a final review before each exam
-- [ ] Feasibility report, plus the study-method rules table and the reason text for each block
+- [x] Feasibility report, plus the study-method rules table and the reason text for each block
 - [ ] `plan_blocks` with `plan_version`, and re-planning triggers (skip, finish, new assessment or material, nightly)
 - [ ] Week view (drag to move, mark days unavailable), and the next block on Today with its reason
 - [ ] Web Push (VAPID, `pywebpush` from the worker) and a private ICS feed

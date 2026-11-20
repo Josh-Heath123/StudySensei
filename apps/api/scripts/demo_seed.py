@@ -30,12 +30,14 @@ from app.core.db import get_engine, get_sessionmaker
 from app.jobs.kinds import EXTRACT_TOPICS, LINK_TOPICS, MERGE_TOPICS
 from app.jobs.worker import run_once
 from app.models import (
+    AvailabilityRule,
     Conversation,
     Job,
     Material,
     MaterialPage,
     Message,
     MessageSource,
+    Topic,
     TopicPage,
     User,
 )
@@ -414,6 +416,25 @@ async def seed(now: datetime) -> None:
                 ),
                 user_id=uid,
             )
+
+        # Study time for the planner: weekday evenings, and two windows on Saturday and one on
+        # Sunday afternoon (the daily cap stays at the default 3 h).
+        weekly = [(d, 18 * 60, 21 * 60) for d in range(5)] + [
+            (5, 9 * 60, 12 * 60),
+            (5, 14 * 60, 17 * 60),
+            (6, 14 * 60, 17 * 60),
+        ]
+        for weekday, start_minute, end_minute in weekly:
+            db.add(
+                AvailabilityRule(
+                    user_id=uid, weekday=weekday, start_minute=start_minute, end_minute=end_minute
+                )
+            )
+        # One self-rated topic, so the plan shows a low-confidence block.
+        congestion = await db.get(Topic, topic_ids["TCP congestion control"])
+        assert congestion is not None
+        congestion.confidence = 2
+        await db.commit()
 
         # A week of study before `now`: one session a day on six of the seven days.
         week = [
