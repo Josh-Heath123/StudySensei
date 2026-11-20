@@ -26,3 +26,4 @@ after they're accepted (apart from redacting personal identifiers); a later reco
 | [0019](0019-planning-scope.md) | Planning scope: an assessment covers topic subtrees, ties break on course order, final reviews only for exams, tests and quizzes | Accepted; amends 0017 and 0018 |
 | [0020](0020-review-fixes-spreading-and-overall-line.md) | Review fixes: a unit's blocks spread over its days, and the overall line never says "0 min" | Accepted; amends 0017 and 0018, notes 0019's example |
 | [0021](0021-plan-versions-and-replanning.md) | Plan versions and re-planning: stored blocks, the next 24 h fixed, coalesced triggers, no churn, nightly | Accepted; amends 0017 |
+| [0022](0022-moving-blocks-and-the-stored-plan-in-the-ui.md) | Moving blocks (pinned, six rules), history, derived status and server-side actions in GET /plan, the offline start fallback; review fixes | Accepted; amends 0021 |

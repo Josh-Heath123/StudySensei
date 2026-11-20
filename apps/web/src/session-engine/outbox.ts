@@ -8,6 +8,10 @@
  *
  * Sessions are keyed by their start event's id, so a session started offline can
  * queue events before the server has given it an id.
+ *
+ * A start for a planned block (`plan_block_id`) that the server refuses with 404, 409 or 422
+ * (the plan changed while offline, say) is sent once more without the block, so the session
+ * is never lost; `planUnlinked` then says so (decision 0022).
  */
 import { api } from "@/lib/api/client";
 import { ApiError, unwrap } from "@/lib/api/errors";
@@ -33,9 +37,13 @@ type Outbox = {
   /** start event id -> server session id */
   sessionIds: Record<string, string>;
   rejected: Rejected[];
+  /** Starts sent again without their plan block. */
+  unlinked: string[];
 };
 
 const KEY = "studysensei.session.outbox";
+/** Refusals that can be about the block, so the start is worth sending without it. */
+const BLOCK_REFUSALS = new Set([404, 409, 422]);
 const BATCH_SIZE = 100;
 
 function load(store: KeyValueStore): Outbox {
@@ -49,6 +57,7 @@ function load(store: KeyValueStore): Outbox {
         ? raw.sessionIds
         : {},
     rejected: isObject && Array.isArray(raw.rejected) ? raw.rejected : [],
+    unlinked: isObject && Array.isArray(raw.unlinked) ? raw.unlinked : [],
   };
 }
 
@@ -76,6 +85,11 @@ export function queueEvents(store: KeyValueStore, startId: string, events: Event
 /** The newest start not yet accepted by the server, if any. */
 export function pendingStart(store: KeyValueStore): StartBody | undefined {
   return load(store).starts.at(-1);
+}
+
+/** Whether this session's start was sent again without its plan block. */
+export function planUnlinked(store: KeyValueStore, startId: string): boolean {
+  return load(store).unlinked.includes(startId);
 }
 
 export function pendingEvents(store: KeyValueStore, startId: string): EventBody[] {
@@ -156,6 +170,16 @@ async function step(store: KeyValueStore, found: Rejected[]): Promise<"sent" | "
       return "sent";
     }
     if ("later" in sent) return sent.later;
+    if (start.plan_block_id && BLOCK_REFUSALS.has(sent.refused.status)) {
+      // Never lose the session over its block: send it once more, unlinked.
+      update(store, (o) => {
+        o.starts = o.starts.map((s) =>
+          s.start.id === startId ? { ...s, plan_block_id: null } : s,
+        );
+        if (!o.unlinked.includes(startId)) o.unlinked.push(startId);
+      });
+      return "sent";
+    }
     // Its events can never be sent either.
     const eventIds = [startId, ...pendingEvents(store, startId).map((e) => e.id)];
     const { status, message } = sent.refused;

@@ -61,12 +61,19 @@ export function useAvailability(from: string | null, to: string | null) {
   });
 }
 
-/** Any change to study time: everything under it is refetched (the week total too). */
+/**
+ * Any change to study time: everything under it is refetched (the week total too), and the
+ * plan, which the change re-plans (decision 0021).
+ */
 function useStudyTimeMutation<TArgs>(mutationFn: (args: TArgs) => Promise<unknown>) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn,
-    onSettled: () => queryClient.invalidateQueries({ queryKey: studyTimeKeys.all }),
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: studyTimeKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ["plan"] }),
+      ]),
   });
 }
 
@@ -100,6 +107,18 @@ export function useDeleteRule() {
 export function useCreateException() {
   return useStudyTimeMutation((body: ExceptionInput) =>
     unwrap(api.POST("/availability/exceptions", { body })),
+  );
+}
+
+export function useUpdateException() {
+  return useStudyTimeMutation(
+    ({ id, ...body }: { id: string } & components["schemas"]["ExceptionUpdate"]) =>
+      unwrap(
+        api.PATCH("/availability/exceptions/{exception_id}", {
+          params: { path: { exception_id: id } },
+          body,
+        }),
+      ),
   );
 }
 

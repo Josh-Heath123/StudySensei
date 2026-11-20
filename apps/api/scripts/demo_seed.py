@@ -47,6 +47,7 @@ from app.schemas.sessions import EventBatch, ReflectionIn, SessionStart
 from app.schemas.tutor import Quiz
 from app.services.academics import assessments, modules, tasks, topics
 from app.services.materials import upload_material
+from app.services.planning.replan import replan
 from app.services.search.embedding import get_embedder
 from app.services.sessions import sessions
 from app.services.topic_maps.linking import link_module
@@ -635,6 +636,10 @@ async def seed(now: datetime) -> None:
     async with sessionmaker() as db:
         await db.execute(delete(Job).where(Job.kind == REPLAN))
         await db.commit()
+        # The plan as of the demo's ``now`` (version 1), for the week view and Today.
+        user = await db.scalar(select(User).where(User.email == settings.local_user_email))
+        assert user is not None
+        await replan(db, user_id=user.id, now=now, trigger="initial")
     print(
         f"Demo seeded: NET201, {len(files)} materials ({ran} jobs), {len(week)} sessions "
         f"and one open, {len(topic_ids)} topics, {links} chunk links, "

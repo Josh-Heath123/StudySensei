@@ -14,12 +14,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Modules",
     comingIn: "Modules and assessments arrive in Phase 1.",
   },
-  {
-    path: "/plan",
-    label: "Plan",
-    comingIn: "The study planner arrives in Phase 4.",
-    detail: "A week of study blocks fitted around your deadlines and the time you have.",
-  },
+  { path: "/plan", label: "Plan", comingIn: "" },
   {
     path: "/practice",
     label: "Practice",

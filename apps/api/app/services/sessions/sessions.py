@@ -242,7 +242,8 @@ async def _finish_plan_block(
     block = await session.scalar(
         select(PlanBlock).where(PlanBlock.id == study.plan_block_id, PlanBlock.user_id == user_id)
     )
-    if block is None or study.ended_at is None:
+    # Only a planned block: one skipped meanwhile stays skipped (decision 0022).
+    if block is None or study.ended_at is None or block.status != "planned":
         return
     block.status = "done"
     block.status_changed_at = study.ended_at

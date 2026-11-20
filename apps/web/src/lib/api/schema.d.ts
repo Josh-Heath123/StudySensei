@@ -1233,6 +1233,28 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/plan/blocks/{block_id}/move": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Move Block
+     * @description Move a planned block of the current plan that hasn't started and has no session to
+     *     ``start`` (5-minute grid; it keeps its length), then re-plan with it pinned there. 422
+     *     with one sentence if it can't go there; 409 for any other block; 404 if it isn't yours.
+     */
+    post: operations["move_block_plan_blocks__block_id__move_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/ai/status": {
     parameters: {
       query?: never;
@@ -1509,6 +1531,26 @@ export interface components {
       total_available_minutes: number;
       /** Weekly Minutes From Rules */
       weekly_minutes_from_rules: number;
+    };
+    /**
+     * BlockActionsOut
+     * @description What the student can do with a block now, decided by the server (decision 0022).
+     */
+    BlockActionsOut: {
+      /** Start */
+      start: boolean;
+      /** Skip */
+      skip: boolean;
+      /** Move */
+      move: boolean;
+    };
+    /** BlockMoveIn */
+    BlockMoveIn: {
+      /**
+       * Start
+       * Format: date-time
+       */
+      start: string;
     };
     /** Body_upload_material_modules__module_id__materials_post */
     Body_upload_material_modules__module_id__materials_post: {
@@ -2259,7 +2301,8 @@ export interface components {
         | "availability"
         | "material"
         | "nightly"
-        | "manual";
+        | "manual"
+        | "move";
       /** Summary */
       summary: string;
       /**
@@ -2289,6 +2332,8 @@ export interface components {
       last: string;
       /** Blocks */
       blocks: components["schemas"]["StoredBlockOut"][];
+      /** Replan Pending */
+      replan_pending: boolean;
     };
     /** PlanPreviewOut */
     PlanPreviewOut: {
@@ -2334,7 +2379,8 @@ export interface components {
         | "availability"
         | "material"
         | "nightly"
-        | "manual";
+        | "manual"
+        | "move";
       /** Summary */
       summary: string;
       /**
@@ -2750,6 +2796,13 @@ export interface components {
       status_changed_at: string | null;
       /** Fixed */
       fixed: boolean;
+      /** Pinned */
+      pinned: boolean;
+      /** Linked Session Id */
+      linked_session_id: string | null;
+      /** Session Minutes */
+      session_minutes: number | null;
+      actions: components["schemas"]["BlockActionsOut"];
     };
     /**
      * SubtreeWorkloadOut
@@ -5546,6 +5599,41 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["PlanVersionOut"];
+        };
+      };
+    };
+  };
+  move_block_plan_blocks__block_id__move_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        block_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BlockMoveIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PlanVersionOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

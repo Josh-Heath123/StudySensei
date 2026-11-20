@@ -2,6 +2,21 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-21: Phase 4, task 5 (the week view, moving blocks, and Next up from the plan)
+
+- **Review fixes from #45 (ADR 0022), tests first:** a linked session follows its block into a new version (it used to
+  mark the superseded row done); only a planned block is marked done; no skip with an open session; a true skip
+  summary ("no free time left … now 4 h 10 short"); version 1 is "Your first plan."; no nightly retry loop.
+- **Moves:** `plan_blocks.pinned` (0023), six pure rules with sentences, `POST /plan/blocks/{id}/move`, pinned blocks
+  carried past 24 h while valid. The accepted-move property failed first on the final review's window, so a sixth
+  rule (`review_window`) keeps a review in its last 3 days.
+- **`GET /plan`:** history, derived missed status (no write), linked session and measured minutes, server actions,
+  `replan_pending`. Sessions start for a block; a refused block is dropped once offline so the session is kept.
+- **Web:** `/plan` (grid with drag, agenda, popover or sheet, Move…, day menu, polling) and Today's Next up and Your day
+  from the plan. QA screenshots at 1440/768/375 in both themes found clipped card titles, wrapping times, faint free
+  bands and a sideways scroll on Today at 375 px; all fixed. e2e drags, refuses, skips and finishes a planned block.
+- **Next:** task 6, Web Push and the ICS feed.
+
 ## 2026-11-21: Phase 4, task 4 (plan versions, blocks and re-planning)
 
 - **Review fixes from #44 (ADR 0020):** pass 3 spreads a single unit (2, 2, 1, 1 over four evenings, was 3, 1, 1, 1);

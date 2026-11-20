@@ -10,6 +10,8 @@ import type { Module } from "../modules/api";
 import type { Assessment } from "../modules/assessments/api";
 import { aModule, anAssessment, aTask } from "../modules/fixtures";
 import type { Task } from "../modules/tasks/api";
+import type { PlanBlock } from "../plan/api";
+import { aBlock, aPlan, UTC_SETTINGS } from "../plan/fixtures";
 
 // Friday 13 November 2026, 10:00 local time.
 const NOW = new Date(2026, 10, 13, 10, 0);
@@ -26,7 +28,13 @@ afterEach(() => {
 const HEALTHY = { status: "ok", api: "ok", database: "ok" };
 
 function renderToday(
-  data: { modules?: Module[]; assessments?: Assessment[]; tasks?: Task[] },
+  data: {
+    modules?: Module[];
+    assessments?: Assessment[];
+    tasks?: Task[];
+    next?: PlanBlock | null;
+    day?: PlanBlock[];
+  },
   reply?: (call: ApiCall) => unknown,
 ) {
   const api = mockApi({
@@ -37,6 +45,10 @@ function renderToday(
     "GET /tasks": () => data.tasks ?? [],
     "PATCH /tasks/:id": (call) => reply?.(call) ?? {},
     "PATCH /assessments/:id": (call) => reply?.(call) ?? {},
+    "GET /planning/settings": () => UTC_SETTINGS,
+    "GET /plan/next": () => data.next ?? null,
+    "GET /plan": () => aPlan(data.day ?? []),
+    "POST /plan/blocks/:id/skip": () => aPlan(),
   });
   renderApp("/");
   return api;
@@ -211,28 +223,100 @@ test("the header shows the date and countdowns to the next real assessments", as
   expect(tiles[1]).toHaveAttribute("data-nearest", "false");
 });
 
-test("the day timeline and next-up card say the plan isn't built yet, with no made-up blocks", async () => {
+test("with no plan, Next up offers an unplanned session and links to what a plan needs", async () => {
   renderToday({});
 
-  const day = await screen.findByRole("region", { name: "Your day" });
-  expect(day).toHaveTextContent("Your plan appears here once the planner is built.");
-  expect(within(day).getByRole("link", { name: "Add deadlines" })).toHaveAttribute(
+  const nextUp = await screen.findByRole("region", { name: "Nothing planned yet" });
+  expect(within(nextUp).getByRole("link", { name: "Add study time" })).toHaveAttribute(
+    "href",
+    "/settings",
+  );
+  expect(within(nextUp).getByRole("link", { name: "an assessment" })).toHaveAttribute(
     "href",
     "/modules",
   );
-  // With no plan there's no hour grid (and so no NOW marker) to scroll past.
-  expect(within(day).queryByText("NOW")).not.toBeInTheDocument();
-  expect(within(day).queryByText("08:00")).not.toBeInTheDocument();
-
-  const nextUp = screen.getByRole("region", { name: "Nothing planned yet" });
-  expect(nextUp).toHaveTextContent("Start a session on any module.");
-  // The "not built yet" sentence is said once, in Your day, not repeated in the hero.
-  expect(nextUp).not.toHaveTextContent("Your plan appears here once the planner is built.");
-  // No made-up plan actions: the only button starts an unplanned session.
   expect(
     within(nextUp)
       .getAllByRole("button")
       .map((b) => b.textContent?.trim()),
   ).toEqual(["Start session"]);
+  const day = screen.getByRole("region", { name: "Your day" });
+  expect(await within(day).findByText("Nothing planned today.")).toBeInTheDocument();
+  expect(within(day).queryByText("08:00")).not.toBeInTheDocument();
   expect(screen.queryByRole("list", { name: "Countdowns" })).not.toBeInTheDocument();
+});
+
+test("Next up names the plan's next block, with its method, reason and actions", async () => {
+  const block = aBlock();
+  const { calls } = renderToday({ next: block });
+
+  const nextUp = await screen.findByRole("region", { name: "Ch2 Cryptography" });
+  expect(nextUp).toHaveTextContent("Today, 18:00 · 50 min · COS330 Exam");
+  expect(nextUp).toHaveTextContent(block.method_text);
+  expect(nextUp).toHaveTextContent(`Why: ${block.reason_text}`);
+  expect(
+    within(nextUp)
+      .getAllByRole("button")
+      .map((b) => b.textContent?.trim()),
+  ).toEqual(["Start session", "Skip"]);
+
+  // Skip asks first.
+  const user = userEvent.setup();
+  await user.click(within(nextUp).getByRole("button", { name: "Skip" }));
+  const confirm = await screen.findByRole("dialog", { name: "Skip this block?" });
+  await user.click(within(confirm).getByRole("button", { name: "Skip" }));
+  await waitFor(() =>
+    expect(calls.some((c) => c.method === "POST" && c.path === "/plan/blocks/b1/skip")).toBe(true),
+  );
+});
+
+test("a block in progress says Now, and only the actions the server allows show", async () => {
+  const start = new Date(NOW.getTime() - 10 * 60_000).toISOString();
+  const end = new Date(NOW.getTime() + 40 * 60_000).toISOString();
+  renderToday({ next: aBlock({ start, end, actions: { start: false, skip: true, move: false } }) });
+
+  const nextUp = await screen.findByRole("region", { name: "Ch2 Cryptography" });
+  expect(nextUp).toHaveTextContent("Now · 50 min · COS330 Exam");
+  expect(
+    within(nextUp)
+      .getAllByRole("button")
+      .map((b) => b.textContent?.trim()),
+  ).toEqual(["Skip"]);
+});
+
+test("Your day lists today's blocks with their status", async () => {
+  renderToday({
+    day: [
+      aBlock({
+        id: "d1",
+        start: "2026-11-13T06:00:00Z",
+        end: "2026-11-13T06:50:00Z",
+        status: "done",
+        session_minutes: 48,
+        actions: { start: false, skip: false, move: false },
+      }),
+      aBlock({
+        id: "s1",
+        start: "2026-11-13T07:00:00Z",
+        end: "2026-11-13T07:50:00Z",
+        status: "skipped",
+      }),
+      aBlock({
+        id: "p1",
+        topic_id: null,
+        topic_name: null,
+        kind: "review",
+        method: "mixed_review",
+      }),
+    ],
+  });
+
+  const day = await screen.findByRole("region", { name: "Your day" });
+  const items = await within(day).findAllByRole("listitem");
+  expect(items.map((i) => i.textContent)).toEqual([
+    "06:00–06:50Ch2 CryptographyPractice48 min (measured)",
+    "07:00–07:50Ch2 CryptographyPracticeSkipped",
+    "18:00–18:50Final review · COS330 ExamMixed review",
+  ]);
+  expect(within(day).getByRole("link", { name: "Week" })).toHaveAttribute("href", "/plan");
 });

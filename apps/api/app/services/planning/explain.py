@@ -8,12 +8,13 @@ Rules for every sentence:
 - durations are "40 min", "3 h" or "4 h 10".
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from app.services.planning.feasibility import AssessmentFeasibility, Feasibility, Lever, Numbers
 from app.services.planning.inputs import PlanFacts, TopicFacts
+from app.services.planning.moves import MoveProblem
 from app.services.planning.planner import (
     CONFIDENCE_PERCENT,
     REVIEW_DAYS,
@@ -270,14 +271,30 @@ def version_summary(
     minutes: int | None = None,
     assessment: str | None = None,
     module: str | None = None,
+    short_now: int | None = None,
+    moved_to: datetime | None = None,
 ) -> str:
     """One sentence on why a plan version exists, from its trigger and what it names. A
     missing name falls back to a general sentence; nothing is guessed."""
     if trigger == "skip" and block_name and block_start:
         when = block_when(block_start, timezone)
+        # Only true if the time was placed again: when its assessment is now shorter, say so
+        # (decision 0022).
+        if short_now is not None and assessment:
+            return (
+                f"You skipped {block_name} ({when}). There's no free time left to place it "
+                f"again before {assessment}, which is now {duration(short_now)} short."
+            )
         return f"You skipped {block_name} ({when}): its time is placed again."
     if trigger == "skip":
         return "You skipped a block: its time is placed again."
+    if trigger == "move" and block_name and block_start and moved_to:
+        return (
+            f"You moved {block_name} from {block_when(block_start, timezone)} "
+            f"to {block_when(moved_to, timezone)}."
+        )
+    if trigger == "move":
+        return "You moved a block."
     if trigger == "finish" and block_name:
         measured = (
             ""
@@ -304,3 +321,33 @@ def version_summary(
     if trigger == "manual":
         return "Re-planned on request."
     return "Your first plan."
+
+
+# --- moving a block (decision 0022) ------------------------------------------------------
+
+
+def day_name(day: date) -> str:
+    """ "Tue 24 Nov"."""
+    return f"{WEEKDAYS[day.weekday()]} {day.day} {MONTHS[day.month - 1]}"
+
+
+def move_problem_text(
+    problem: MoveProblem, *, assessment: str | None, cap: int, timezone: ZoneInfo
+) -> str:
+    """Why a block can't go there, in one sentence."""
+    if problem.kind == "past":
+        return "That time has passed."
+    if problem.kind == "outside_free_time":
+        return f"That's outside your study time on {day_name(problem.day)}."
+    if problem.kind == "too_close":
+        return "Leave 10 minutes between blocks."
+    if problem.kind == "after_deadline" and problem.due_at is not None:
+        local = problem.due_at.astimezone(timezone)
+        when = f"{local.day} {MONTHS[local.month - 1]}, {local:%H:%M}"
+        return f"That's after {assessment or 'its assessment'} ({when})."
+    if problem.kind == "after_deadline":
+        return f"That's after {assessment or 'its assessment'}."
+    if problem.kind == "review_window":
+        name = assessment or "its assessment"
+        return f"A final review stays in the {REVIEW_DAYS} days before {name}."
+    return f"{day_name(problem.day)} would go over your {duration(cap)} daily cap."

@@ -18,6 +18,7 @@ import {
   forgetSession,
   pendingEvents,
   pendingStart,
+  planUnlinked,
   queueEvents,
   queueStart,
   rememberSessionId,
@@ -56,6 +57,8 @@ export type Snapshot = {
   startId: string;
   /** The server's id, once the start has been accepted. */
   sessionId: string | null;
+  /** Its plan block was refused, so it was started without it (decision 0022). */
+  planUnlinked: boolean;
   /** How many timer events the session has (the sample size behind its totals). */
   eventCount: number;
   state: TimerState;
@@ -145,7 +148,11 @@ export function createSessionEngine({ now, newId, store, plan = DEFAULT_PLAN }: 
 
   return {
     /** Start a new session now. */
-    async start(moduleId: string, topicId: string | null = null): Promise<FlushResult> {
+    async start(
+      moduleId: string,
+      topicId: string | null = null,
+      planBlockId: string | null = null,
+    ): Promise<FlushResult> {
       if (isOpen()) throw new TimelineError("A session is already open");
       const at = now();
       const id = newId();
@@ -157,6 +164,7 @@ export function createSessionEngine({ now, newId, store, plan = DEFAULT_PLAN }: 
       queueStart(store, {
         module_id: moduleId,
         topic_id: topicId,
+        ...(planBlockId ? { plan_block_id: planBlockId } : {}),
         start: { id, occurred_at: iso(at) },
       });
       beat(at);
@@ -266,6 +274,7 @@ export function createSessionEngine({ now, newId, store, plan = DEFAULT_PLAN }: 
       return {
         startId,
         sessionId: serverSessionId(store, startId) ?? knownSessionId,
+        planUnlinked: planUnlinked(store, startId),
         eventCount: events.length,
         state: timeline.state,
         startedAt: timeline.startedAt,

@@ -10,6 +10,7 @@ function snap(overrides: Partial<Snapshot>): Snapshot {
   return {
     startId: "s1",
     sessionId: "server-1",
+    planUnlinked: false,
     eventCount: 1,
     state: "active",
     startedAt: 0,

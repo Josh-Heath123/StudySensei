@@ -3663,6 +3663,60 @@
         }
       }
     },
+    "/plan/blocks/{block_id}/move": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Move Block",
+        "description": "Move a planned block of the current plan that hasn't started and has no session to\n``start`` (5-minute grid; it keeps its length), then re-plan with it pinned there. 422\nwith one sentence if it can't go there; 409 for any other block; 404 if it isn't yours.",
+        "operationId": "move_block_plan_blocks__block_id__move_post",
+        "parameters": [
+          {
+            "name": "block_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Block Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlockMoveIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanVersionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ai/status": {
       "get": {
         "tags": [
@@ -4423,6 +4477,45 @@
           "weekly_minutes_from_rules"
         ],
         "title": "AvailabilityOut"
+      },
+      "BlockActionsOut": {
+        "properties": {
+          "start": {
+            "type": "boolean",
+            "title": "Start"
+          },
+          "skip": {
+            "type": "boolean",
+            "title": "Skip"
+          },
+          "move": {
+            "type": "boolean",
+            "title": "Move"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "skip",
+          "move"
+        ],
+        "title": "BlockActionsOut",
+        "description": "What the student can do with a block now, decided by the server (decision 0022)."
+      },
+      "BlockMoveIn": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "start"
+        ],
+        "title": "BlockMoveIn"
       },
       "Body_upload_material_modules__module_id__materials_post": {
         "properties": {
@@ -6219,7 +6312,8 @@
               "availability",
               "material",
               "nightly",
-              "manual"
+              "manual",
+              "move"
             ],
             "title": "Trigger"
           },
@@ -6264,6 +6358,10 @@
             },
             "type": "array",
             "title": "Blocks"
+          },
+          "replan_pending": {
+            "type": "boolean",
+            "title": "Replan Pending"
           }
         },
         "type": "object",
@@ -6278,7 +6376,8 @@
           "report",
           "first",
           "last",
-          "blocks"
+          "blocks",
+          "replan_pending"
         ],
         "title": "PlanOut"
       },
@@ -6352,7 +6451,8 @@
               "availability",
               "material",
               "nightly",
-              "manual"
+              "manual",
+              "move"
             ],
             "title": "Trigger"
           },
@@ -7409,6 +7509,36 @@
           "fixed": {
             "type": "boolean",
             "title": "Fixed"
+          },
+          "pinned": {
+            "type": "boolean",
+            "title": "Pinned"
+          },
+          "linked_session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Session Id"
+          },
+          "session_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Minutes"
+          },
+          "actions": {
+            "$ref": "#/components/schemas/BlockActionsOut"
           }
         },
         "type": "object",
@@ -7431,7 +7561,11 @@
           "method_text",
           "status",
           "status_changed_at",
-          "fixed"
+          "fixed",
+          "pinned",
+          "linked_session_id",
+          "session_minutes",
+          "actions"
         ],
         "title": "StoredBlockOut"
       },

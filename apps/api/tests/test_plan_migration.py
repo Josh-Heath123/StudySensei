@@ -48,7 +48,7 @@ async def _schema() -> dict[str, bool]:
 
 
 def test_0022_goes_down_and_up(migrated_db: None) -> None:
-    command.downgrade(CONFIG, "0021")
+    command.downgrade(CONFIG, "0021")  # through 0023 and 0022
     try:
         assert not any(asyncio.run(_schema()).values())
     finally:
@@ -123,3 +123,32 @@ async def test_a_block_cant_use_another_users_topic(
     hers.topic_id = his.topic.id
     with pytest.raises(IntegrityError):
         await session.commit()
+
+
+async def _pinned_column() -> bool:
+    url = make_url(get_settings().database_url)
+    connection = await asyncpg.connect(
+        user=url.username,
+        password=url.password,
+        host=url.host,
+        port=url.port,
+        database=url.database,
+    )
+    try:
+        return bool(
+            await connection.fetchval(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'plan_blocks' AND column_name = 'pinned'"
+            )
+        )
+    finally:
+        await connection.close()
+
+
+def test_0023_goes_down_and_up(migrated_db: None) -> None:
+    command.downgrade(CONFIG, "0022")
+    try:
+        assert not asyncio.run(_pinned_column())
+    finally:
+        command.upgrade(CONFIG, "head")
+    assert asyncio.run(_pinned_column())

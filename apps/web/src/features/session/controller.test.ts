@@ -7,7 +7,7 @@ import { createSessionController } from "./controller";
 
 const MIN = 60_000;
 const T0 = Date.parse("2026-11-13T08:00:00.000Z");
-const META = { moduleId: "m1", topicId: "t1" };
+const META = { moduleId: "m1", topicId: "t1", planBlockId: null };
 
 /** A shared clock and store; each `page()` is a fresh page load. */
 function world(prefix = "id") {
@@ -89,12 +89,15 @@ describe("session controller", () => {
 
     const elsewhere = world("other").page(); // another device, after this tab loaded
     await elsewhere.restore();
-    await elsewhere.start({ moduleId: "m2", topicId: null });
+    await elsewhere.start({ moduleId: "m2", topicId: null, planBlockId: null });
 
     await here.start(META);
 
     expect(here.problems()).toEqual(["Another session is still open; end it first"]);
-    expect(here.state()).toEqual({ status: "open", meta: { moduleId: "m2", topicId: null } });
+    expect(here.state()).toEqual({
+      status: "open",
+      meta: { moduleId: "m2", topicId: null, planBlockId: null },
+    });
     expect(here.snapshot()?.sessionId).toBe("server-1");
     expect(server.sessions.size).toBe(1);
   });
@@ -182,5 +185,36 @@ describe("session controller", () => {
 
     await controller.resolveAway("end");
     expect(controller.state().status).toBe("reflecting");
+  });
+
+  it("starts a session for a planned block, and never loses it if the block was refused", async () => {
+    const server = fakeSessionServer();
+    server.refuseBlock("stale");
+    const controller = world().page();
+    await controller.restore();
+
+    await controller.start({ ...META, planBlockId: "stale" });
+
+    // Sent once with the block (refused), then once without it.
+    const starts = server.calls.filter((c) => c.method === "POST" && c.path === "/sessions");
+    expect(starts.map((c) => (c.body as { plan_block_id?: string | null }).plan_block_id)).toEqual([
+      "stale",
+      null,
+    ]);
+    expect(controller.state()).toMatchObject({ status: "open" });
+    expect(controller.snapshot()).toMatchObject({ sessionId: "server-1", planUnlinked: true });
+    expect(controller.problems()).toEqual([]);
+    expect(server.only().plan_block_id).toBeNull();
+  });
+
+  it("keeps a planned block that the server accepts", async () => {
+    const server = fakeSessionServer();
+    const controller = world().page();
+    await controller.restore();
+
+    await controller.start({ ...META, planBlockId: "b1" });
+
+    expect(server.only().plan_block_id).toBe("b1");
+    expect(controller.snapshot()).toMatchObject({ planUnlinked: false });
   });
 });

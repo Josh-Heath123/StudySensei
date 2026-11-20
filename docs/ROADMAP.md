@@ -116,7 +116,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
   - a final review before each exam
 - [x] Feasibility report, plus the study-method rules table and the reason text for each block
 - [x] `plan_blocks` with `plan_version`, and re-planning triggers (skip, finish, new assessment or material, nightly)
-- [ ] Week view (drag to move, mark days unavailable), and the next block on Today with its reason
+- [x] Week view (drag to move, mark days unavailable), and the next block on Today with its reason
 - [ ] Web Push (VAPID, `pywebpush` from the worker) and a private ICS feed
 
 **Verify:** a scenario with 2 modules, exams in 10 and 20 days and 12 h/week available. Skip a block and check the plan adjusts and explains why.
