@@ -21,7 +21,7 @@ from typing import Literal
 from uuid import UUID
 
 from app.services.planning.availability import MINUTES_PER_DAY, local_to_utc
-from app.services.planning.planner import Plan, PlanInput, Shortfall, scope
+from app.services.planning.planner import AssessmentInput, Plan, PlanInput, Shortfall, scope
 
 TIGHT_PERCENT = 15
 
@@ -55,6 +55,11 @@ class AssessmentFeasibility:
     numbers: Numbers
     topics: tuple[TopicFeasibility, ...]
     shortfalls: tuple[Shortfall, ...]
+    # When it covers topics but none is planned for it: the sooner assessments they're
+    # planned for (decision 0019), in deadline order. Empty otherwise.
+    planned_with: tuple[UUID, ...] = ()
+    # It covers topics, but none needs more time (measured study covers them).
+    all_done: bool = False
 
 
 @dataclass(frozen=True)
@@ -113,6 +118,10 @@ def free_minutes(request: PlanInput, until: datetime, *, capped: bool = True) ->
     return sum(min(math.floor(m), cap) for m in per_day.values())
 
 
+def _due_order(assessment: AssessmentInput) -> tuple[datetime, str]:
+    return (assessment.due_at, str(assessment.id))
+
+
 def feasibility(result: Plan, request: PlanInput) -> Feasibility:
     found = scope(request)
     planned: dict[UUID, int] = defaultdict(int)
@@ -150,8 +159,23 @@ def feasibility(result: Plan, request: PlanInput) -> Feasibility:
             status=status(short, free, booked),
         )
         shortfalls = tuple(s for s in result.shortfalls if s.assessment_id == assessment.id)
+        covered = found.covered[assessment.id]
+        elsewhere = [found.topics[t][0] for t in covered if t in found.topics]
+        planned_with = (
+            tuple(dict.fromkeys(a.id for a in sorted(elsewhere, key=_due_order)))
+            if covered and not topics
+            else ()
+        )
         assessments.append(
-            AssessmentFeasibility(assessment.id, assessment.due_at, numbers, topics, shortfalls)
+            AssessmentFeasibility(
+                assessment.id,
+                assessment.due_at,
+                numbers,
+                topics,
+                shortfalls,
+                planned_with,
+                all_done=bool(covered) and not topics and not planned_with,
+            )
         )
 
     last = max((a.due_at for a in found.upcoming), default=None)

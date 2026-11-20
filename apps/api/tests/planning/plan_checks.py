@@ -18,6 +18,7 @@ from app.services.planning.planner import (
     BREAK_MINUTES,
     MIN_BLOCKS,
     REVIEW_DAYS,
+    REVIEW_KINDS,
     SHORT_BLOCK_MINUTES,
     AssessmentInput,
     Block,
@@ -238,12 +239,20 @@ def review_spot_exists(request: PlanInput, result: Plan, assessment: AssessmentI
 
 
 def check_final_reviews(request: PlanInput, result: Plan) -> None:
-    """One review per assessment with topics, in its last 3 days, whenever there's room."""
+    """One review per exam, test or quiz with topics, in its last 3 days, whenever there's
+    room; none (and no no_review_time) for any other kind (decision 0019)."""
     for assessment in upcoming(request):
         reviews = [
             b for b in result.blocks if b.kind == "review" and b.assessment_id == assessment.id
         ]
         assert len(reviews) <= 1
+        if assessment.kind not in REVIEW_KINDS:
+            assert not reviews
+            assert not any(
+                s.kind == "no_review_time" and s.assessment_id == assessment.id
+                for s in result.shortfalls
+            )
+            continue
         if not known_topics(request, assessment):
             assert not reviews
             continue

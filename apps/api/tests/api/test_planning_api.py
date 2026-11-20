@@ -2,13 +2,15 @@
 topic's workload and confidence."""
 
 import hashlib
+import uuid
+from dataclasses import replace
 from typing import Any
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Chunk, ChunkTopic, Material, MaterialPage
+from app.models import Chunk, ChunkTopic, Material, MaterialPage, Topic
 from app.models.materials import EMBEDDING_DIMENSIONS
 from tests.academics.conftest import Rows
 
@@ -386,3 +388,36 @@ async def test_bad_planning_values_are_refused(
 ) -> None:
     response = await alice_api.patch(f"/topics/{alice.topic.id}/planning", json=body)
     assert response.status_code == 422
+
+
+async def test_a_topic_with_subtopics_also_has_its_whole_workload(
+    alice_api: AsyncClient, session: AsyncSession, alice: Rows
+) -> None:
+    child = (
+        await alice_api.post(
+            f"/modules/{alice.module.id}/topics",
+            json={"name": "Sagas", "parent_id": str(alice.topic.id)},
+        )
+    ).json()
+    await link_pages(session, alice, "slides", 4)
+    sagas = await session.get(Topic, uuid.UUID(child["id"]))
+    assert sagas is not None
+    await link_pages(session, replace(alice, topic=sagas), "notes", 2)
+
+    topic = await tree_topic(alice_api, alice)
+
+    assert topic["workload"]["minutes"] == 15  # its own 4 slides
+    # Decision 0019: the figure the planner uses when the chapter is ticked.
+    assert topic["workload_with_subtopics"] == {
+        "minutes": 25,  # 4 x 3 + 2 x 6 = 24, rounded up to 5
+        "source": "estimated",
+        "slide_pages": 4,
+        "text_pages": 2,
+        "subtopics": 1,
+    }
+    assert topic["children"][0]["workload_with_subtopics"] is None
+    # The student's figure on the chapter covers the whole chapter.
+    await alice_api.patch(f"/topics/{alice.topic.id}/planning", json={"estimated_minutes": 300})
+    topic = await tree_topic(alice_api, alice)
+    assert topic["workload_with_subtopics"]["minutes"] == 300
+    assert topic["workload_with_subtopics"]["source"] == "yours"

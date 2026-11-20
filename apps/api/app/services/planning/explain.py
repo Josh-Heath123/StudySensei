@@ -76,14 +76,26 @@ def _pages(topic: TopicFacts) -> str:
     return " and ".join(parts)
 
 
+def _across(topic: TopicFacts) -> str:
+    """ " across Ch1 and its 4 subtopics" for a unit with subtopics (decision 0019), else ""."""
+    if topic.subtopics == 0:
+        return ""
+    return f" across {topic.name} and its {plural(topic.subtopics, 'subtopic')}"
+
+
 def workload_sentence(topic: TopicFacts) -> str:
-    """ "≈ 40 min estimated from 13 slides; 15 min studied so far (measured, 1 session)." """
+    """ "≈ 40 min estimated from 13 slides; 15 min studied so far (measured, 1 session)." For
+    a topic with subtopics: "≈ 7 h 15 estimated from 72 slides and 34 pages of text across Ch1
+    and its 4 subtopics; ..." """
     if topic.workload_minutes is None:
         load = "No workload figure yet"
     elif topic.workload_source == "yours":
-        load = f"{duration(topic.workload_minutes)} by your own figure"
+        whole = f" for {topic.name} and its subtopics" if topic.subtopics else ""
+        load = f"{duration(topic.workload_minutes)} by your own figure{whole}"
     else:
-        load = f"≈ {duration(topic.workload_minutes)} estimated from {_pages(topic)}"
+        load = (
+            f"≈ {duration(topic.workload_minutes)} estimated from {_pages(topic)}{_across(topic)}"
+        )
     if topic.sessions == 0:
         studied = "not studied yet (measured: no sessions)"
     else:
@@ -112,20 +124,23 @@ def reason_text(block: Block, facts: PlanFacts) -> str:
         return f"The last free time before {name}: a mixed review of its topics."
     if block.reason == "spacing":
         return "A second day on this topic helps it stick."
+    topic = facts.topics.get(block.topic_id) if block.topic_id else None
     if block.reason == "no_estimate":
+        where = "to it or its subtopics " if topic and topic.subtopics else ""
         return (
-            "No slides or pages are linked yet, so it gets two blocks by default. "
+            f"No slides or pages are linked {where}yet, so it gets two blocks by default. "
             "Set your own time in the topic."
         )
-    topic = facts.topics[block.topic_id] if block.topic_id else None
     if topic is None:
         return urgency_sentence(block, facts)
     if block.reason == "low_confidence" and topic.confidence is not None:
         extra = CONFIDENCE_PERCENT[topic.confidence] - 100
-        return (
-            f"You rated this {topic.confidence} of 5, so it gets {extra} % more time. "
-            + workload_sentence(topic)
+        rated = (
+            f"You rated its subtopics {topic.confidence} of 5 on average"
+            if topic.confidence_source == "subtopics"
+            else f"You rated this {topic.confidence} of 5"
         )
+        return f"{rated}, so it gets {extra} % more time. " + workload_sentence(topic)
     if block.reason == "urgency":
         return f"{urgency_sentence(block, facts)} {workload_sentence(topic)}"
     return workload_sentence(topic)
@@ -146,8 +161,10 @@ def shortfall_text(shortfall: Shortfall, facts: PlanFacts) -> str:
             return f"{topic}: no block fits before the deadline."
         return f"{topic}: all its blocks are on one day; a second day would help it stick."
     if shortfall.kind == "no_estimate":
+        found = facts.topics.get(shortfall.topic_id) if shortfall.topic_id else None
+        where = " to it or its subtopics" if found and found.subtopics else ""
         return (
-            f"{topic}: no slides or pages are linked, so it gets two blocks by "
+            f"{topic}: no slides or pages are linked{where}, so it gets two blocks by "
             "default. Set your own time in the topic."
         )
     if shortfall.kind == "no_review_time":
@@ -168,9 +185,18 @@ def status_words(numbers: Numbers) -> str:
 
 def assessment_line(report: AssessmentFeasibility, facts: PlanFacts) -> str:
     """ "COS330 Test 2 (3 Dec): needs 4 h 10, 3 h planned, 9 h free before it: short by
-    1 h 10." """
+    1 h 10." When its topics are all planned for sooner assessments, it says so instead."""
     n = report.numbers
     name = assessment_name(report.assessment_id, facts)
+    when = day_month(report.due_at, facts)
+    if report.planned_with:
+        others = " and ".join(
+            f"{assessment_name(other, facts)} ({day_month(facts.assessments[other].due_at, facts)})"
+            for other in report.planned_with
+        )
+        return f"{name} ({when}): its topics are planned for {others}."
+    if report.all_done:
+        return f"{name} ({when}): its topics need no more time (measured study covers them)."
     return (
         f"{name} ({day_month(report.due_at, facts)}): needs {duration(n.required_minutes)}, "
         f"{duration(n.planned_minutes)} planned, {duration(n.free_minutes)} free before it: "

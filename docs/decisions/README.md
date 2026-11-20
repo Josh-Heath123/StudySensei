@@ -23,3 +23,4 @@ after they're accepted (apart from redacting personal identifiers); a later reco
 | [0016](0016-workload-estimate.md) | A topic's workload is estimated from its pages, at 3 minutes a slide and 6 a page of text | Accepted |
 | [0017](0017-planner-v1-rules.md) | Planner v1 rules: 50-minute blocks, two spaced blocks per topic, a final review, deadline order | Accepted |
 | [0018](0018-study-methods-and-reason-text.md) | Study methods from a rules table; reason text and the feasibility report written by code, every number labelled | Accepted; builds on 0016 and 0017 |
+| [0019](0019-planning-scope.md) | Planning scope: an assessment covers topic subtrees, ties break on course order, final reviews only for exams, tests and quizzes | Accepted; amends 0017 and 0018 |

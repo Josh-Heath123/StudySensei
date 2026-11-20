@@ -236,7 +236,7 @@
           "topics"
         ],
         "summary": "Get Topic Tree",
-        "description": "The module's topics as a nested tree, siblings in position order, each with the\nnumber of material pages linked to it, its confidence and its workload (the student's\nfigure, or estimated from its slides and text pages).",
+        "description": "The module's topics as a nested tree, siblings in position order, each with the\nnumber of material pages linked to it, its confidence and its workload (the student's\nfigure, or estimated from its slides and text pages), and for a topic with subtopics the\nworkload of the whole subtree (decision 0019).",
         "operationId": "get_topic_tree_modules__module_id__topics_get",
         "parameters": [
           {
@@ -3928,6 +3928,14 @@
             },
             "type": "array",
             "title": "Issues"
+          },
+          "planned_with": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Planned With"
           }
         },
         "type": "object",
@@ -6956,6 +6964,52 @@
         ],
         "title": "StartEvent"
       },
+      "SubtreeWorkloadOut": {
+        "properties": {
+          "minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "yours",
+              "estimated",
+              "none"
+            ],
+            "title": "Source"
+          },
+          "slide_pages": {
+            "type": "integer",
+            "title": "Slide Pages"
+          },
+          "text_pages": {
+            "type": "integer",
+            "title": "Text Pages"
+          },
+          "subtopics": {
+            "type": "integer",
+            "title": "Subtopics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "minutes",
+          "source",
+          "slide_pages",
+          "text_pages",
+          "subtopics"
+        ],
+        "title": "SubtreeWorkloadOut",
+        "description": "A topic's workload with its subtopics: what the planner uses when the topic is ticked\nin an assessment (decision 0019). The student's own figure on the topic, else estimated\nfrom the distinct pages linked anywhere in it (each page once)."
+      },
       "TaskCreate": {
         "properties": {
           "title": {
@@ -7444,6 +7498,16 @@
           },
           "workload": {
             "$ref": "#/components/schemas/WorkloadOut"
+          },
+          "workload_with_subtopics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SubtreeWorkloadOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "children": {
             "items": {

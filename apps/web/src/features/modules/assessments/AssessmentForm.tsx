@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 
 import { fromIso, toIso } from "@/lib/dates";
+import { cn } from "@/lib/utils";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";
@@ -27,8 +28,13 @@ type Props = {
   onCancel: () => void;
 };
 
-function flatten(nodes: TopicNode[], depth = 0): { topic: TopicNode; depth: number }[] {
-  return nodes.flatMap((topic) => [{ topic, depth }, ...flatten(topic.children, depth + 1)]);
+type Row = { topic: TopicNode; depth: number; ancestors: TopicNode[] };
+
+function flatten(nodes: TopicNode[], ancestors: TopicNode[] = []): Row[] {
+  return nodes.flatMap((topic) => [
+    { topic, depth: ancestors.length, ancestors },
+    ...flatten(topic.children, [...ancestors, topic]),
+  ]);
 }
 
 export function AssessmentForm({ moduleId, initial, submitLabel, onSubmit, onCancel }: Props) {
@@ -181,19 +187,37 @@ export function AssessmentForm({ moduleId, initial, submitLabel, onSubmit, onCan
         )}
         {topics.length > 0 && (
           <ul className="bg-surface border-line max-h-48 overflow-y-auto rounded-md border p-2">
-            {topics.map(({ topic, depth }) => (
-              <li key={topic.id} style={{ paddingLeft: `${depth * 1.25}rem` }}>
-                <label className="hover:bg-subtle flex min-h-9 cursor-pointer items-center gap-2.5 rounded-sm px-2 text-sm transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={topicIds.has(topic.id)}
-                    onChange={(e) => toggleTopic(topic.id, e.target.checked)}
-                    className="accent-primary size-5 shrink-0 cursor-pointer"
-                  />
-                  {topic.name}
-                </label>
-              </li>
-            ))}
+            {topics.map(({ topic, depth, ancestors }) => {
+              // Ticking a topic covers its whole subtree (decision 0019): show its descendants
+              // as included. Only what's ticked is saved, so unticking restores their own state.
+              const includedWith = ancestors.find((a) => topicIds.has(a.id));
+              return (
+                <li key={topic.id} style={{ paddingLeft: `${depth * 1.25}rem` }}>
+                  <label
+                    className={cn(
+                      "flex min-h-9 items-center gap-2.5 rounded-sm px-2 text-sm transition-colors",
+                      includedWith ? "text-muted" : "hover:bg-subtle cursor-pointer",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={includedWith ? true : topicIds.has(topic.id)}
+                      disabled={Boolean(includedWith)}
+                      onChange={(e) => toggleTopic(topic.id, e.target.checked)}
+                      className="accent-primary size-5 shrink-0 cursor-pointer disabled:cursor-default"
+                    />
+                    <span>
+                      {topic.name}
+                      {includedWith && (
+                        <span className="text-muted ml-2 text-xs">
+                          Included with {includedWith.name}
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                </li>
+              );
+            })}
           </ul>
         )}
       </fieldset>

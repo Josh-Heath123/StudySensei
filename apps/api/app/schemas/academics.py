@@ -172,12 +172,24 @@ class WorkloadOut(BaseModel):
     text_pages: int
 
 
+class SubtreeWorkloadOut(WorkloadOut):
+    """A topic's workload with its subtopics: what the planner uses when the topic is ticked
+    in an assessment (decision 0019). The student's own figure on the topic, else estimated
+    from the distinct pages linked anywhere in it (each page once)."""
+
+    # How many topics are under it (all depths).
+    subtopics: int
+
+
 class TopicNodeOut(TopicOut):
     """A topic with its subtopics, for rendering the tree."""
 
     # Distinct material pages linked to this topic (by cited page or by meaning).
     linked_pages: int = 0
+    # This topic's own pages (or the student's figure).
     workload: WorkloadOut
+    # Only for a topic with subtopics.
+    workload_with_subtopics: SubtreeWorkloadOut | None = None
     children: list["TopicNodeOut"]
 
 

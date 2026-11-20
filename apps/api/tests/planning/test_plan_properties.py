@@ -21,6 +21,8 @@ TIMEZONES = [
     "Asia/Kolkata",  # +05:30
     "Asia/Kathmandu",  # +05:45
 ]
+# Mostly reviewed kinds, so the review property is still exercised.
+KINDS = ["exam", "exam", "test", "quiz", "assignment", "project", "other"]
 # A few days before Europe/London's spring change.
 BASE = datetime(2026, 3, 24, tzinfo=UTC)
 
@@ -97,6 +99,7 @@ def plan_inputs(draw: st.DrawFn, roomy: bool = False) -> PlanInput:
             module_id=draw(st.sampled_from(modules)),
             workload_minutes=draw(st.none() | st.integers(0, 600)),
             confidence=draw(st.none() | st.integers(1, 5)),
+            order=draw(st.integers(0, 20)),
         )
         for i in range(draw(st.integers(1, 5 if roomy else 8)))
     )
@@ -113,8 +116,9 @@ def plan_inputs(draw: st.DrawFn, roomy: bool = False) -> PlanInput:
             if in_module
             else []
         )
+        kind = draw(st.sampled_from(KINDS))
         assessments.append(
-            AssessmentInput(UUID(int=1000 + i), module, due, weight, tuple(topic_ids))
+            AssessmentInput(UUID(int=1000 + i), module, due, weight, tuple(topic_ids), kind)
         )
     return PlanInput(
         now=now,
@@ -161,7 +165,7 @@ def test_the_same_input_gives_the_same_plan_in_any_order(request: PlanInput, rng
         daily_cap_minutes=request.daily_cap_minutes,
         timezone=request.timezone,
         assessments=tuple(
-            AssessmentInput(a.id, a.module_id, a.due_at, a.weight, shuffled(a.topic_ids))
+            AssessmentInput(a.id, a.module_id, a.due_at, a.weight, shuffled(a.topic_ids), a.kind)
             for a in shuffled(request.assessments)
         ),
         topics=shuffled(request.topics),

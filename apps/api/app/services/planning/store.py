@@ -45,6 +45,7 @@ from app.services.planning.availability import (
     parse_minute,
     weekly_minutes,
 )
+from app.services.planning.subtree import Page, SubtreeWorkload, Tree, make_tree, subtree_workload
 from app.services.planning.workload import SLIDE_KINDS, TEXT_KINDS, Workload, workload
 
 WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
@@ -316,12 +317,51 @@ async def page_kinds(
     return counts
 
 
+async def topic_pages(
+    session: AsyncSession, module_id: uuid.UUID, *, user_id: uuid.UUID
+) -> dict[uuid.UUID, set[Page]]:
+    """The distinct pages linked to each topic in the module, as (material, page, is a slide),
+    for slide and text kinds only (decision 0016)."""
+    query = (
+        select(ChunkTopic.topic_id, Chunk.material_id, Chunk.page_number, Material.kind)
+        .distinct()
+        .join(Chunk, (Chunk.id == ChunkTopic.chunk_id) & (Chunk.module_id == ChunkTopic.module_id))
+        .join(Material, (Material.id == Chunk.material_id) & (Material.user_id == user_id))
+        .where(
+            ChunkTopic.module_id == module_id,
+            Chunk.user_id == user_id,
+            Material.kind.in_(SLIDE_KINDS + TEXT_KINDS),
+        )
+    )
+    out: dict[uuid.UUID, set[Page]] = {}
+    for topic_id, material_id, page_number, kind in await session.execute(query):
+        out.setdefault(topic_id, set()).add((material_id, page_number, kind in SLIDE_KINDS))
+    return out
+
+
+def topic_tree(topics: list[Topic]) -> Tree:
+    """The planning tree of a module's topics, given in sibling order (``list_topics``)."""
+    return make_tree([(t.id, t.parent_id) for t in topics])
+
+
 async def topic_workloads(
     session: AsyncSession, module_id: uuid.UUID, topics: list[Topic], *, user_id: uuid.UUID
-) -> dict[uuid.UUID, Workload]:
+) -> tuple[dict[uuid.UUID, Workload], dict[uuid.UUID, SubtreeWorkload]]:
+    """Each topic's own workload, and for each topic with subtopics the workload of its whole
+    subtree (decision 0019: the planner's figure when the topic is ticked in an assessment).
+    ``topics`` is the module's whole list, in sibling order."""
     await get_module(session, module_id, user_id=user_id)
-    kinds = await page_kinds(session, module_id, user_id=user_id)
-    return {t.id: workload(t.estimated_minutes, *kinds.get(t.id, (0, 0))) for t in topics}
+    pages = await topic_pages(session, module_id, user_id=user_id)
+    tree = topic_tree(topics)
+    own: dict[uuid.UUID, Workload] = {}
+    whole: dict[uuid.UUID, SubtreeWorkload] = {}
+    for t in topics:
+        linked = pages.get(t.id, set())
+        slides = sum(1 for page in linked if page[2])
+        own[t.id] = workload(t.estimated_minutes, slides, len(linked) - slides)
+        if tree.children.get(t.id):
+            whole[t.id] = subtree_workload(tree, t.id, t.estimated_minutes, pages)
+    return own, whole
 
 
 async def update_topic_planning(

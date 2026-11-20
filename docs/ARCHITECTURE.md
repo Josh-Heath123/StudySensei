@@ -626,12 +626,13 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
 
 - **`plan(PlanInput) -> Plan`** (`services/planning/planner.py`) is pure: no database, no clock, no AI. Inputs are
   frozen dataclasses: `now`, the free intervals (UTC, from `expand()`), the daily cap and timezone, assessments (id,
-  module, due, weight, topic ids), topics (id, module, workload minutes or None, confidence or None) and the minutes
-  studied per topic. The same input gives the same plan, in any order.
+  module, due, weight, topic ids, kind), topics (id, module, workload minutes or None, confidence or None, course
+  order) and the minutes studied per topic. The same input gives the same plan, in any order.
 - **Blocks** are 50 minutes (25 only where a 50 doesn't fit) on a 5-minute grid, with a 10-minute break between
   neighbours, inside free time, under the cap per local day, after now and before their assessment's deadline.
-- **Three passes,** sooner deadlines first (then weight, then lower confidence, then ids): a final review in the last
-  72 h before each assessment, as late as fits; two blocks per topic on different days, as early as fits (a later
+- **Three passes,** sooner deadlines first (then weight, then lower confidence, then course order, then ids; ADR
+  0019): a final review in the last 72 h before each exam, test or quiz (not assignments, projects or "other"), as late
+  as fits; two blocks per topic on different days, as early as fits (a later
   assessment looks first after the previous deadline); then the rest of each topic's required minutes
   (`max(0, workload − studied)`, +50 % at confidence 1 to −30 % at 5), spread over days.
 - **Output:** blocks with a kind (`study`/`review`) and a machine-readable reason (`final_review`, `spacing`,
@@ -648,12 +649,20 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   days=)` returns the `PlanInput` and the facts the text needs (names, workload source and pages, sessions).
   - Free time: `expand()` for `days` local dates from today (1–62, default 28) in `users.timezone`, with the cap.
   - Assessments: `upcoming`, due after now and by the end of the window; later ones are listed, not planned.
-  - Topics they cover: workload (yours, else estimated, else none) and confidence.
-  - Studied minutes: `sum(active_seconds)` of sessions on the topic, floored; a subtopic's sessions count for it only.
+  - **Units** (ADR 0019, pure rules in `subtree.py`): a ticked topic covers its subtree, and each ticked topic with
+    no ticked ancestor is one unit (ticked descendants are absorbed; a unit inside a sooner assessment's unit becomes
+    that unit). Workload: yours on the unit, else estimated over the distinct pages of the whole subtree, else none.
+    Confidence: its own, else the mean of rated descendants (half up). Course order: pre-order index in the tree.
+  - Studied minutes: `sum(active_seconds)` of sessions on the unit or any descendant, floored.
+  - The topic tree API gives each topic with children `workload_with_subtopics` from the same `subtree_workload`,
+    and the topic dialog shows it; the assessment form shows a ticked topic's descendants as included (only what's
+    ticked is saved).
 - **Methods** (`methods.py`, pure): a four-row rules table, first match wins: review → `mixed_review`; a topic's
   first block at confidence 1–2 or unrated → `first_pass`; at 3–5 → `active_recall`; later blocks → `practice`.
 - **Text** (`explain.py`, pure): one or two sentences per block from its reason and facts, and the report's lines.
-  Every minute figure says "estimated from N slides", "by your own figure" or "measured, N sessions". No AI.
+  Every minute figure says "estimated from N slides", "by your own figure" or "measured, N sessions", and a unit
+  with subtopics says "across Ch1 and its 4 subtopics" (and "you rated its subtopics N of 5 on average"). An
+  assessment whose topics are all planned for a sooner one says so instead of "needs 0 min". No AI.
 - **Feasibility** (`feasibility.py`, pure): per topic required, planned and short; per assessment and overall the
   sums, review minutes, free minutes to the deadline (capped per local day) and booked minutes; a status (`fits`,
   `tight` under 15 % spare, `short`); shortfalls in words; levers (add time, raise the cap, narrow topics).

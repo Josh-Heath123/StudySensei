@@ -253,6 +253,8 @@ class AssessmentFeasibilityOut(FeasibilityNumbersOut):
     line: str
     topics: list[TopicFeasibilityOut]
     issues: list[IssueOut]
+    # When all its topics are planned for sooner assessments: those assessments (decision 0019).
+    planned_with: list[uuid.UUID] = Field(default_factory=list)
 
 
 class OverallFeasibilityOut(FeasibilityNumbersOut):

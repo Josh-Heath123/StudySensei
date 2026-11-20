@@ -6,6 +6,7 @@ from app.api.deps import CurrentUser
 from app.core.db import SessionDep
 from app.models import Topic
 from app.schemas.academics import (
+    SubtreeWorkloadOut,
     TopicCreate,
     TopicMove,
     TopicNodeOut,
@@ -15,26 +16,41 @@ from app.schemas.academics import (
 )
 from app.services.academics import topics
 from app.services.planning.store import topic_workloads
+from app.services.planning.subtree import SubtreeWorkload
 from app.services.planning.workload import Workload
 from app.services.topic_maps.linking import linked_page_counts
 
 router = APIRouter(tags=["topics"])
 
 
+def _workload_out(load: Workload) -> WorkloadOut:
+    return WorkloadOut(
+        minutes=load.minutes,
+        source=load.source,
+        slide_pages=load.slide_pages,
+        text_pages=load.text_pages,
+    )
+
+
 def _to_out(
-    node: topics.TopicNode, pages: dict[uuid.UUID, int], loads: dict[uuid.UUID, Workload]
+    node: topics.TopicNode,
+    pages: dict[uuid.UUID, int],
+    loads: dict[uuid.UUID, Workload],
+    whole: dict[uuid.UUID, SubtreeWorkload],
 ) -> TopicNodeOut:
-    load = loads[node.topic.id]
+    found = whole.get(node.topic.id)
     return TopicNodeOut(
         **TopicOut.model_validate(node.topic).model_dump(),
         linked_pages=pages.get(node.topic.id, 0),
-        workload=WorkloadOut(
-            minutes=load.minutes,
-            source=load.source,
-            slide_pages=load.slide_pages,
-            text_pages=load.text_pages,
+        workload=_workload_out(loads[node.topic.id]),
+        workload_with_subtopics=(
+            SubtreeWorkloadOut(
+                **_workload_out(found.workload).model_dump(), subtopics=found.subtopics
+            )
+            if found
+            else None
         ),
-        children=[_to_out(child, pages, loads) for child in node.children],
+        children=[_to_out(child, pages, loads, whole) for child in node.children],
     )
 
 
@@ -44,11 +60,12 @@ async def get_topic_tree(
 ) -> list[TopicNodeOut]:
     """The module's topics as a nested tree, siblings in position order, each with the
     number of material pages linked to it, its confidence and its workload (the student's
-    figure, or estimated from its slides and text pages)."""
+    figure, or estimated from its slides and text pages), and for a topic with subtopics the
+    workload of the whole subtree (decision 0019)."""
     flat = await topics.list_topics(session, module_id, user_id=user.id)
     pages = await linked_page_counts(session, module_id, user_id=user.id)
-    loads = await topic_workloads(session, module_id, flat, user_id=user.id)
-    return [_to_out(root, pages, loads) for root in topics.build_tree(flat)]
+    loads, whole = await topic_workloads(session, module_id, flat, user_id=user.id)
+    return [_to_out(root, pages, loads, whole) for root in topics.build_tree(flat)]
 
 
 @router.post(
