@@ -85,6 +85,7 @@ async def preview(
                     "module_code": module_code(a.assessment_id),
                     "due_at": a.due_at,
                     "line": explain.assessment_line(a, facts),
+                    "planned_with": list(a.planned_with),
                     "topics": [
                         TopicFeasibilityOut(
                             topic_id=t.topic_id,

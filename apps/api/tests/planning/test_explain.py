@@ -264,3 +264,62 @@ def test_a_later_assessment() -> None:
     assert explain.later_text(TEST, facts(), 3) == (
         "COS330 Test 2 is due 2 Dec, after these 3 days: it isn't planned yet."
     )
+
+
+# --- units with subtopics (decision 0019) ----------------------------------------------
+
+CHAPTER = replace(
+    ESTIMATED,
+    name="Ch1",
+    workload_minutes=435,
+    slide_pages=72,
+    text_pages=34,
+    subtopics=4,
+)
+
+
+def test_a_units_workload_names_its_subtopics() -> None:
+    assert explain.reason_text(block("workload"), facts(CHAPTER)) == (
+        "≈ 7 h 15 estimated from 72 slides and 34 pages of text across Ch1 and its "
+        "4 subtopics; 15 min studied so far (measured, 1 session)."
+    )
+    one = replace(CHAPTER, subtopics=1)
+    assert "across Ch1 and its 1 subtopic;" in explain.workload_sentence(one)
+    yours = replace(CHAPTER, workload_source="yours", workload_minutes=600)
+    assert explain.workload_sentence(yours).startswith(
+        "10 h by your own figure for Ch1 and its subtopics; "
+    )
+
+
+def test_confidence_from_the_subtopics_says_so() -> None:
+    rated = replace(CHAPTER, confidence=2, confidence_source="subtopics")
+    assert explain.reason_text(block("low_confidence"), facts(rated)).startswith(
+        "You rated its subtopics 2 of 5 on average, so it gets 25 % more time. "
+    )
+
+
+def test_no_estimate_for_a_unit_with_subtopics() -> None:
+    empty = replace(CHAPTER, workload_minutes=None, workload_source="none")
+    assert explain.reason_text(block("no_estimate"), facts(empty)) == (
+        "No slides or pages are linked to it or its subtopics yet, so it gets two blocks "
+        "by default. Set your own time in the topic."
+    )
+
+
+def test_an_assessment_whose_topics_are_planned_for_a_sooner_one() -> None:
+    sooner = UUID(int=7)
+    f = facts()
+    both = replace(
+        f,
+        assessments={
+            **f.assessments,
+            sooner: AssessmentFacts("Semester test", MODULE, DUE - timedelta(days=2), None),
+        },
+    )
+    zero = numbers(required_minutes=0, planned_minutes=0, short_minutes=0, status="fits")
+    report = AssessmentFeasibility(TEST, DUE, zero, (), (), planned_with=(sooner,))
+    assert explain.assessment_line(report, both) == (
+        "COS330 Test 2 (2 Dec): its topics are planned for COS330 Semester test (30 Nov)."
+    )
+    done = AssessmentFeasibility(TEST, DUE, zero, (), (), all_done=True)
+    assert "needs" not in explain.assessment_line(done, f)

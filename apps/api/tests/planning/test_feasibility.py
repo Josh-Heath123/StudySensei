@@ -76,6 +76,11 @@ def test_the_report_agrees_with_the_plan(request: PlanInput) -> None:
         # The status agrees with the numbers.
         assert n.status == status(n.short_minutes, n.free_minutes, n.booked_minutes)
         event(f"status {n.status}")
+        # "Planned with" only for an assessment with topics but none of its own.
+        if entry.planned_with:
+            assert not entry.topics and found.covered[entry.assessment_id]
+            assert entry.assessment_id not in entry.planned_with
+        assert not (entry.planned_with and entry.all_done)
     assert seen == set(found.topics)
 
     overall = report.overall
@@ -170,3 +175,21 @@ def test_free_minutes_split_at_local_midnight_and_cap_each_day() -> None:
     assert free_minutes(request, start + timedelta(days=1), capped=False) == 240
     # Only from now: nothing before NOW counts, and nothing after ``until``.
     assert free_minutes(request, start + timedelta(hours=1)) == 60
+
+
+def test_an_assessment_whose_topics_are_planned_for_a_sooner_one() -> None:
+    topic = TopicInput(UUID(int=1), MODULE, 200, 3)
+    test = AssessmentInput(UUID(int=2), MODULE, NOW + timedelta(days=4), None, (topic.id,), "test")
+    task = AssessmentInput(
+        UUID(int=3), MODULE, NOW + timedelta(days=8), None, (topic.id,), "assignment"
+    )
+    request = PlanInput(NOW, evenings(8), 180, SAST, (test, task), (topic,))
+    result = plan(request)
+    report = feasibility(result, request)
+
+    later = report.assessments[1]
+    assert later.assessment_id == task.id
+    assert later.planned_with == (test.id,)
+    assert later.topics == ()
+    # The assignment gets no review; the test does.
+    assert {b.assessment_id for b in result.blocks if b.kind == "review"} == {test.id}
