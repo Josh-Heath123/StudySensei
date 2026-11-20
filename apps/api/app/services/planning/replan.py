@@ -74,6 +74,18 @@ async def mark_missed(session: AsyncSession, version: PlanVersion, now: datetime
     )
 
 
+async def has_open_session(session: AsyncSession, block: PlanBlock) -> bool:
+    """Whether a session linked to ``block`` hasn't ended."""
+    found = await session.scalar(
+        select(StudySession.id).where(
+            StudySession.user_id == block.user_id,
+            StudySession.plan_block_id == block.id,
+            StudySession.ended_at.is_(None),
+        )
+    )
+    return found is not None
+
+
 def _inside(start: datetime, end: datetime, free: tuple[Interval, ...]) -> bool:
     """Whether [start, end) lies in the free time (touching intervals merged)."""
     spans: list[tuple[datetime, datetime]] = []
@@ -322,24 +334,31 @@ async def replan(
     await session.flush()
     for key, old in new:
         start, end, module_id, assessment_id, topic_id, kind, reason, method, why, how = key
-        session.add(
-            PlanBlock(
-                user_id=user_id,
-                version_id=version.id,
-                start_at=start,
-                end_at=end,
-                module_id=module_id,
-                assessment_id=assessment_id,
-                topic_id=topic_id,
-                kind=kind,
-                reason=reason,
-                method=method,
-                reason_text=why,
-                method_text=how,
-                status="planned",
-                fixed=old is not None,
-            )
+        row = PlanBlock(
+            user_id=user_id,
+            version_id=version.id,
+            start_at=start,
+            end_at=end,
+            module_id=module_id,
+            assessment_id=assessment_id,
+            topic_id=topic_id,
+            kind=kind,
+            reason=reason,
+            method=method,
+            reason_text=why,
+            method_text=how,
+            status="planned",
+            fixed=old is not None,
         )
+        session.add(row)
+        if old is not None:
+            # A session started on the old row follows its block to the copy (decision 0022).
+            await session.flush()
+            await session.execute(
+                update(StudySession)
+                .where(StudySession.user_id == user_id, StudySession.plan_block_id == old.id)
+                .values(plan_block_id=row.id)
+            )
     await session.commit()
     return version
 
@@ -357,6 +376,8 @@ async def skip_block(
     current = await current_version(session, user_id=user_id)
     if current is None or block.version_id != current.id or block.status != "planned":
         raise Conflict("Only a planned block of the current plan can be skipped.")
+    if await has_open_session(session, block):
+        raise Conflict("Its session is still open.")
     block.status = "skipped"
     block.status_changed_at = now
     await session.flush()
