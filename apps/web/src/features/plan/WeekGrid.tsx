@@ -59,7 +59,14 @@ export function WeekGrid({
 }: Props) {
   const move = useMoveBlock();
   const columns = useRef<(HTMLDivElement | null)[]>([]);
-  const [drag, setDrag] = useState<Drag | null>(null);
+  // The drag lives in a ref, so pointer events between renders see the latest one (a fast
+  // flick is one pointermove then pointerup at once); the state only re-renders the ghost.
+  const dragRef = useRef<Drag | null>(null);
+  const [drag, setDragState] = useState<Drag | null>(null);
+  const setDrag = (next: Drag | null) => {
+    dragRef.current = next;
+    setDragState(next);
+  };
   const [placed, setPlaced] = useState<Placed | null>(null);
   const [problem, setProblem] = useState<{ blockId: string; text: string } | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -123,22 +130,32 @@ export function WeekGrid({
     });
   }
 
-  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    if (drag === null || event.pointerId !== drag.pointerId) return;
+  /** Past the threshold (or already dragging), the drag at this event's position. */
+  function dragAt(event: ReactPointerEvent, current: Drag): Drag | null {
     const far =
-      Math.abs(event.clientX - drag.x0) > DRAG_THRESHOLD_PX ||
-      Math.abs(event.clientY - drag.y0) > DRAG_THRESHOLD_PX;
-    if (!drag.moved && !far) return;
+      Math.abs(event.clientX - current.x0) > DRAG_THRESHOLD_PX ||
+      Math.abs(event.clientY - current.y0) > DRAG_THRESHOLD_PX;
+    if (!current.moved && !far) return null;
+    return { ...current, ...target(event, current), moved: true };
+  }
+
+  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const current = dragRef.current;
+    if (current === null || event.pointerId !== current.pointerId) return;
+    const next = dragAt(event, current);
+    if (next === null) return;
     // Capture only once it's a drag: a plain click must still reach the card's popover.
-    if (!drag.moved) event.currentTarget.setPointerCapture?.(event.pointerId);
-    setDrag({ ...drag, ...target(event, drag), moved: true });
+    if (!current.moved) event.currentTarget.setPointerCapture?.(event.pointerId);
+    setDrag(next);
   }
 
   async function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
-    if (drag === null || event.pointerId !== drag.pointerId) return;
-    const done = drag;
+    const current = dragRef.current;
+    if (current === null || event.pointerId !== current.pointerId) return;
+    // The drop is where the pointer is released, not where the last render put the ghost.
+    const done = dragAt(event, current);
     setDrag(null);
-    if (!done.moved) return;
+    if (done === null) return;
     justDragged.current = true;
     window.setTimeout(() => (justDragged.current = false), 0);
     const from = zoned(done.block.start, timeZone);
