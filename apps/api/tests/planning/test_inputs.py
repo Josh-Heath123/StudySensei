@@ -107,7 +107,7 @@ async def test_past_completed_and_cancelled_assessments_are_left_out(
             AssessmentCreate(
                 title=title,
                 kind="exam",
-                status=status,  # type: ignore[arg-type]
+                status=status,
                 due_at=NOW + timedelta(days=days),
                 topic_ids=[rows.topic.id],
             ),

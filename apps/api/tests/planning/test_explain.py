@@ -17,7 +17,7 @@ from app.services.planning.feasibility import (
     Numbers,
 )
 from app.services.planning.inputs import AssessmentFacts, ModuleFacts, PlanFacts, TopicFacts
-from app.services.planning.planner import Block, Reason, Shortfall
+from app.services.planning.planner import Block, BlockKind, Reason, Shortfall
 
 SAST = ZoneInfo("Africa/Johannesburg")
 MODULE, TEST, TOPIC = UUID(int=1), UUID(int=2), UUID(int=3)
@@ -51,7 +51,7 @@ def facts(topic: TopicFacts = ESTIMATED, weight: float | None = 30) -> PlanFacts
 
 
 def block(reason: Reason, start: datetime = BLOCK_START) -> Block:
-    kind = "review" if reason == "final_review" else "study"
+    kind: BlockKind = "review" if reason == "final_review" else "study"
     topic = None if kind == "review" else TOPIC
     return Block(start, start + timedelta(minutes=50), MODULE, TEST, topic, kind, reason)
 
