@@ -218,10 +218,22 @@ class _Day:
         return length if self.used + length <= cap else None
 
     def next_to(self, start: int, end: int, topic_id: UUID) -> bool:
-        """Whether the block right before or right after [start, end) is on ``topic_id``."""
-        before = [b for b in self.blocks if b.end <= start][-1:]
-        after = [b for b in self.blocks if b.start >= end][:1]
-        return any(b.topic_id == topic_id for b in before + after)
+        """Whether a block on ``topic_id`` is directly next to [start, end): only the break
+        lies between them (a neighbouring day's blocks included). Decision 0020."""
+        nearby = (
+            (self.previous.blocks[-1:] if self.previous else [])
+            + self.blocks
+            + (self.following.blocks[:1] if self.following else [])
+        )
+        return any(
+            b.topic_id == topic_id
+            and (b.end + BREAK_MINUTES == start or end + BREAK_MINUTES == b.start)
+            for b in nearby
+        )
+
+    def count(self, topic_id: UUID) -> int:
+        """How many of the day's blocks are on ``topic_id``."""
+        return sum(1 for b in self.blocks if b.topic_id == topic_id)
 
 
 @dataclass
@@ -300,23 +312,32 @@ class _Calendar:
         return None
 
     def spread(self, topic: _Topic, hi: int) -> Spot | None:
-        """An extra block before ``hi``: the earliest spot on a day without the topic, else
-        the earliest not next to the topic's own block, else the earliest."""
-        best: tuple[int, int, Spot] | None = None
+        """An extra block before ``hi``: the earliest spot on a day without the topic. When
+        every day with room already has it (decision 0020): the day with the fewest of its
+        blocks, then a spot not directly next to its own block, then the earliest. Each gap
+        is tried at its earliest and its latest start. With the topic on one day only (no
+        other day has room), there's nothing to spread: the earliest spot, as before."""
+        spreading = len(topic.days) >= MIN_BLOCKS
+        best: tuple[int, int, int, Spot] | None = None
         for day in self.days:
             if day.start >= hi:
                 break
+            count = day.count(topic.input.id)
             for gap in day.gaps(self.start, hi):
                 length = day.length_for(gap, self.cap)
                 if length is None:
                     continue
-                start = gap[0]
                 if day.date not in topic.days:
-                    return day, start, length
-                level = 2 if day.next_to(start, start + length, topic.input.id) else 1
-                if best is None or (level, start) < best[:2]:
-                    best = (level, start, (day, start, length))
-        return None if best is None else best[2]
+                    return day, gap[0], length
+                starts = (gap[0], gap[1] - length) if spreading else (gap[0],)
+                for start in dict.fromkeys(starts):
+                    level = (
+                        1 if spreading and day.next_to(start, start + length, topic.input.id) else 0
+                    )
+                    key = (count if spreading else 0, level, start)
+                    if best is None or key < best[:3]:
+                        best = (*key, (day, start, length))
+        return None if best is None else best[3]
 
 
 def _assessment_key(assessment: AssessmentInput) -> tuple[datetime, float, str]:
