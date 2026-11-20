@@ -140,3 +140,94 @@ export function usePingModels() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["ai-status"] }),
   });
 }
+
+// --- Reminders and the calendar feed (decision 0024) ------------------------------
+
+export type PushDevice = components["schemas"]["PushSubscriptionOut"];
+export type PushTestResult = components["schemas"]["PushTestOut"];
+export type CalendarFeed = components["schemas"]["CalendarFeedOut"];
+
+export const reminderKeys = {
+  config: ["push", "config"] as const,
+  devices: ["push", "devices"] as const,
+  feed: ["calendar", "feed"] as const,
+};
+
+export function usePushConfig() {
+  return useQuery({
+    queryKey: reminderKeys.config,
+    queryFn: () => unwrap(api.GET("/push/config")),
+  });
+}
+
+export function usePushDevices(enabled = true) {
+  return useQuery({
+    queryKey: reminderKeys.devices,
+    queryFn: () => unwrap(api.GET("/push/subscriptions")),
+    enabled,
+  });
+}
+
+function useDevicesMutation<TArgs, TResult>(mutationFn: (args: TArgs) => Promise<TResult>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: reminderKeys.devices }),
+  });
+}
+
+/** Save this device's subscription (the server upserts it by endpoint). */
+export function useSaveDevice() {
+  return useDevicesMutation((body: components["schemas"]["PushSubscriptionIn"]) =>
+    unwrap(api.POST("/push/subscriptions", { body })),
+  );
+}
+
+export function useRemoveDevice() {
+  return useDevicesMutation((id: string) =>
+    unwrap(
+      api.DELETE("/push/subscriptions/{subscription_id}", {
+        params: { path: { subscription_id: id } },
+      }),
+    ),
+  );
+}
+
+/** POST /push/test: "Reminders work" to each device, with each one's outcome. */
+export function useTestPush() {
+  return useDevicesMutation(() => unwrap(api.POST("/push/test")));
+}
+
+/** The lead time only: it doesn't change the plan, so nothing else is refetched. */
+export function useSetReminderMinutes() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (minutes: PlanningSettings["reminder_minutes"]) =>
+      unwrap(api.PATCH("/planning/settings", { body: { reminder_minutes: minutes } })),
+    onSuccess: (settings) => queryClient.setQueryData(studyTimeKeys.settings, settings),
+  });
+}
+
+export function useCalendarFeed() {
+  return useQuery({
+    queryKey: reminderKeys.feed,
+    queryFn: () => unwrap(api.GET("/calendar/feed")),
+  });
+}
+
+function useFeedMutation<TArgs, TResult>(mutationFn: (args: TArgs) => Promise<TResult>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: reminderKeys.feed }),
+  });
+}
+
+/** Create or reset the private link; the URL comes back this once. */
+export function useCreateFeed() {
+  return useFeedMutation(() => unwrap(api.POST("/calendar/feed")));
+}
+
+export function useDeleteFeed() {
+  return useFeedMutation(() => unwrap(api.DELETE("/calendar/feed")));
+}

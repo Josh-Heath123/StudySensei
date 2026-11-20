@@ -13,6 +13,8 @@ import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card";
 
+import { CalendarCard } from "./CalendarCard";
+import { RemindersCard } from "./RemindersCard";
 import { StudyTimeSection } from "./StudyTimeSection";
 import { formatReset, plural, PROVIDER_NAMES, ROLE_ORDER, ROLE_USES } from "./aiSettings";
 import {
@@ -30,6 +32,7 @@ export function SettingsPage() {
       <PageHeader title="Settings" />
       <AppearanceSection />
       <StudyTimeSection />
+      <RemindersSection />
       <section aria-labelledby="ai-providers" className="mt-12 grid gap-6">
         <div>
           <h2 id="ai-providers" className="type-h2">
@@ -60,6 +63,26 @@ export function SettingsPage() {
         )}
       </section>
     </>
+  );
+}
+
+/** Reminders before each block, and the plan in a calendar app (decision 0024). */
+function RemindersSection() {
+  return (
+    <section aria-labelledby="reminders" className="mt-12 grid gap-6">
+      <div>
+        <h2 id="reminders" className="type-h2">
+          Reminders and calendar
+        </h2>
+        <p className="text-muted mt-2">
+          A nudge before each planned block, and your plan where you keep your days.
+        </p>
+      </div>
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <RemindersCard />
+        <CalendarCard />
+      </div>
+    </section>
   );
 }
 
