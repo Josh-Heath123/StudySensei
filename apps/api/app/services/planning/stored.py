@@ -13,7 +13,7 @@ import uuid
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import ColumnElement, select
+from sqlalchemy import ColumnElement, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.jobs.kinds import REPLAN
@@ -34,6 +34,17 @@ from app.services.planning.replan import current_version, replan, unattended
 DEFAULT_RANGE_DAYS = 7
 HISTORY = ("done", "skipped", "missed")
 NO_ACTIONS = BlockActionsOut(start=False, skip=False, move=False)
+
+
+def shown_times(
+    block: PlanBlock, status: str, linked: StudySession | None
+) -> tuple[datetime, datetime]:
+    """When a block is shown: a done block at its linked session's measured start and end
+    (decision 0023: one done early mustn't sit under the block that re-used its slot),
+    anything else at the plan's times."""
+    if status == "done" and linked is not None and linked.ended_at is not None:
+        return linked.started_at, linked.ended_at
+    return block.start_at, block.end_at
 
 
 async def version_out(session: AsyncSession, version: PlanVersion) -> PlanVersionOut:
@@ -68,9 +79,11 @@ async def blocks_out(
     current: PlanVersion | None,
     where: list[ColumnElement[bool]],
     limit: int | None = None,
+    window: tuple[datetime, datetime] | None = None,
 ) -> list[StoredBlockOut]:
     """Blocks matching ``where`` with their names, linked session, derived status and actions:
-    the one code path behind ``GET /plan`` and ``GET /plan/next``."""
+    the one code path behind ``GET /plan`` and ``GET /plan/next``. With ``window``, only
+    blocks whose shown times (``shown_times``) overlap it, ordered by those times."""
     query = (
         select(
             PlanBlock,
@@ -120,6 +133,9 @@ async def blocks_out(
         in_current = current is not None and block.version_id == current.id
         status = "missed" if in_current and missed else block.status
         found = linked.get(block.id)
+        start, end = shown_times(block, status, found)
+        if window is not None and not (end > window[0] and start < window[1]):
+            continue
         actions = NO_ACTIONS
         if in_current and status == "planned":
             open_linked = found is not None and found.ended_at is None
@@ -131,9 +147,11 @@ async def blocks_out(
         out.append(
             StoredBlockOut(
                 id=block.id,
-                start=block.start_at,
-                end=block.end_at,
-                minutes=int((block.end_at - block.start_at).total_seconds() // 60),
+                start=start,
+                end=end,
+                minutes=int((end - start).total_seconds() // 60),
+                planned_start=block.start_at,
+                planned_end=block.end_at,
                 module_id=block.module_id,
                 module_code=code,
                 module_colour=colour,
@@ -159,6 +177,7 @@ async def blocks_out(
                 actions=actions,
             )
         )
+    out.sort(key=lambda b: (b.start, b.end))
     return out
 
 
@@ -193,6 +212,13 @@ async def plan_for(
     if last - first >= timedelta(days=MAX_RANGE_DAYS):
         raise Invalid(f"Ask for at most {MAX_RANGE_DAYS} days at a time.")
     start, end = local_to_utc(first, 0, tz), local_to_utc(last, MINUTES_PER_DAY, tz)
+    # A done block shows at its session's time, which may be outside its planned range.
+    studied_in_range = select(StudySession.plan_block_id).where(
+        StudySession.user_id == user_id,
+        StudySession.plan_block_id.is_not(None),
+        StudySession.ended_at > start,
+        StudySession.started_at < end,
+    )
     blocks = await blocks_out(
         session,
         user_id=user_id,
@@ -200,9 +226,12 @@ async def plan_for(
         current=version,
         where=[
             (PlanBlock.version_id == version.id) | PlanBlock.status.in_(HISTORY),
-            PlanBlock.end_at > start,
-            PlanBlock.start_at < end,
+            or_(
+                (PlanBlock.end_at > start) & (PlanBlock.start_at < end),
+                PlanBlock.id.in_(studied_in_range),
+            ),
         ],
+        window=(start, end),
     )
     return PlanOut(
         **head.model_dump(),

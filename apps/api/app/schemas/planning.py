@@ -317,9 +317,14 @@ class BlockActionsOut(BaseModel):
 
 class StoredBlockOut(BaseModel):
     id: uuid.UUID
+    # When it's shown: the plan's times, or for a done block its linked session's measured
+    # start and end (decision 0023). ``minutes`` is their length.
     start: dt.datetime
     end: dt.datetime
     minutes: int
+    # The plan's times, always.
+    planned_start: dt.datetime
+    planned_end: dt.datetime
     module_id: uuid.UUID
     module_code: str
     module_colour: str

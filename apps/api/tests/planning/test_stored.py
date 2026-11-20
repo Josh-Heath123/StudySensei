@@ -2,6 +2,7 @@
 (no write), each block's actions, the linked session's measured minutes, and replan_pending."""
 
 from datetime import timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -82,8 +83,16 @@ async def test_actions_follow_the_block_and_the_sessions(
 
     await end(session, rows, study)
     shown = {b.id: b for b in (await plan_for(session, user_id=user_a.id, now=NOW)).blocks}
-    assert (shown[tonight.id].status, shown[tonight.id].session_minutes) == ("done", 48)
+    # Done, it's shown on the day it was studied (decision 0023), not in its planned slot.
+    assert tonight.id not in shown
     assert shown[later.id].actions.start is True
+    await session.refresh(study)
+    day = study.started_at.astimezone(ZoneInfo("Africa/Johannesburg")).date()
+    studied = await plan_for(session, user_id=user_a.id, now=NOW, first=day, last=day)
+    done = next(b for b in studied.blocks if b.id == tonight.id)
+    assert (done.status, done.session_minutes) == ("done", 48)
+    assert (done.start, done.end) == (study.started_at, study.ended_at)
+    assert (done.planned_start, done.planned_end) == (tonight.start_at, tonight.end_at)
 
 
 async def test_replan_pending(session: AsyncSession, user_a: User) -> None:
