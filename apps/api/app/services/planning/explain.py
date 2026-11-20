@@ -85,7 +85,7 @@ def _across(topic: TopicFacts) -> str:
 
 def workload_sentence(topic: TopicFacts) -> str:
     """ "≈ 40 min estimated from 13 slides; 15 min studied so far (measured, 1 session)." For
-    a topic with subtopics: "≈ 7 h 15 estimated from 72 slides and 34 pages of text across Ch1
+    a topic with subtopics: "≈ 7 h estimated from 72 slides and 34 pages of text across Ch1
     and its 4 subtopics; ..." """
     if topic.workload_minutes is None:
         load = "No workload figure yet"
@@ -98,6 +98,8 @@ def workload_sentence(topic: TopicFacts) -> str:
         )
     if topic.sessions == 0:
         studied = "not studied yet (measured: no sessions)"
+    elif topic.studied_minutes == 0:
+        studied = f"under 1 min studied so far (measured, {plural(topic.sessions, 'session')})"
     else:
         studied = (
             f"{duration(topic.studied_minutes)} studied so far "
@@ -205,14 +207,25 @@ def assessment_line(report: AssessmentFeasibility, facts: PlanFacts) -> str:
 
 
 def overall_line(report: Feasibility, facts: PlanFacts, days: int) -> str:
-    """ "You need 14 h before 3 Dec and have 9 h." """
+    """ "You need 14 h before 3 Dec and have 9 h." With nothing needed: "Nothing more is
+    needed before 26 Nov; you have 21 h free." When it's short though the time would cover
+    it (the time is in the wrong place), the short assessments are named (decision 0020)."""
     if report.last_deadline is None:
         return f"Nothing is due in the next {plural(days, 'day')}."
     need, have = report.overall.required_minutes, report.overall.free_minutes
-    return (
-        f"You need {duration(need)} before {day_month(report.last_deadline, facts)} "
-        f"and have {duration(have)}."
-    )
+    before = day_month(report.last_deadline, facts)
+    if need == 0:
+        return f"Nothing more is needed before {before}; you have {duration(have)} free."
+    line = f"You need {duration(need)} before {before} and have {duration(have)}"
+    short = [a for a in report.assessments if a.numbers.status == "short"]
+    if report.overall.status == "short" and need <= have and short:
+        if len(short) == 1:
+            only = short[0]
+            name = assessment_name(only.assessment_id, facts)
+            when = day_month(only.due_at, facts)
+            return f"{line}, but {name} ({when}) is {duration(only.numbers.short_minutes)} short."
+        return f"{line}, but {len(short)} assessments are short."
+    return f"{line}."
 
 
 def lever_text(lever: Lever, facts: PlanFacts) -> str:

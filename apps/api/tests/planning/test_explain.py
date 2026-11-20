@@ -271,7 +271,7 @@ def test_a_later_assessment() -> None:
 CHAPTER = replace(
     ESTIMATED,
     name="Ch1",
-    workload_minutes=435,
+    workload_minutes=420,
     slide_pages=72,
     text_pages=34,
     subtopics=4,
@@ -280,7 +280,7 @@ CHAPTER = replace(
 
 def test_a_units_workload_names_its_subtopics() -> None:
     assert explain.reason_text(block("workload"), facts(CHAPTER)) == (
-        "≈ 7 h 15 estimated from 72 slides and 34 pages of text across Ch1 and its "
+        "≈ 7 h estimated from 72 slides and 34 pages of text across Ch1 and its "
         "4 subtopics; 15 min studied so far (measured, 1 session)."
     )
     one = replace(CHAPTER, subtopics=1)
@@ -323,3 +323,67 @@ def test_an_assessment_whose_topics_are_planned_for_a_sooner_one() -> None:
     )
     done = AssessmentFeasibility(TEST, DUE, zero, (), (), all_done=True)
     assert "needs" not in explain.assessment_line(done, f)
+
+
+# --- decision 0020: the overall line, and under a minute measured --------------------------
+
+
+def test_with_nothing_needed_the_overall_line_never_says_0_min() -> None:
+    report = Feasibility(
+        (),
+        numbers(required_minutes=0, short_minutes=0, free_minutes=1260, status="fits"),
+        datetime(2026, 11, 26, 23, 59, tzinfo=SAST),
+        (),
+    )
+    assert explain.overall_line(report, facts(), 28) == (
+        "Nothing more is needed before 26 Nov; you have 21 h free."
+    )
+
+
+def short_entry(assessment: UUID, short: int, due: datetime) -> AssessmentFeasibility:
+    return AssessmentFeasibility(assessment, due, numbers(short_minutes=short), (), ())
+
+
+def test_short_with_enough_time_names_the_short_assessment() -> None:
+    exam_due = datetime(2026, 11, 30, 9, 0, tzinfo=SAST)
+    report = Feasibility(
+        (short_entry(TEST, 200, exam_due),),
+        numbers(required_minutes=1305, free_minutes=2160, short_minutes=200),
+        datetime(2026, 12, 7, 9, 0, tzinfo=SAST),
+        (),
+    )
+    exam = replace(facts().assessments[TEST], title="Exam", due_at=exam_due)
+    f = replace(facts(), assessments={TEST: exam})
+    assert explain.overall_line(report, f, 28) == (
+        "You need 21 h 45 before 7 Dec and have 36 h, but COS330 Exam (30 Nov) is 3 h 20 short."
+    )
+
+
+def test_short_with_enough_time_counts_several_short_assessments() -> None:
+    other = UUID(int=9)
+    report = Feasibility(
+        (short_entry(TEST, 60, DUE), short_entry(other, 30, DUE)),
+        numbers(required_minutes=1305, free_minutes=2160, short_minutes=90),
+        datetime(2026, 12, 7, 9, 0, tzinfo=SAST),
+        (),
+    )
+    assert explain.overall_line(report, facts(), 28) == (
+        "You need 21 h 45 before 7 Dec and have 36 h, but 2 assessments are short."
+    )
+
+
+def test_short_without_enough_time_keeps_the_plain_line() -> None:
+    report = Feasibility(
+        (short_entry(TEST, 300, DUE),),
+        numbers(),
+        datetime(2026, 12, 3, 9, 0, tzinfo=SAST),
+        (),
+    )
+    assert explain.overall_line(report, facts(), 28) == "You need 14 h before 3 Dec and have 9 h."
+
+
+def test_sessions_under_a_minute_say_so() -> None:
+    brief = replace(ESTIMATED, studied_minutes=0, sessions=1)
+    assert explain.workload_sentence(brief) == (
+        "≈ 40 min estimated from 13 slides; under 1 min studied so far (measured, 1 session)."
+    )
