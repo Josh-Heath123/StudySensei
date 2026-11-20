@@ -1,5 +1,5 @@
-"""The planner's inputs, read from the database (decision 0018). Async, read-only, and every
-query is scoped by ``user_id``.
+"""The planner's inputs, read from the database (decisions 0018 and 0019). Async,
+read-only, and every query is scoped by ``user_id``.
 
 ``load_plan_data`` returns the ``PlanInput`` for ``plan()`` and the facts the text needs
 (names, where each workload figure came from, how many sessions were measured). Nothing here
@@ -19,11 +19,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Assessment, AssessmentTopic, Module, StudySession, Topic
 from app.schemas.planning import MAX_RANGE_DAYS
+from app.services.academics.topics import list_topics
 from app.services.errors import Invalid
 from app.services.planning import store
 from app.services.planning.availability import MINUTES_PER_DAY, local_to_utc
 from app.services.planning.planner import AssessmentInput, PlanInput, TopicInput
-from app.services.planning.workload import workload
+from app.services.planning.subtree import (
+    ConfidenceSource,
+    Page,
+    Tree,
+    ancestors,
+    subtree,
+    subtree_confidence,
+    subtree_workload,
+    units,
+)
 
 DEFAULT_DAYS = 28
 
@@ -40,6 +50,7 @@ class AssessmentFacts:
     module_id: uuid.UUID
     due_at: datetime
     weight: float | None
+    kind: str = "exam"
 
 
 @dataclass(frozen=True)
@@ -51,9 +62,14 @@ class TopicFacts:
     workload_source: Literal["yours", "estimated", "none"]
     slide_pages: int
     text_pages: int
-    # Measured: whole minutes of active time, and the sessions they came from.
+    # Measured: whole minutes of active time, and the sessions they came from (on the topic
+    # or any subtopic).
     studied_minutes: int
     sessions: int
+    # How many topics are under it: its workload and sessions include theirs (decision 0019).
+    subtopics: int = 0
+    # "yours" (its own rating), "subtopics" (their mean) or "none".
+    confidence_source: ConfidenceSource = "none"
 
 
 @dataclass(frozen=True)
@@ -87,10 +103,11 @@ async def load_plan_data(
     - **Assessments:** status "upcoming", due after ``now`` and by the end of the window.
       Later ones are listed in ``facts.later`` and not planned: there's no free time for
       them in the window yet.
-    - **Topics** in those assessments: workload (the student's figure, else the estimate of
-      decision 0016, else None) and starting confidence.
+    - **Units** (decision 0019): each ticked topic with no ticked ancestor stands for its
+      whole subtree, with its workload, confidence and studied minutes from ``subtree.py``.
+      A unit inside a sooner assessment's unit becomes that unit.
     - **Studied minutes:** the sum of ``study_sessions.active_seconds`` for sessions on the
-      topic, floored to whole minutes. A session on a subtopic counts for that subtopic only.
+      unit or any topic under it, floored to whole minutes.
     """
     if not 1 <= days <= MAX_RANGE_DAYS:
         raise Invalid(f"Plan between 1 and {MAX_RANGE_DAYS} days.")
@@ -125,30 +142,76 @@ async def load_plan_data(
             .where(Assessment.user_id == user_id, AssessmentTopic.assessment_id.in_(links))
         ):
             links[assessment_id].append(topic_id)
-    topic_ids = {t for ids in links.values() for t in ids}
 
-    topics = (
-        (
-            await session.scalars(
-                select(Topic).where(Topic.user_id == user_id, Topic.id.in_(topic_ids))
-            )
-        ).all()
-        if topic_ids
-        else []
-    )
-    pages: dict[uuid.UUID, tuple[int, int]] = {}
-    for module_id in {t.module_id for t in topics}:
-        pages |= await store.page_kinds(session, module_id, user_id=user_id)
+    # Every topic of the planned assessments' modules: units are whole subtrees.
+    trees: dict[uuid.UUID, Tree] = {}
+    by_id: dict[uuid.UUID, Topic] = {}
+    pages: dict[uuid.UUID, set[Page]] = {}
+    for module_id in sorted({a.module_id for a in planned}, key=str):
+        module_topics = await list_topics(session, module_id, user_id=user_id)
+        trees[module_id] = store.topic_tree(module_topics)
+        by_id |= {t.id: t for t in module_topics}
+        pages |= await store.topic_pages(session, module_id, user_id=user_id)
 
-    studied: dict[uuid.UUID, tuple[int, int]] = {}
-    if topic_ids:
+    measured: dict[uuid.UUID, tuple[float, int]] = {}
+    if trees:
         for on_topic, seconds, count in await session.execute(
             select(StudySession.topic_id, func.sum(StudySession.active_seconds), func.count())
-            .where(StudySession.user_id == user_id, StudySession.topic_id.in_(topic_ids))
+            .where(
+                StudySession.user_id == user_id,
+                StudySession.module_id.in_(trees),
+                StudySession.topic_id.is_not(None),
+            )
             .group_by(StudySession.topic_id)
         ):
             if on_topic is not None:
-                studied[on_topic] = (math.floor((seconds or 0) / 60), int(count))
+                measured[on_topic] = (float(seconds or 0), int(count))
+
+    # Each assessment's units, sooner assessments first (the planner's order). A unit inside a
+    # sooner assessment's unit is that unit, so the planner plans it once, for the sooner one.
+    def priority(a: Assessment) -> tuple[datetime, float, str]:
+        assert a.due_at is not None
+        return (a.due_at, -float(a.weight or 0), str(a.id))
+
+    unit_links: dict[uuid.UUID, tuple[uuid.UUID, ...]] = {}
+    taken: set[uuid.UUID] = set()
+    for a in sorted(planned, key=priority):
+        tree = trees[a.module_id]
+        ticked = [t for t in links[a.id] if t in by_id and by_id[t].module_id == a.module_id]
+        found_units: list[uuid.UUID] = []
+        for unit in units(tree, ticked):
+            holder = next((t for t in [unit, *ancestors(tree, unit)] if t in taken), unit)
+            if holder not in found_units:
+                found_units.append(holder)
+        unit_links[a.id] = tuple(found_units)
+        taken |= set(found_units)
+
+    topic_facts: dict[uuid.UUID, TopicFacts] = {}
+    topic_inputs: list[TopicInput] = []
+    for unit in sorted(taken, key=str):
+        topic = by_id[unit]
+        tree = trees[topic.module_id]
+        members = subtree(tree, unit)
+        load = subtree_workload(tree, unit, topic.estimated_minutes, pages)
+        confidence, confidence_source = subtree_confidence(
+            tree, unit, {t: by_id[t].confidence for t in members}
+        )
+        seconds = sum(measured.get(t, (0.0, 0))[0] for t in members)
+        topic_facts[unit] = TopicFacts(
+            name=topic.name,
+            confidence=confidence,
+            workload_minutes=load.workload.minutes,
+            workload_source=load.workload.source,
+            slide_pages=load.workload.slide_pages,
+            text_pages=load.workload.text_pages,
+            studied_minutes=math.floor(seconds / 60),
+            sessions=sum(measured.get(t, (0.0, 0))[1] for t in members),
+            subtopics=load.subtopics,
+            confidence_source=confidence_source,
+        )
+        topic_inputs.append(
+            TopicInput(unit, topic.module_id, load.workload.minutes, confidence, tree.order[unit])
+        )
 
     module_ids = {a.module_id for a in found}
     modules = (
@@ -161,22 +224,6 @@ async def load_plan_data(
         else []
     )
 
-    topic_facts: dict[uuid.UUID, TopicFacts] = {}
-    for topic in topics:
-        slides, text = pages.get(topic.id, (0, 0))
-        load = workload(topic.estimated_minutes, slides, text)
-        minutes, sessions = studied.get(topic.id, (0, 0))
-        topic_facts[topic.id] = TopicFacts(
-            name=topic.name,
-            confidence=topic.confidence,
-            workload_minutes=load.minutes,
-            workload_source=load.source,
-            slide_pages=slides,
-            text_pages=text,
-            studied_minutes=minutes,
-            sessions=sessions,
-        )
-
     def weight(a: Assessment) -> float | None:
         return None if a.weight is None else float(a.weight)
 
@@ -186,14 +233,13 @@ async def load_plan_data(
         daily_cap_minutes=user.daily_study_cap_minutes,
         timezone=tz,
         assessments=tuple(
-            AssessmentInput(a.id, a.module_id, a.due_at, weight(a), tuple(sorted(links[a.id])))
+            AssessmentInput(
+                a.id, a.module_id, a.due_at, weight(a), tuple(sorted(unit_links[a.id])), a.kind
+            )
             for a in planned
             if a.due_at is not None
         ),
-        topics=tuple(
-            TopicInput(t.id, t.module_id, topic_facts[t.id].workload_minutes, t.confidence)
-            for t in topics
-        ),
+        topics=tuple(topic_inputs),
         studied_minutes={
             t: facts.studied_minutes for t, facts in topic_facts.items() if facts.studied_minutes
         },
@@ -205,7 +251,7 @@ async def load_plan_data(
         last=last,
         modules={m.id: ModuleFacts(m.code, m.colour) for m in modules},
         assessments={
-            a.id: AssessmentFacts(a.title, a.module_id, a.due_at, weight(a))
+            a.id: AssessmentFacts(a.title, a.module_id, a.due_at, weight(a), a.kind)
             for a in found
             if a.due_at is not None
         },
