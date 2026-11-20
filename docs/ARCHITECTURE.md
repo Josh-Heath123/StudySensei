@@ -147,7 +147,7 @@ Derived tables can always be rebuilt from source tables.
 | Materials           | `materials`, `material_pages` (text per page, `is_scanned`), `chunks` (one page each: page number, position, text, token count, `embedding vector(384)`, generated `tsv tsvector`), `chunk_topics` (chunk, topic, score, method `pages`/`similarity`)                                                                                                                                                                                                                                   | `materials.kind`: slides, notes, study_guide, tutorial, past_paper, test, assignment, outline, other; `status`, `error`, `page_count`, `allow_ai`; `UNIQUE (module_id, sha256)`                                                                                                                                                                                                                                                                 |
 | Topic maps          | `topic_proposals` (one per material: validated AI JSON + provider and model), `topic_pages` (pages each topic was drawn from), `topic_reviews` (what the student did with each AI topic; outlives it), `topic_unlinks` (pages unlinked from a topic)                                                                                                                                                                                                                                    | Decisions 0006, 0009                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | Past papers         | `past_questions`, `past_question_topics`                                                                                                                                                                                                                                                                                                                                                                                                                                                | Profile computed by queries, never stored as AI output                                                                                                                                                                                                                                                                                                                                                                                          |
-| Planning | `availability_rules` (weekday 0 is Monday, `start_minute`/`end_minute` after local midnight, never across it; overlaps refused per user and weekday by an exclusion constraint), `availability_exceptions` (one per user and date: `unavailable`, or `windows` as JSONB minutes, and a `note`), `plan_blocks`; on `users`: `timezone` (IANA) and `daily_study_cap_minutes`; on `topics`: `estimated_minutes` (the student's figure) and `confidence` (1-5, self-rated) |
+| Planning | `availability_rules` (weekday 0 is Monday, `start_minute`/`end_minute` after local midnight, never across it; overlaps refused per user and weekday by an exclusion constraint), `availability_exceptions` (one per user and date: `unavailable`, or `windows` as JSONB minutes, and a `note`), `plan_versions` (number per user, trigger, summary, generated/checked, the report as JSONB), `plan_blocks` (a version's blocks with texts, status `planned`/`done`/`skipped`/`missed`, `fixed`; composite FKs on `user_id`); on `users`: `timezone` (IANA) and `daily_study_cap_minutes`; on `topics`: `estimated_minutes` (the student's figure) and `confidence` (1-5, self-rated) |
 | Sessions            | `study_sessions`, `session_events`, `session_minutes`                                                                                                                                                                                                                                                                                                                                                                                                                                   | No images or audio, ever                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | Practice            | `practice_items`, `reviews` (grade + FSRS state)                                                                                                                                                                                                                                                                                                                                                                                                                                        |                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | Derived             | `topic_mastery`, `profile_metrics` (value, sample size, label), `recommendations`                                                                                                                                                                                                                                                                                                                                                                                                       | Rebuilt nightly and after each session                                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -173,6 +173,10 @@ Derived tables can always be rebuilt from source tables.
   queues `extract_topics` for every eligible indexed material.
 - `availability_rules`, `availability_exceptions`, `users.timezone` and `daily_study_cap_minutes`, and
   `topics.estimated_minutes` and `confidence` (0021). It enables `btree_gist` for the rules' exclusion constraint.
+- `plan_versions` and `plan_blocks` (0022; decision 0021): `UNIQUE (id, user_id)` on both, `UNIQUE (user_id, number)`,
+  an index on `plan_blocks (user_id, start_at)`, composite FKs from blocks to their version, module, assessment and
+  topic (deletes cascade); `study_sessions (plan_block_id, user_id) → plan_blocks` with `ON DELETE SET NULL
+  (plan_block_id)`; and `uq_jobs_one_queued_replan`, a partial unique index on `jobs (user_id)` for queued re-plans.
 
 ### Session events
 
@@ -191,7 +195,7 @@ Decision 0003. `session_events` is an append-only log and the source of truth. T
 - **History:** the module's Sessions tab pages through `GET /modules/{id}/sessions`. "This week" is the client's local
   Monday 00:00, sent as an aware `week_start`; a session counts in the week it started. Study time is active time only
   (breaks aren't study time), and an open session counts up to its last event on the server.
-- `plan_block_id` is nullable until Phase 4 adds `plan_blocks`.
+- `plan_block_id` is the planned block the session is for (0022): the same user's, set to null if the block is deleted.
 
 ### User isolation
 
@@ -671,9 +675,47 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   blocks (times, module code and colour, assessment, topic, kind, reason, method, `reason_text`, `method_text`) and the
   report. Computed on request, nothing stored. `uv run python -m app.planning.preview --days 28 [--now ISO]` prints
   the same as a timetable by local day (dev only, read-only).
-### Re-planning, timers and reminders
+### Stored plans and re-planning (Phase 4, task 4; ADR 0021)
 
-- **Re-planning:** on a new assessment or material, a skipped or finished block, a mastery change, and nightly.
+- **Versions** (`plan_versions`): one per re-plan that changed the blocks, numbered from 1 per user, with its trigger,
+  a code-written summary, `generated_at`, `checked_at` and the feasibility report as `GET /plan/preview` gives it.
+  Never pruned.
+- **Blocks** (`plan_blocks`): a version's blocks with the texts generated for it. Status `planned`; `done` when a
+  linked session (`study_sessions.plan_block_id`) first ends; `skipped` by the student; `missed` when a re-plan finds it
+  ended with no linked session. `fixed` marks a block carried from the previous version.
+- **`replan()`** (`services/planning/replan.py`), under `pg_advisory_xact_lock(hashtextextended(user_id::text, 0))`:
+  mark missed blocks; keep as fixed the current version's planned blocks that start in the next 24 h (unless skipped,
+  outside free time now, or for an assessment or unit no longer planned); take skipped blocks' times out of free time;
+  plan through `preview.build` (one code path with the preview); then **no churn**: if the blocks from now on are
+  unchanged, refresh the report and `checked_at` instead of writing a version.
+- **The planner** (amends ADR 0017): `PlanInput.fixed` blocks come back unchanged, are busy (with the break) and count
+  against their day's cap, for their unit's time and days, and as their assessment's review. `PlanInput.studied_on`
+  puts today's measured minutes against today's cap.
+- **Triggers:**
+
+  | Trigger | When | How |
+  | --- | --- | --- |
+  | `initial` | `GET /plan` with no version | inline |
+  | `skip` | `POST /plan/blocks/{id}/skip` | inline |
+  | `finish` | a session with `plan_block_id` first ends | queued |
+  | `assessment` | assessment create, update, delete | queued |
+  | `topic` | topic create, rename, move, delete, planning PATCH; review merge, dismiss, restore, unlink | queued |
+  | `availability` | rules, exceptions, planning settings | queued |
+  | `material` | the end of `link_topics` for a module | queued |
+  | `nightly` | the worker, after the user's local 03:00 | queued |
+  | `manual` | `POST /plan/replan`; the preview CLI's `--persist` | inline |
+
+- **Coalescing:** `queue.enqueue_replan` inserts a `replan` job with `ON CONFLICT DO NOTHING` on the partial unique
+  index (one queued per user), in the caller's transaction. A running job doesn't absorb new changes; the first
+  trigger of a queued job is kept.
+- **Nightly:** `queue_nightly_replans(session, now)` (checked by the worker at most once a minute) queues users whose
+  current version wasn't checked since their last local 03:00 and who have no re-plan queued or running.
+- **API:** `GET /plan?from=&to=` (the current version and its blocks in the range; creates version 1 when there's none,
+  the one GET with a side effect), `GET /plan/next`, `POST /plan/blocks/{id}/skip`, `POST /plan/replan`; `POST
+  /sessions` takes `plan_block_id` (the user's planned block of the current version, same module and topic).
+
+### Timers and reminders
+
 - **Timers:** live in the browser and are based on start and end timestamps, so a reload or throttling can't drift them. Every change is logged as a server event.
   - `src/session-engine/`: `timer.ts` holds pure functions of the events and an injected `now`: replay, live totals, focus/break
     cycle (default 50/10) and away detection. `engine.ts` drives it for the screen and owns no timers. A display tick only redraws.

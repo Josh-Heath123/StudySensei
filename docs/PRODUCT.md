@@ -50,7 +50,7 @@ reflects them. Camera and voice support the study session. They are not the prod
 | Item                                | Derived from                                                                 | Label                | Shown after                      |
 | ----------------------------------- | ---------------------------------------------------------------------------- | -------------------- | -------------------------------- |
 | Usual session length before a break | Median active minutes before the first unplanned pause, absence or early end | Measured             | 5 sessions                       |
-| Consistency                         | Days studied per week; planned blocks completed vs skipped                   | Measured             | 1 week                           |
+| Consistency                         | Days studied per week; planned blocks done vs skipped or missed (kept per plan version) | Measured             | 1 week                           |
 | Break habits                        | Break count and length vs plan                                               | Measured             | 5 sessions                       |
 | Most productive times               | Completion, self-rated focus and accuracy by time of day                     | Estimated            | 10 sessions across 3+ time bands |
 | Topic mastery                       | FSRS memory model + practice accuracy + self-confidence                      | Estimated            | 3 attempts per topic             |
