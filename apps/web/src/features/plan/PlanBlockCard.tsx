@@ -4,7 +4,7 @@ import type { CSSProperties, ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
 import type { PlanBlock } from "./api";
-import { blockTitle, isNow, measuredText, METHOD_LABELS } from "./planText";
+import { blockLabel, blockTitle, isNow, measuredText, METHOD_LABELS } from "./planText";
 import { clock, zoned } from "./week";
 
 type Props = Omit<ComponentProps<"button">, "children"> & {
@@ -53,9 +53,7 @@ export function PlanBlockCard({
         className,
       )}
       style={{ borderLeftColor: block.module_colour, ...style }}
-      aria-label={`${title}, ${clock(start.minutes)} to ${clock(end.minutes)}${
-        block.status !== "planned" ? `, ${block.status}` : live ? ", now" : ""
-      }`}
+      aria-label={blockLabel(block, timeZone, now)}
       {...props}
     >
       <span
