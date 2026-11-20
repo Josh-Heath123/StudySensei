@@ -2,6 +2,21 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-20: Phase 4, planning scope (a fix PR from the review of #43; ADR 0019)
+
+- **Subtrees:** an assessment that ticks a topic covers its subtree. Each ticked topic with no ticked ancestor is one
+  planning unit, with its workload over the subtree's distinct pages, its sessions and the subtopics' mean
+  confidence when it isn't rated itself (`services/planning/subtree.py`). On the real COS330 tree (counted read-only),
+  Ch5 with its 5 subtopics drops from 9 h 50 (12 minimum blocks) to 4 h 15 (2); Ch1 alone rises from 2 h 15 to 4 h 20.
+- **UI:** the topic tree's `workload_with_subtopics` (same code) shows in a chapter's dialog; the assessment form
+  shows a ticked topic's subtopics as "Included with …" (only what's ticked is saved).
+- **Course order** breaks priority ties (pre-order in the tree): four unrated chapters start Ch1, Ch2, Ch3, Ch4 with
+  no change to the passes. **Final reviews** only for exams, tests and quizzes; an assessment whose topics are planned
+  for a sooner one says so.
+- **Demo run:** the synthetic chapters estimate 25 min each across their subtopics, and the week of sessions on those
+  subtopics now counts for them, so only Semester test 2's review is planned and Assignment 3 gets no review.
+- **Next:** task 4, `plan_blocks` with `plan_version` and the re-planning triggers.
+
 ## 2026-11-20: Phase 4, task 3 (feasibility report, study methods and reason text)
 
 - **Fixes from the review of #42:** docs/README lists decisions 0001–0018; the evals README intro names the tutor eval.
