@@ -65,10 +65,13 @@ export function PlanBlockCard({
         {title}
       </span>
       <span className="text-muted flex w-full min-w-0 items-center gap-1 text-xs whitespace-nowrap tabular-nums">
-        <span>
-          {clock(start.minutes)}
-          {!startOnly && <>–{clock(end.minutes)}</>}
-        </span>
+        {/* In the grid a done card's place shows its time; the row keeps "(measured)". */}
+        {!(startOnly && block.status === "done") && (
+          <span>
+            {clock(start.minutes)}
+            {!startOnly && <>–{clock(end.minutes)}</>}
+          </span>
+        )}
         {live ? (
           <span className="text-link font-semibold">· Now</span>
         ) : block.status === "done" ? (

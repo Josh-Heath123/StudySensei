@@ -213,7 +213,7 @@ export function WeekGrid({
           );
         })}
       </div>
-      <div className="grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] pb-3">
+      <div className="grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] pt-3 pb-3">
         <div className="relative" style={{ height }} aria-hidden>
           {hours.map((hour) => (
             <span
