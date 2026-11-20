@@ -317,3 +317,23 @@ def test_no_review_time_is_never_reported_for_an_unreviewed_kind(kind: str) -> N
     exam_like = AssessmentInput(UUID(int=101), MODULE, at(8, 9), None, (UUID(int=1),), "exam")
     _, result = make(free=evenings(2), assessments=(exam_like,), topics=(topic(1),))
     assert [s.kind for s in result.shortfalls if s.kind == "no_review_time"] == ["no_review_time"]
+
+
+# --- decision 0020: spreading a single unit's blocks ---------------------------------------
+
+
+def test_a_single_units_blocks_spread_over_its_evenings() -> None:
+    # One unit needing six 50-minute blocks, and four 3-hour evenings: its two spacing blocks
+    # take the first two, and the other four must not stack on one evening.
+    unit = topic(1, workload=300)
+    task = AssessmentInput(UUID(int=101), MODULE, at(4, 9), None, (unit.id,), "assignment")
+    request, result = make(free=evenings(4), assessments=(task,), topics=(unit,), cap=180)
+
+    per_day: dict[date, int] = {}
+    for block in result.blocks:
+        day = block.start.astimezone(request.timezone).date()
+        per_day[day] = per_day.get(day, 0) + 1
+    assert sum(per_day.values()) == 6
+    assert max(per_day.values()) <= 2
+    assert max(per_day.values()) - min(per_day.values()) <= 1
+    assert len(per_day) == 4
