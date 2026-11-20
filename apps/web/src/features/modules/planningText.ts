@@ -30,13 +30,6 @@ export function exactDuration(minutes: number): string {
   return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
 }
 
-/** A rough duration for an estimate: "≈ 45 min", or hours to the nearest half: "≈ 2.5 h". */
-export function aboutDuration(minutes: number): string {
-  if (minutes < 60) return `≈ ${minutes} min`;
-  const hours = Math.round(minutes / 30) / 2;
-  return `≈ ${hours} h`;
-}
-
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
@@ -49,19 +42,19 @@ export function pagesText(workload: Workload): string {
   return parts.join(" and ");
 }
 
-/** The workload, labelled: "≈ 2 h, estimated from 18 slides" or "1 h 30 min (yours)". */
+/** The workload, labelled: "≈ 2 h 15, estimated from 18 slides" or "1 h 30 min (yours)". */
 export function workloadText(workload: Workload): string {
   if (workload.minutes === null) return "No estimate yet: no slides or notes are linked.";
   if (workload.source === "yours") return `${exactDuration(workload.minutes)} (yours)`;
-  return `${aboutDuration(workload.minutes)}, estimated from ${pagesText(workload)}`;
+  return `≈ ${planDuration(workload.minutes)}, estimated from ${pagesText(workload)}`;
 }
 
-/** The short form for a topic row: "≈ 2 h" or "1 h 30 min (yours)"; null with nothing. */
+/** The short form for a topic row: "≈ 2 h 15" or "1 h 30 min (yours)"; null with nothing. */
 export function workloadShort(workload: Workload): string | null {
   if (workload.minutes === null) return null;
   return workload.source === "yours"
     ? `${exactDuration(workload.minutes)} (yours)`
-    : aboutDuration(workload.minutes);
+    : `≈ ${planDuration(workload.minutes)}`;
 }
 
 /** "Confidence 3/5", or "Not rated". */
@@ -81,7 +74,7 @@ export function planDuration(minutes: number): string {
 
 /**
  * A chapter's whole workload, as the planner counts it when the chapter is in an assessment
- * (decision 0019): "≈ 7 h 15 with its 4 subtopics (estimated from 72 slides and 34 pages)".
+ * (decision 0019): "≈ 7 h with its 4 subtopics (estimated from 72 slides and 34 pages)".
  */
 export function subtreeWorkloadText(workload: SubtreeWorkload): string {
   const subtopics = plural(workload.subtopics, "subtopic", "subtopics");
