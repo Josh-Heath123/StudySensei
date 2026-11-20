@@ -36,6 +36,9 @@ type Drag = {
   moved: boolean;
 };
 
+/** A pointer's position (a React or a native pointer event). */
+type Pointer = { clientX: number; clientY: number };
+
 /** Where a block is placed while it waits for the server (after a drop). */
 type Placed = { blockId: string; date: string; minutes: number };
 
@@ -61,6 +64,8 @@ export function WeekGrid({
   const columns = useRef<(HTMLDivElement | null)[]>([]);
   // The drag lives in a ref, so pointer events between renders see the latest one (a fast
   // flick is one pointermove then pointerup at once); the state only re-renders the ghost.
+  // While a drag lasts, its moves and release are heard on the window: a flick's events land
+  // on whatever is under the pointer, not on the card (decision 0023).
   const dragRef = useRef<Drag | null>(null);
   const [drag, setDragState] = useState<Drag | null>(null);
   const setDrag = (next: Drag | null) => {
@@ -71,6 +76,8 @@ export function WeekGrid({
   const [problem, setProblem] = useState<{ blockId: string; text: string } | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const justDragged = useRef(false);
+  const stopListening = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopListening.current?.(), []);
 
   useEffect(() => {
     if (problem === null) return;
@@ -98,7 +105,7 @@ export function WeekGrid({
   const height = (range.last - range.first) * 60 * PX_PER_MINUTE;
   const hours = Array.from({ length: range.last - range.first + 1 }, (_, i) => range.first + i);
 
-  function target(event: ReactPointerEvent, current: Drag): { date: string; minutes: number } {
+  function target(event: Pointer, current: Drag): { date: string; minutes: number } {
     const index = columns.current.findIndex((column) => {
       if (!column) return false;
       const rect = column.getBoundingClientRect();
@@ -128,10 +135,31 @@ export function WeekGrid({
       minutes: start.minutes,
       moved: false,
     });
+    stopListening.current?.();
+    const onMove = (e: PointerEvent) => onPointerMove(e);
+    const onUp = (e: PointerEvent) => {
+      if (e.pointerId !== event.pointerId) return;
+      stop();
+      void onPointerUp(e);
+    };
+    const onCancel = () => {
+      stop();
+      setDrag(null);
+    };
+    const stop = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+      stopListening.current = null;
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
+    stopListening.current = stop;
   }
 
   /** Past the threshold (or already dragging), the drag at this event's position. */
-  function dragAt(event: ReactPointerEvent, current: Drag): Drag | null {
+  function dragAt(event: Pointer, current: Drag): Drag | null {
     const far =
       Math.abs(event.clientX - current.x0) > DRAG_THRESHOLD_PX ||
       Math.abs(event.clientY - current.y0) > DRAG_THRESHOLD_PX;
@@ -139,17 +167,14 @@ export function WeekGrid({
     return { ...current, ...target(event, current), moved: true };
   }
 
-  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+  function onPointerMove(event: PointerEvent) {
     const current = dragRef.current;
     if (current === null || event.pointerId !== current.pointerId) return;
     const next = dragAt(event, current);
-    if (next === null) return;
-    // Capture only once it's a drag: a plain click must still reach the card's popover.
-    if (!current.moved) event.currentTarget.setPointerCapture?.(event.pointerId);
-    setDrag(next);
+    if (next !== null) setDrag(next);
   }
 
-  async function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+  async function onPointerUp(event: PointerEvent) {
     const current = dragRef.current;
     if (current === null || event.pointerId !== current.pointerId) return;
     // The drop is where the pointer is released, not where the last render put the ghost.
@@ -267,15 +292,12 @@ export function WeekGrid({
                   <div
                     key={block.id}
                     className={cn(
-                      "absolute inset-x-1 touch-none",
+                      "absolute inset-x-1 touch-none select-none",
                       block.actions.move && "cursor-grab active:cursor-grabbing",
                       dragging && ghost && "opacity-40",
                     )}
                     style={style}
                     onPointerDown={(e) => onPointerDown(e, block)}
-                    onPointerMove={onPointerMove}
-                    onPointerUp={(e) => void onPointerUp(e)}
-                    onPointerCancel={() => setDrag(null)}
                   >
                     <BlockPopover
                       block={block}
