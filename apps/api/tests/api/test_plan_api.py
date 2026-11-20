@@ -2,7 +2,8 @@
 skipping, re-planning on request, and sessions for a planned block."""
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from httpx import AsyncClient
@@ -105,3 +106,53 @@ async def test_bad_ranges_are_refused(
     alice_api: AsyncClient, planned: Rows, params: dict[str, str]
 ) -> None:
     assert (await alice_api.get("/plan", params=params)).status_code == 422
+
+
+async def test_move_a_block(alice_api: AsyncClient, planned: Rows) -> None:
+    plan = (await alice_api.get("/plan")).json()
+    movable = [b for b in plan["blocks"] if b["actions"]["move"] and b["kind"] == "study"]
+    assert movable
+    block = movable[-1]
+    tz = ZoneInfo("Africa/Johannesburg")
+    tomorrow = datetime.now(tz).date() + timedelta(days=1)
+
+    # Not on the grid: refused by the schema.
+    odd = datetime.combine(tomorrow, time(18, 3), tzinfo=tz).isoformat()
+    assert (
+        await alice_api.post(f"/plan/blocks/{block['id']}/move", json={"start": odd})
+    ).status_code == 422
+    # Outside study time: one sentence.
+    morning = datetime.combine(tomorrow, time(10, 0), tzinfo=tz).isoformat()
+    refused = await alice_api.post(f"/plan/blocks/{block['id']}/move", json={"start": morning})
+    assert refused.status_code == 422
+    assert refused.json() == {
+        "detail": f"That's outside your study time on {tomorrow:%a} {tomorrow.day} {tomorrow:%b}."
+    }
+    # Somewhere free: the first evening slot the server accepts.
+    for day in range(1, 5):
+        for minutes in range(0, 135, 5):
+            start = datetime.combine(
+                tomorrow + timedelta(days=day - 1), time(18), tzinfo=tz
+            ) + timedelta(minutes=minutes)
+            moved = await alice_api.post(
+                f"/plan/blocks/{block['id']}/move", json={"start": start.isoformat()}
+            )
+            if moved.status_code == 200:
+                version = moved.json()
+                assert version["trigger"] == "move"
+                assert version["summary"].startswith("You moved Microservices from ")
+                after = (
+                    await alice_api.get(
+                        "/plan", params={"to": (tomorrow + timedelta(days=6)).isoformat()}
+                    )
+                ).json()
+                pinned = [b for b in after["blocks"] if b["pinned"]]
+                assert [datetime.fromisoformat(b["start"]) for b in pinned] == [start]
+                # The old row is on the old version: moving it again is a conflict.
+                again = await alice_api.post(
+                    f"/plan/blocks/{block['id']}/move", json={"start": start.isoformat()}
+                )
+                assert again.status_code == 409
+                return
+            assert moved.status_code == 422
+    raise AssertionError("no free slot accepted")

@@ -20,7 +20,7 @@ from datetime import datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import exists, func, select, text, update
+from sqlalchemy import ColumnElement, exists, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.jobs.kinds import REPLAN
@@ -57,20 +57,24 @@ async def current_version(session: AsyncSession, *, user_id: uuid.UUID) -> PlanV
     )
 
 
-async def mark_missed(session: AsyncSession, version: PlanVersion, now: datetime) -> None:
-    """Planned blocks that ended with no linked session are missed. A block with a linked
-    session is left alone: its session's end marks it done."""
+def unattended(now: datetime) -> ColumnElement[bool]:
+    """A planned block that ended with no linked session: missed. The one predicate for
+    ``mark_missed`` and for the status ``GET /plan`` derives without writing (decision 0022)."""
     linked = exists().where(
         StudySession.plan_block_id == PlanBlock.id, StudySession.user_id == PlanBlock.user_id
     )
+    return (PlanBlock.status == "planned") & (PlanBlock.end_at <= now) & ~linked
+
+
+async def mark_missed(session: AsyncSession, version: PlanVersion, now: datetime) -> None:
+    """Planned blocks that ended with no linked session are missed. A block with a linked
+    session is left alone: its session's end marks it done."""
     await session.execute(
         update(PlanBlock)
         .where(
             PlanBlock.user_id == version.user_id,
             PlanBlock.version_id == version.id,
-            PlanBlock.status == "planned",
-            PlanBlock.end_at <= now,
-            ~linked,
+            unattended(now),
         )
         .values(status="missed", status_changed_at=now)
     )

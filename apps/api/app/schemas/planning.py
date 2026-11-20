@@ -12,10 +12,12 @@ from zoneinfo import available_timezones
 
 from pydantic import (
     AfterValidator,
+    AwareDatetime,
     BaseModel,
     ConfigDict,
     Field,
     StringConstraints,
+    field_validator,
     model_validator,
 )
 
@@ -302,6 +304,17 @@ class PlanPreviewOut(BaseModel):
 # --- stored plans (decision 0021) ------------------------------------------------------
 
 
+class BlockActionsOut(BaseModel):
+    """What the student can do with a block now, decided by the server (decision 0022)."""
+
+    # Start a session for it: planned in the current version, not ended, no session open.
+    start: bool
+    # Skip it: planned in the current version, and no open session linked to it.
+    skip: bool
+    # Move it: planned in the current version, not started, and no session linked to it.
+    move: bool
+
+
 class StoredBlockOut(BaseModel):
     id: uuid.UUID
     start: dt.datetime
@@ -322,10 +335,18 @@ class StoredBlockOut(BaseModel):
     # As generated for this block's version (code-written, no AI).
     reason_text: str
     method_text: str
+    # "missed" also for a current planned block that ended with no session (derived on read).
     status: Literal["planned", "done", "skipped", "missed"]
     status_changed_at: dt.datetime | None
-    # Carried from the previous version (it started within the next 24 h).
+    # Carried from the previous version (it started within the next 24 h, or is pinned).
     fixed: bool
+    # The student moved it; re-plans keep it at its time while it's valid.
+    pinned: bool
+    # The session started for it, if any (the latest).
+    linked_session_id: uuid.UUID | None
+    # Measured: the linked session's active minutes, floored, for a done block.
+    session_minutes: int | None
+    actions: BlockActionsOut
 
 
 class PlanVersionOut(BaseModel):
@@ -357,5 +378,20 @@ class PlanOut(PlanVersionOut):
     # The local dates asked for (inclusive).
     first: dt.date
     last: dt.date
-    # The version's blocks that overlap those dates, by start.
+    # The current version's blocks that overlap those dates, and done, skipped and missed
+    # blocks from any version (the history), by start.
     blocks: list[StoredBlockOut]
+    # A re-plan is queued or running: the plan may change shortly.
+    replan_pending: bool
+
+
+class BlockMoveIn(_Input):
+    # On the 5-minute grid; must carry a timezone.
+    start: AwareDatetime
+
+    @field_validator("start")
+    @classmethod
+    def _on_the_grid(cls, value: dt.datetime) -> dt.datetime:
+        if value.second or value.microsecond or value.minute % 5:
+            raise ValueError("Choose a time on the 5-minute grid.")
+        return value

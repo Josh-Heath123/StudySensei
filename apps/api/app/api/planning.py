@@ -16,6 +16,7 @@ from app.schemas.planning import (
     MAX_RANGE_DAYS,
     AvailabilityDayOut,
     AvailabilityOut,
+    BlockMoveIn,
     ExceptionCreate,
     ExceptionOut,
     ExceptionUpdate,
@@ -262,4 +263,17 @@ async def replan_now(session: SessionDep, user: CurrentUser) -> PlanVersionOut:
     """Re-plan now (trigger manual). Returns the current version: a new one only if the
     blocks changed."""
     version = await replan.replan(session, user_id=user.id, now=datetime.now(UTC), trigger="manual")
+    return await stored.version_out(session, version)
+
+
+@router.post("/plan/blocks/{block_id}/move", response_model=PlanVersionOut)
+async def move_block(
+    block_id: uuid.UUID, data: BlockMoveIn, session: SessionDep, user: CurrentUser
+) -> PlanVersionOut:
+    """Move a planned block of the current plan that hasn't started and has no session to
+    ``start`` (5-minute grid; it keeps its length), then re-plan with it pinned there. 422
+    with one sentence if it can't go there; 409 for any other block; 404 if it isn't yours."""
+    version = await replan.move_block(
+        session, block_id, data.start, user_id=user.id, now=datetime.now(UTC)
+    )
     return await stored.version_out(session, version)

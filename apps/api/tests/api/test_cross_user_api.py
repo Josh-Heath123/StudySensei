@@ -153,6 +153,7 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("PATCH", "/topics/{topic}/planning", {"confidence": 1, "estimated_minutes": 5}),
     # The stored plan (decision 0021)
     ("POST", "/plan/blocks/{block}/skip", None),
+    ("POST", "/plan/blocks/{block}/move", {"start": "2030-01-07T18:00:00Z"}),
     # His session for her planned block.
     (
         "POST",
@@ -639,9 +640,12 @@ async def test_the_stored_plan_is_per_user(
     plan_blocks: dict[str, PlanBlock],
     session: AsyncSession,
 ) -> None:
-    # His plan and next block are his own.
+    # His plan and next block are his own, with his actions and no session of hers.
     his = (await bob_api.get("/plan")).json()
     assert [b["id"] for b in his["blocks"]] == [str(plan_blocks["bob"].id)]
+    assert his["blocks"][0]["linked_session_id"] is None
+    assert his["blocks"][0]["actions"] == {"start": True, "skip": True, "move": True}
+    assert his["replan_pending"] is False
     assert (await bob_api.get("/plan/next")).json()["id"] == str(plan_blocks["bob"].id)
     # His re-plan writes his versions only; hers is untouched.
     before = (await alice_api.get("/plan")).json()
