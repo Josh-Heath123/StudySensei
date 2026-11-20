@@ -40,6 +40,13 @@ class Job(TimestampedBase):
         # The worker's "next due job" query.
         Index("ix_jobs_due", "run_after", postgresql_where=text("status = 'queued'")),
         Index("ix_jobs_user_kind", "user_id", "kind"),
+        # At most one queued re-plan per user, so triggers coalesce (decision 0021).
+        Index(
+            "uq_jobs_one_queued_replan",
+            "user_id",
+            unique=True,
+            postgresql_where=text("kind = 'replan' AND status = 'queued'"),
+        ),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))

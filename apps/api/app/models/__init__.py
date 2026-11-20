@@ -6,6 +6,7 @@ from app.models.base import Base
 from app.models.jobs import Job
 from app.models.materials import Chunk, Material, MaterialPage
 from app.models.planning import AvailabilityException, AvailabilityRule
+from app.models.plans import PlanBlock, PlanVersion
 from app.models.sessions import SessionEvent, SessionTopicRating, StudySession
 from app.models.topic_maps import ChunkTopic, TopicPage, TopicProposal, TopicReview, TopicUnlink
 from app.models.tutor import Conversation, Message, MessageSource
@@ -27,6 +28,8 @@ __all__ = [
     "Message",
     "MessageSource",
     "Module",
+    "PlanBlock",
+    "PlanVersion",
     "SessionEvent",
     "SessionTopicRating",
     "StudySession",

@@ -4,6 +4,7 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
+from sqlalchemy import UniqueConstraint
 
 from app.models import Base
 
@@ -29,3 +30,35 @@ def test_every_table_is_owned_by_a_user() -> None:
 def test_models_match_migrations(migrated_db: None) -> None:
     """Fails if a model changed without a migration (alembic check)."""
     command.check(Config(str(Path(__file__).resolve().parents[1] / "alembic.ini")))
+
+
+# User-owned tables whose rows reference other users' rows only through composite FKs that
+# include user_id (decision 0021). Each needs UNIQUE (id, user_id) for its own children.
+COMPOSITE_PARENTS = {
+    "plan_versions": set(),
+    "plan_blocks": {"plan_versions", "modules", "assessments", "topics"},
+}
+
+
+def test_plan_tables_are_isolated_by_composite_keys() -> None:
+    tables = {table.name: table for table in Base.metadata.sorted_tables}
+    for name, parents in COMPOSITE_PARENTS.items():
+        table = tables[name]
+        uniques = {
+            tuple(c.name for c in constraint.columns)
+            for constraint in table.constraints
+            if isinstance(constraint, UniqueConstraint)
+        }
+        assert ("id", "user_id") in uniques, name
+        composite = {
+            fk.referred_table.name
+            for fk in table.foreign_key_constraints
+            if "user_id" in fk.column_keys and len(fk.column_keys) == 2
+        }
+        assert composite == parents, name
+    # A session's planned block is the same user's.
+    sessions = tables["study_sessions"]
+    assert any(
+        fk.referred_table.name == "plan_blocks" and fk.column_keys == ["plan_block_id", "user_id"]
+        for fk in sessions.foreign_key_constraints
+    )
