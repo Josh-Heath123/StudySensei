@@ -75,7 +75,8 @@ export interface paths {
      * Get Topic Tree
      * @description The module's topics as a nested tree, siblings in position order, each with the
      *     number of material pages linked to it, its confidence and its workload (the student's
-     *     figure, or estimated from its slides and text pages).
+     *     figure, or estimated from its slides and text pages), and for a topic with subtopics the
+     *     workload of the whole subtree (decision 0019).
      */
     get: operations["get_topic_tree_modules__module_id__topics_get"];
     put?: never;
@@ -1324,6 +1325,8 @@ export interface components {
       topics: components["schemas"]["TopicFeasibilityOut"][];
       /** Issues */
       issues: components["schemas"]["IssueOut"][];
+      /** Planned With */
+      planned_with?: string[];
     };
     /** AssessmentOut */
     AssessmentOut: {
@@ -2507,6 +2510,27 @@ export interface components {
        */
       occurred_at: string;
     };
+    /**
+     * SubtreeWorkloadOut
+     * @description A topic's workload with its subtopics: what the planner uses when the topic is ticked
+     *     in an assessment (decision 0019). The student's own figure on the topic, else estimated
+     *     from the distinct pages linked anywhere in it (each page once).
+     */
+    SubtreeWorkloadOut: {
+      /** Minutes */
+      minutes: number | null;
+      /**
+       * Source
+       * @enum {string}
+       */
+      source: "yours" | "estimated" | "none";
+      /** Slide Pages */
+      slide_pages: number;
+      /** Text Pages */
+      text_pages: number;
+      /** Subtopics */
+      subtopics: number;
+    };
     /** TaskCreate */
     TaskCreate: {
       /** Title */
@@ -2668,6 +2692,7 @@ export interface components {
        */
       linked_pages: number;
       workload: components["schemas"]["WorkloadOut"];
+      workload_with_subtopics?: components["schemas"]["SubtreeWorkloadOut"] | null;
       /** Children */
       children: components["schemas"]["TopicNodeOut"][];
     };
