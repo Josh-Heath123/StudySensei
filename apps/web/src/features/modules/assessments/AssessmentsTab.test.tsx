@@ -127,3 +127,35 @@ test("deletes after confirming", async () => {
 
   await waitFor(() => expect(sent(calls, "DELETE")?.path).toBe("/assessments/a1"));
 });
+
+test("ticking a topic includes its subtopics; only what's ticked is saved", async () => {
+  const { calls, user } = renderTab([]);
+
+  await user.click(await screen.findByRole("button", { name: "Add assessment" }));
+  const dialog = await screen.findByRole("dialog", { name: "Add assessment" });
+  await user.type(within(dialog).getByLabelText("Title"), "Exam");
+  // Tick the subtopic on its own first, then the chapter over it.
+  await user.click(within(dialog).getByLabelText("Creational"));
+  await user.click(within(dialog).getByLabelText("Patterns"));
+
+  const child = within(dialog).getByRole("checkbox", { name: /Creational/ });
+  expect(child).toBeChecked();
+  expect(child).toBeDisabled();
+  expect(within(dialog).getByText("Included with Patterns")).toBeVisible();
+  expect(within(dialog).getByRole("checkbox", { name: "Queues" })).toBeEnabled();
+
+  // Unticking the chapter gives the subtopic back its own state (ticked).
+  await user.click(within(dialog).getByLabelText("Patterns"));
+  expect(child).toBeEnabled();
+  expect(child).toBeChecked();
+  expect(within(dialog).queryByText(/Included with/)).not.toBeInTheDocument();
+  await user.click(child);
+  expect(child).not.toBeChecked();
+
+  // Ticked again, the chapter is all that's saved.
+  await user.click(within(dialog).getByLabelText("Patterns"));
+  expect(child).toBeChecked();
+  await user.click(within(dialog).getByRole("button", { name: "Add assessment" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(sent(calls, "POST")?.body).toMatchObject({ topic_ids: ["p"] });
+});

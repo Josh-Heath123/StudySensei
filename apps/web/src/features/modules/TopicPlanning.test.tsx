@@ -10,8 +10,11 @@ import {
   aboutDuration,
   confidenceText,
   exactDuration,
+  planDuration,
+  subtreeWorkloadText,
   workloadShort,
   workloadText,
+  type SubtreeWorkload,
   type Workload,
 } from "./planningText";
 
@@ -135,4 +138,62 @@ test("a workload under 5 minutes can't be saved", async () => {
   await user.type(input, "3");
 
   expect(within(planning).getByRole("button", { name: "Save" })).toBeDisabled();
+});
+
+test("a chapter shows its workload with its subtopics, as the planner counts it", async () => {
+  const chapter = aTopic("ch1", "Ch1", [aTopic("s1", "Firewalls")], {
+    workload: { minutes: 115, source: "estimated", slide_pages: 32, text_pages: 6 },
+    workload_with_subtopics: {
+      minutes: 435,
+      source: "estimated",
+      slide_pages: 72,
+      text_pages: 34,
+      subtopics: 4,
+    },
+  });
+  mockApi({
+    "GET /modules/:id": () => aModule(),
+    "GET /modules/:id/topics": () => roots(chapter),
+    "GET /modules/:id/topic-map": () => aTopicMap(),
+    "GET /ai/status": () => anAiStatus(),
+    "GET /topics/:id/pages": () => [],
+  });
+  renderApp("/modules/m1?tab=topics");
+  const user = userEvent.setup();
+
+  await user.click(await screen.findByRole("button", { name: "Ch1" }));
+  const dialog = await screen.findByRole("dialog", { name: "Ch1" });
+  const planning = within(dialog).getByRole("region", { name: "Planning" });
+
+  expect(
+    within(planning).getByText(
+      "≈ 7 h 15 with its 4 subtopics (estimated from 72 slides and 34 pages)",
+    ),
+  ).toBeVisible();
+  expect(
+    within(planning).getByText(
+      "A figure you set here covers the whole chapter, subtopics included, when it's in an assessment.",
+    ),
+  ).toBeVisible();
+});
+
+test("a topic without subtopics shows no chapter figure", async () => {
+  const { user } = serve();
+  const dialog = await openTopic(user);
+  expect(within(dialog).queryByText(/with its \d+ subtopic/)).not.toBeInTheDocument();
+  expect(within(dialog).queryByText(/covers the whole chapter/)).not.toBeInTheDocument();
+});
+
+test("chapter workload text", () => {
+  const whole = { minutes: 435, source: "estimated", slide_pages: 1, text_pages: 0, subtopics: 1 };
+  expect(subtreeWorkloadText(whole as SubtreeWorkload)).toBe(
+    "≈ 7 h 15 with its 1 subtopic (estimated from 1 slide)",
+  );
+  expect(subtreeWorkloadText({ ...whole, source: "yours", minutes: 60 } as SubtreeWorkload)).toBe(
+    "1 h for it and its 1 subtopic (yours)",
+  );
+  expect(subtreeWorkloadText({ ...whole, source: "none", minutes: null } as SubtreeWorkload)).toBe(
+    "No estimate with its 1 subtopic yet: no slides or notes are linked to any of them.",
+  );
+  expect(planDuration(65)).toBe("1 h 05");
 });

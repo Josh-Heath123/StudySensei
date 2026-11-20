@@ -4,7 +4,7 @@ import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 
 import { useTopicPlanning, type TopicNode } from "./api";
-import { CONFIDENCE_LABELS, workloadText } from "./planningText";
+import { CONFIDENCE_LABELS, subtreeWorkloadText, workloadText } from "./planningText";
 
 const RATINGS = [null, 1, 2, 3, 4, 5] as const;
 
@@ -18,6 +18,8 @@ export function TopicPlanning({ moduleId, topic }: { moduleId: string; topic: To
   const [editing, setEditing] = useState(false);
   const confidence = topic.confidence ?? null;
   const { workload } = topic;
+  // A chapter: what the planner counts when it's ticked in an assessment (decision 0019).
+  const whole = topic.workload_with_subtopics ?? null;
 
   return (
     <section aria-label="Planning" className="surface-card grid gap-4 rounded-lg p-4">
@@ -79,9 +81,18 @@ export function TopicPlanning({ moduleId, topic }: { moduleId: string; topic: To
             )}
           </div>
         )}
-        {workload.source === "estimated" && !editing && (
+        {whole && whole.source !== "yours" && !editing && (
+          <p className="text-sm">{subtreeWorkloadText(whole)}</p>
+        )}
+        {(workload.source === "estimated" || whole?.source === "estimated") && !editing && (
           <p className="text-muted text-xs">
             Estimated at 3 minutes a slide and 6 a page of notes.
+          </p>
+        )}
+        {whole && (
+          <p className="text-muted text-xs">
+            A figure you set here covers the whole chapter, subtopics included, when it&apos;s in an
+            assessment.
           </p>
         )}
       </div>
