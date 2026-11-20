@@ -1,10 +1,11 @@
-"""Planner v1: what to study, when. A pure function of its inputs (decision 0017).
+"""Planner v1: what to study, when. A pure function of its inputs (decisions 0017 and 0019).
 
 No database, no clock, no AI: ``plan()`` takes a ``PlanInput`` and returns the same ``Plan``
 for the same input, whatever order its lists come in. It works in three passes, sooner
 deadlines first:
 
-1. **Final reviews:** one block in the 3 days before each assessment, as late as fits.
+1. **Final reviews:** one block in the 3 days before each exam, test or quiz, as late as fits
+   (assignments, projects and "other" get none).
 2. **Two spaced blocks per topic** on different local days, as early as fits. A later
    assessment's topics look first at the days after the previous deadline.
 3. **The rest of each topic's workload,** one block per topic per round, preferring a day
@@ -33,6 +34,8 @@ BREAK_MINUTES = 10
 MIN_BLOCKS = 2
 REVIEW_DAYS = 3
 URGENT_DAYS = 7
+# Assessment kinds that get a final review (decision 0019).
+REVIEW_KINDS = frozenset({"exam", "test", "quiz"})
 # Starting confidence → percent of the remaining workload. Not rated counts as 3.
 CONFIDENCE_PERCENT = {1: 150, 2: 125, 3: 100, 4: 85, 5: 70}
 
@@ -45,6 +48,8 @@ class AssessmentInput:
     # 0-100, or None (sorts as 0).
     weight: float | None
     topic_ids: tuple[UUID, ...]
+    # Only exams, tests and quizzes get a final review (decision 0019).
+    kind: str = "exam"
 
 
 @dataclass(frozen=True)
@@ -55,6 +60,8 @@ class TopicInput:
     workload_minutes: int | None
     # Self-rated 1-5, or None for not rated.
     confidence: int | None
+    # Course order: the topic's index in its module's tree, pre-order (decision 0019).
+    order: int = 0
 
 
 @dataclass(frozen=True)
@@ -317,9 +324,9 @@ def _assessment_key(assessment: AssessmentInput) -> tuple[datetime, float, str]:
     return (assessment.due_at, -(assessment.weight or 0), str(assessment.id))
 
 
-def _topic_key(topic: _Topic) -> tuple[int, str]:
-    """Within an assessment: lower confidence first, then the id (stable)."""
-    return (topic.input.confidence or 3, str(topic.input.id))
+def _topic_key(topic: _Topic) -> tuple[int, int, str]:
+    """Within an assessment: lower confidence first, then course order, then the id."""
+    return (topic.input.confidence or 3, topic.input.order, str(topic.input.id))
 
 
 def _study_reason(topic: _Topic, start: int) -> Reason:
@@ -394,10 +401,12 @@ def plan(request: PlanInput) -> Plan:
     calendar = _Calendar(request, start, _floor5(_minutes(upcoming[-1].due_at)))
     shortfalls: list[Shortfall] = []
 
-    # 1. A final review in the 3 days before each assessment, as late as fits.
+    # 1. A final review in the 3 days before each exam, test or quiz, as late as fits.
     for assessment in upcoming:
         if not found.covered[assessment.id]:
             shortfalls.append(Shortfall("no_topics", assessment.id))
+            continue
+        if assessment.kind not in REVIEW_KINDS:
             continue
         lo = max(start, _ceil5(_minutes(assessment.due_at - timedelta(days=REVIEW_DAYS))))
         spot = calendar.latest(lo, _floor5(_minutes(assessment.due_at)))

@@ -248,3 +248,72 @@ def test_free_time_over_local_midnight_is_split_by_local_day() -> None:
     # the 10-minute break that follows 23:50.
     assert sorted(days.values()) == [50, 100]
     assert result.blocks[1].start == at(1, 22)
+
+
+# --- decision 0019: course order and assessment kinds ------------------------------------
+
+
+def test_equal_topics_start_in_course_order_not_id_order() -> None:
+    # Four unrated chapters in one exam; their ids run against the course order.
+    chapters = {"Ch1": 4, "Ch2": 1, "Ch3": 3, "Ch4": 2}
+    topics = tuple(
+        TopicInput(UUID(int=n), MODULE, 300, None, order=index)
+        for index, n in enumerate(chapters.values())
+    )
+    test = exam(1, at(14, 9), *chapters.values())
+    _, result = make(free=evenings(14), assessments=(test,), topics=topics, cap=180)
+
+    first: dict[UUID, datetime] = {}
+    for block in result.blocks:
+        if block.topic_id is not None:
+            first.setdefault(block.topic_id, block.start)
+    names = {UUID(int=n): name for name, n in chapters.items()}
+    assert [names[t] for t in sorted(first, key=lambda t: first[t])] == [
+        "Ch1",
+        "Ch2",
+        "Ch3",
+        "Ch4",
+    ]
+
+
+def test_lower_confidence_still_comes_before_course_order() -> None:
+    topics = (
+        TopicInput(UUID(int=1), MODULE, 100, None, order=0),
+        TopicInput(UUID(int=2), MODULE, 100, 1, order=1),
+    )
+    _, result = make(
+        free=evenings(10), assessments=(exam(1, at(10, 9), 1, 2),), topics=topics, cap=180
+    )
+    studied = [b.topic_id for b in result.blocks if b.topic_id is not None]
+    assert studied[0] == UUID(int=2)
+
+
+@pytest.mark.parametrize(
+    ("kind", "reviewed"),
+    [
+        ("exam", True),
+        ("test", True),
+        ("quiz", True),
+        ("assignment", False),
+        ("project", False),
+        ("other", False),
+    ],
+)
+def test_only_exams_tests_and_quizzes_get_a_final_review(kind: str, reviewed: bool) -> None:
+    due = at(6, 9)
+    assessment = AssessmentInput(UUID(int=101), MODULE, due, None, (UUID(int=1),), kind)
+    _, result = make(free=evenings(6), assessments=(assessment,), topics=(topic(1),))
+    assert any(b.kind == "review" for b in result.blocks) == reviewed
+    # Its topics are still studied either way.
+    assert study_blocks(result, 1)
+
+
+@pytest.mark.parametrize("kind", ["assignment", "project", "other"])
+def test_no_review_time_is_never_reported_for_an_unreviewed_kind(kind: str) -> None:
+    # Free time only on the first two days: nothing in the last 3 days before the deadline.
+    assessment = AssessmentInput(UUID(int=101), MODULE, at(8, 9), None, (UUID(int=1),), kind)
+    _, result = make(free=evenings(2), assessments=(assessment,), topics=(topic(1),))
+    assert not [s for s in result.shortfalls if s.kind == "no_review_time"]
+    exam_like = AssessmentInput(UUID(int=101), MODULE, at(8, 9), None, (UUID(int=1),), "exam")
+    _, result = make(free=evenings(2), assessments=(exam_like,), topics=(topic(1),))
+    assert [s.kind for s in result.shortfalls if s.kind == "no_review_time"] == ["no_review_time"]
