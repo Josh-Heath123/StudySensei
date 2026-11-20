@@ -200,7 +200,10 @@ export function WeekGrid({
                 </p>
                 {off && <p className="text-muted text-xs">Unavailable</p>}
               </div>
-              <DayMenu date={date} unavailable={off} exception={exceptions[date]} />
+              {/* A past day can't be changed (decision 0023); today still can. */}
+              {date >= today && (
+                <DayMenu date={date} unavailable={off} exception={exceptions[date]} />
+              )}
             </div>
           );
         })}
