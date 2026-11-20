@@ -108,6 +108,8 @@ async def load_plan_data(
       A unit inside a sooner assessment's unit becomes that unit.
     - **Studied minutes:** the sum of ``study_sessions.active_seconds`` for sessions on the
       unit or any topic under it, floored to whole minutes.
+    - **Studied today** (decision 0021): the active minutes of every session that started
+      since local midnight, which count against today's cap.
     """
     if not 1 <= days <= MAX_RANGE_DAYS:
         raise Invalid(f"Plan between 1 and {MAX_RANGE_DAYS} days.")
@@ -227,6 +229,16 @@ async def load_plan_data(
     def weight(a: Assessment) -> float | None:
         return None if a.weight is None else float(a.weight)
 
+    # Minutes already studied today count against today's cap (decision 0021): sessions that
+    # started since local midnight, by their measured active time.
+    today_seconds = await session.scalar(
+        select(func.coalesce(func.sum(StudySession.active_seconds), 0.0)).where(
+            StudySession.user_id == user_id,
+            StudySession.started_at >= local_to_utc(first, 0, tz),
+        )
+    )
+    studied_today = math.floor(float(today_seconds or 0) / 60)
+
     request = PlanInput(
         now=now,
         free=tuple(i for day in free_days for i in day.intervals),
@@ -243,6 +255,7 @@ async def load_plan_data(
         studied_minutes={
             t: facts.studied_minutes for t, facts in topic_facts.items() if facts.studied_minutes
         },
+        studied_on={first: studied_today} if studied_today else {},
     )
     facts = PlanFacts(
         timezone=tz,

@@ -10,6 +10,7 @@ Rules for every sentence:
 
 from datetime import datetime
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from app.services.planning.feasibility import AssessmentFeasibility, Feasibility, Lever, Numbers
 from app.services.planning.inputs import PlanFacts, TopicFacts
@@ -247,3 +248,59 @@ def later_text(assessment_id: UUID, facts: PlanFacts, days: int) -> str:
         f"{assessment_name(assessment_id, facts)} is due {day_month(due, facts)}, after these "
         f"{plural(days, 'day')}: it isn't planned yet."
     )
+
+
+# --- plan versions (decision 0021) -----------------------------------------------------
+
+WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+
+def block_when(start: datetime, timezone: ZoneInfo) -> str:
+    """ "Tue 24 Nov, 18:00" in local time."""
+    local = start.astimezone(timezone)
+    return f"{WEEKDAYS[local.weekday()]} {local.day} {MONTHS[local.month - 1]}, {local:%H:%M}"
+
+
+def version_summary(
+    trigger: str,
+    *,
+    timezone: ZoneInfo,
+    block_name: str | None = None,
+    block_start: datetime | None = None,
+    minutes: int | None = None,
+    assessment: str | None = None,
+    module: str | None = None,
+) -> str:
+    """One sentence on why a plan version exists, from its trigger and what it names. A
+    missing name falls back to a general sentence; nothing is guessed."""
+    if trigger == "skip" and block_name and block_start:
+        when = block_when(block_start, timezone)
+        return f"You skipped {block_name} ({when}): its time is placed again."
+    if trigger == "skip":
+        return "You skipped a block: its time is placed again."
+    if trigger == "finish" and block_name:
+        measured = (
+            ""
+            if minutes is None
+            else " (measured under 1 min)"
+            if minutes == 0
+            else f" (measured {duration(minutes)})"
+        )
+        return f"You finished a block on {block_name}{measured}."
+    if trigger == "finish":
+        return "You finished a block."
+    if trigger == "assessment":
+        return f"{assessment} changed." if assessment else "An assessment changed."
+    if trigger == "topic":
+        return f"A topic in {module} changed." if module else "A topic changed."
+    if trigger == "availability":
+        return "Your study time changed."
+    if trigger == "material":
+        return (
+            f"New material was processed for {module}." if module else "New material was processed."
+        )
+    if trigger == "nightly":
+        return "Updated overnight."
+    if trigger == "manual":
+        return "Re-planned on request."
+    return "Your first plan."
