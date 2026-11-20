@@ -302,7 +302,7 @@ test("a private calendar link serves one VEVENT per planned block", async ({
   expect(planned.length).toBeGreaterThan(1);
 
   await page.goto("/settings");
-  const calendar = page.getByRole("region", { name: "Calendar" });
+  const calendar = page.getByRole("region", { name: "Calendar", exact: true });
   await calendar.getByRole("button", { name: "Create a private calendar link" }).click();
   const url = await calendar.getByLabel("Private calendar link").inputValue();
   expect(url).toMatch(/^http:\/\/localhost:5174\/api\/calendar\/[\w-]+\.ics$/);

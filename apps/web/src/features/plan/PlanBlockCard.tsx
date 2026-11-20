@@ -41,6 +41,7 @@ export function PlanBlockCard({
   const quiet = block.status === "skipped" || block.status === "missed";
   const live = isNow(block, now);
   const title = blockTitle(block);
+  const label = blockLabel(block, timeZone, now);
   return (
     <button
       type="button"
@@ -53,7 +54,9 @@ export function PlanBlockCard({
         className,
       )}
       style={{ borderLeftColor: block.module_colour, ...style }}
-      aria-label={blockLabel(block, timeZone, now)}
+      aria-label={label}
+      // Narrow grid columns cut the second row; hovering shows it whole.
+      title={label}
       {...props}
     >
       <span

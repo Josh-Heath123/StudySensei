@@ -40,6 +40,8 @@ const env = {
   GROQ_API_KEY: "",
   OLLAMA_MODEL: "",
   FAKE_NOW: NOW,
+  // The private calendar link points at this web app.
+  PUBLIC_URL: `http://localhost:${WEB_PORT}`,
   // No push from the demo, whatever apps/api/.env holds.
   VAPID_PUBLIC_KEY: "",
   VAPID_PRIVATE_KEY: "",
@@ -176,11 +178,24 @@ async function main() {
   run("uv run --directory apps/api python -m app.seed");
   run(`uv run --directory apps/api python -m scripts.demo_seed --now ${NOW}`);
 
+  // A throwaway VAPID pair, so Settings shows Reminders as set up on the server. Only the
+  // API gets it: the worker keeps push off, so nothing is ever sent from the demo.
+  const vapid = Object.fromEntries(
+    execSync("uv run --directory apps/api python -m app.push.keys", {
+      cwd: root,
+    })
+      .toString()
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("VAPID_"))
+      .map((line) => line.split(/=(.*)/s).slice(0, 2)),
+  );
+
   console.log("Starting the API and the web app on their own ports…");
   start(
     "API",
     `uv run uvicorn app.main:app --port ${API_PORT}`,
     path.join(root, "apps", "api"),
+    vapid,
   );
   start(
     "worker",
@@ -349,10 +364,35 @@ async function main() {
   }
 }
 
+// Init scripts for the Reminders card's states: notifications allowed with this browser
+// already subscribed (the card saves the subscription, finding "This device"), and blocked.
+const REMINDER_STATES = {
+  on: `(() => {
+    Object.defineProperty(Notification, "permission", { get: () => "granted" });
+    const sub = {
+      endpoint: "https://push.example/qa-this-browser",
+      toJSON: () => ({ endpoint: "https://push.example/qa-this-browser", keys: { p256dh: "BQA", auth: "QA" } }),
+      unsubscribe: async () => true,
+    };
+    navigator.serviceWorker.getRegistration = async () => ({ pushManager: { getSubscription: async () => sub } });
+  })()`,
+  denied: `Object.defineProperty(Notification, "permission", { get: () => "denied" });`,
+};
+
 /** Every screen and the main dialogs, in both themes, at three widths (full page, scale 1). */
 async function review(browser, dir, moduleId, fixed) {
   if (!dir) throw new Error("--qa needs a folder");
   mkdirSync(dir, { recursive: true });
+  // Another device with reminders on, for the card's "Other devices".
+  await fetch(`http://localhost:${API_PORT}/push/subscriptions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      endpoint: "https://push.example/qa-phone",
+      keys: { p256dh: "BPhone", auth: "Phone" },
+      label: "Chrome on Android",
+    }),
+  });
   const tabs = ["assessments", "tasks", "sessions", "topics", "materials"];
   const screens = [
     ["today", "/"],
@@ -398,6 +438,49 @@ async function review(browser, dir, moduleId, fixed) {
         await shoot(`plan-popover-${status}`, false);
         await page.keyboard.press("Escape");
         await settle(page, 400);
+      }
+      // Settings → Reminders and Calendar: a calendar link just made (shown once), then the
+      // reminder states a real permission prompt can't reach headless (decision 0024).
+      await page.goto("/settings");
+      const calendar = page.getByRole("region", {
+        name: "Calendar",
+        exact: true,
+      });
+      await calendar
+        .getByRole("button", { name: "Create a private calendar link" })
+        .click();
+      await calendar.getByLabel("Private calendar link").waitFor();
+      await calendar.scrollIntoViewIfNeeded();
+      await settle(page, 300);
+      await shoot("settings-calendar-link", false);
+      await page.request.delete("/api/calendar/feed");
+      for (const [state, script] of Object.entries(REMINDER_STATES)) {
+        const extra = await ctx.newPage();
+        await extra.clock.setFixedTime(fixed);
+        await extra.addInitScript(script);
+        await extra.goto("/settings");
+        const reminders = extra.getByRole("region", {
+          name: "Reminders",
+          exact: true,
+        });
+        await reminders
+          .getByText(
+            state === "on" ? "This device" : "Notifications are blocked",
+            {
+              exact: state === "on",
+            },
+          )
+          .first()
+          .waitFor();
+        await reminders.scrollIntoViewIfNeeded();
+        await settle(extra, 300);
+        const file = path.join(
+          dir,
+          `settings-reminders-${state}-${theme}-${width}.png`,
+        );
+        await extra.screenshot({ path: file });
+        shots.push(file);
+        await extra.close();
       }
       // The main dialogs.
       await page.goto(`/modules/${moduleId}?tab=topics`);
