@@ -100,10 +100,17 @@ def test_after_deadline() -> None:
 
 def test_over_cap() -> None:
     others = (block(2, 18), block(2, 20))
-    assert check(at(2, 19, 0), others=others, cap=180) == MoveProblem("too_close", at(2, 0).date())
+    assert check(at(2, 19, 5), others=others, cap=180) == MoveProblem("too_close", at(2, 0).date())
     two = (block(2, 18),)
     assert check(at(2, 19, 0), others=two, cap=100) is None  # 50 + 50
     assert check(at(2, 19, 0), others=two, cap=90) == MoveProblem("over_cap", at(2, 0).date())
+
+
+def test_a_final_review_stays_in_its_last_3_days() -> None:
+    review = Block(at(5, 18), at(5, 18, 50), MODULE, TEST, None, "review", "final_review")
+    # 30 Nov 09:00 due: the window opens 27 Nov 09:00.
+    assert check(at(4, 18), the_block=review) is None  # 27 Nov 18:00
+    assert check(at(3, 18), the_block=review) == MoveProblem("review_window", at(3, 0).date(), DUE)
 
 
 def test_todays_studied_minutes_count_for_the_cap() -> None:
@@ -126,6 +133,10 @@ def test_todays_studied_minutes_count_for_the_cap() -> None:
             "That's after COS330 Exam (30 Nov, 09:00).",
         ),
         (MoveProblem("over_cap", at(1, 0).date()), "Tue 24 Nov would go over your 3 h daily cap."),
+        (
+            MoveProblem("review_window", NOW.date(), DUE),
+            "A final review stays in the 3 days before COS330 Exam.",
+        ),
     ],
 )
 def test_each_problem_in_words(problem: MoveProblem, text: str) -> None:
@@ -147,12 +158,20 @@ def test_an_accepted_move_keeps_every_plan_property(
     if not movable:
         return
     chosen = data.draw(st.sampled_from(movable))
-    first = request.now.replace(second=0, microsecond=0) - timedelta(hours=2)
-    first -= timedelta(minutes=first.minute % 5)
-    offset = data.draw(st.integers(0, 22 * 24 * 12)) * 5
-    target = first + timedelta(minutes=offset)
-    others = tuple(b for b in result.blocks if b != chosen)
     due = next(a.due_at for a in request.assessments if a.id == chosen.assessment_id)
+    ahead = [w for w in request.free if w.end > request.now and w.start < due]
+    if ahead and data.draw(st.integers(0, 3)) > 0:
+        # Mostly somewhere in a free window still ahead, so moves are often accepted.
+        window = data.draw(st.sampled_from(ahead))
+        first = window.start.replace(second=0, microsecond=0)
+        first += timedelta(minutes=-first.minute % 5)
+        span = max(0, int((window.end - first).total_seconds() // 300))
+        target = first + timedelta(minutes=5 * data.draw(st.integers(0, span)))
+    else:
+        first = request.now.replace(second=0, microsecond=0) - timedelta(hours=2)
+        first -= timedelta(minutes=first.minute % 5)
+        target = first + timedelta(minutes=5 * data.draw(st.integers(0, 22 * 24 * 12)))
+    others = tuple(b for b in result.blocks if b != chosen)
     problem = check_move(
         chosen,
         target,
