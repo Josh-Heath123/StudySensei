@@ -110,7 +110,6 @@ export function WeekGrid({
     if (!block.actions.move || event.button !== 0 || move.isPending) return;
     const start = zoned(block.start, timeZone);
     const rect = event.currentTarget.getBoundingClientRect();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
     setProblem(null);
     setDrag({
       block,
@@ -130,6 +129,8 @@ export function WeekGrid({
       Math.abs(event.clientX - drag.x0) > DRAG_THRESHOLD_PX ||
       Math.abs(event.clientY - drag.y0) > DRAG_THRESHOLD_PX;
     if (!drag.moved && !far) return;
+    // Capture only once it's a drag: a plain click must still reach the card's popover.
+    if (!drag.moved) event.currentTarget.setPointerCapture?.(event.pointerId);
     setDrag({ ...drag, ...target(event, drag), moved: true });
   }
 
