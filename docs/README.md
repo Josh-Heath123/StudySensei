@@ -7,7 +7,7 @@ Start with the [project README](../README.md), then read in this order:
 | [PRODUCT.md](PRODUCT.md) | What StudySensei is for, who it's for, and what it deliberately doesn't do |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | How it's built: the API contract, the data model, the AI client, search, topic maps and CI |
 | [DESIGN.md](DESIGN.md) | The "Glass" design system: tokens, type, glass rules, components and screens |
-| [decisions/](decisions/README.md) | Architecture decision records, 0001–0021 |
+| [decisions/](decisions/README.md) | Architecture decision records, 0001–0022 |
 | [ROADMAP.md](ROADMAP.md) | Phases 0–9 and the spikes, with what's done |
 | [PROGRESS.md](PROGRESS.md) | The session log, newest first: what was done, decided and measured |
 | [Evals](../apps/api/evals/README.md) | The search, linking and topic-extraction evals, and their baseline results |

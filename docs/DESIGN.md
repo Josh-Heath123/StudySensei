@@ -152,14 +152,26 @@ any content uses `glass-strong`; `tokens.test.ts` checks each against its worst 
 | **Viewer page** | A solid surface. **Fit page** (the default) fits the whole page into the visible area with no scrollbars; **Fit width** fits the width and scrolls down, with its scrollbar space reserved so the width never changes while drawing |
 | **Topic tree rows** | Chapters 15/600, subtopics 15/400, page counts muted. Row actions appear on hover and focus-within (still in the tab order); on touch screens they're behind one "…" menu |
 | **Weekly editor** (Settings → Study time) | A solid card; one row per weekday (the day 15/600 with its total muted under it, then its windows as two native time inputs with "to" between and a ghost remove button); "Add a window" a quiet button. Errors under the day in `danger`. No dragging yet |
+| **Week grid** (Plan, from 1024 px) | A solid card: a 56 px hour column, then seven day columns, Monday first, in the user's timezone. Hour rows (dashed `line`) run only from the week's earliest free window or block to its latest. Free windows are bands of `accent-soft` at 60 %; today's column is tinted `accent-soft` with its header in `link`. 1.1 px a minute (a 50-minute block is 55 px). Blocks whose server action allows it can be dragged with pointer events, snapping to 5 minutes and across days; a ghost card shows the drop time; a refused drop snaps back with its sentence in a small `glass-strong` note under the block |
+| **Plan block card** | Solid `surface`, 1 px `line`, radius 10, a 4 px left edge in the module colour. Two rows: the topic 13/600 (or "Final review · …"), then the time (start only in the grid) with the method, or the status in its place: done a `success` check and "48 min (measured)"; skipped muted and struck through; missed muted, "Missed"; in progress "Now" in `link` with a `ring`. It's a button that opens the popover |
+| **Block popover** | `glass-strong`, radius 20, 352 px, beside the card from 640 px; a bottom sheet on phones. When, Why (the reason), How (the method), "Moved by you." or "Kept for the next 24 h.", then only the buttons the server allows: Start session (primary), Move… (outline: a dialog of the week's days and 5-minute times inside that day's free windows), Skip (ghost, confirms first) |
+| **Day menu** | The "…" (`MoreButton`, 32 px) on a day's header: "Mark unavailable" (confirms first when it replaces custom hours), or "Make available again" (confirms that the day goes back to the weekly hours) on an unavailable day, whose header says "Unavailable" |
 | **Confidence control** | The segmented-control look (`subtle` track, radius 12, raised selected segment) as a radio group: "–" (not rated) and 1-5, each with its meaning as the title and in the accessible name; the chosen meaning in a muted line below |
 | **Icons** | lucide-react only, one stroke width (1.75, set globally) |
 
 ## Screens
 
 - **Today** (the most expressive): an editorial date in Display type; "Next up" as the hero card, the gradient as its
-  background with its text on a `glass-hero` layer; countdown tiles and deadlines calm and solid; "Your day" a compact empty state until the
-  planner (Phase 4) supplies blocks; the system status card quiet.
+  background with its text on a `glass-hero` layer, naming the plan's next block (when, or "Now"; the method as the
+  instruction; "Why:" its reason) with Start session and Skip only when allowed, or "Nothing planned yet" with links to
+  study time and assessments; countdown tiles and deadlines calm and solid; "Your day" today's blocks as compact rows
+  with their status; the system status card quiet.
+- **Plan** (`/plan`): the page header with the week ("Mon 16 Nov – Sun 22 Nov") as its eyebrow, the version's summary
+  muted with its time ("Updated 14:43 · You skipped …"), and previous / "This week" / next. Then one solid card: a
+  status chip (Fits `success`, Tight `warning`, Short `danger`), the overall line, the levers, and the per-assessment
+  lines folded under "Details". "Updating your plan…" while a re-plan is pending. Then the week grid from 1024 px, or an
+  agenda below it: a solid card per day with its free windows, its day menu and the same block cards, without dragging.
+  Empty states link to Settings → Study time, or to Modules.
 - **Session** (`/session`): a very large, light timer inside a progress ring with a gradient stroke; a faint ambient
   gradient mist behind it in both themes; a floating `glass` control bar (pause, break, end); then one small card for
   Materials. From 1024 px the **tutor panel** sits on the right (360 px, 400 px from 1280) and the timer's column never
@@ -174,7 +186,7 @@ any content uses `glass-strong`; `tokens.test.ts` checks each against its worst 
   in glass with the page canvas on a solid surface.
 - **Settings:** Appearance first, then Study time (a one-line summary of the week, the weekly editor beside Limits
   and Exceptions cards), then AI providers in solid cards with violet usage meters (labels kept).
-- **Placeholders** (Plan, Practice, Insights): a designed empty state saying which phase each arrives in.
+- **Placeholders** (Practice, Insights): a designed empty state saying which phase each arrives in.
 
 ## Layout and responsive
 
