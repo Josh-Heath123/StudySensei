@@ -23,6 +23,7 @@ from app.jobs.kinds import (
     INDEX_MATERIAL,
     LINK_TOPICS,
     MERGE_TOPICS,
+    REPLAN,
 )
 from app.jobs.tasks import (
     extract_text,
@@ -30,7 +31,9 @@ from app.jobs.tasks import (
     index_material,
     link_topics,
     merge_topics,
+    replan,
 )
+from app.services.planning.replan import queue_nightly_replans
 from app.services.search.embedding import get_embedder
 from app.storage.base import Storage
 from app.storage.local import get_storage
@@ -43,7 +46,10 @@ HANDLERS: Mapping[str, Handler] = {
     EXTRACT_TOPICS: Handler(run=extract_topics.run, on_failure=extract_topics.on_failure),
     MERGE_TOPICS: Handler(run=merge_topics.run),
     LINK_TOPICS: Handler(run=link_topics.run),
+    REPLAN: Handler(run=replan.run),
 }
+# How often the main loop looks for users due a nightly re-plan (decision 0021).
+NIGHTLY_CHECK_SECONDS = 60.0
 
 UNEXPECTED = "Something went wrong while processing this file. It will be retried."
 GAVE_UP = "Something went wrong while processing this file."
@@ -118,9 +124,17 @@ async def main() -> None:
         await asyncio.to_thread(get_embedder)
     log.info("Worker started; polling every %.1fs", idle)
     failures = 0
+    last_nightly_check = float("-inf")
+    loop = asyncio.get_running_loop()
     try:
         while True:
             try:
+                if loop.time() - last_nightly_check >= NIGHTLY_CHECK_SECONDS:
+                    last_nightly_check = loop.time()
+                    async with sessions() as session:
+                        queued = await queue_nightly_replans(session, _now())
+                    if queued:
+                        log.info("Queued %s nightly re-plan(s)", queued)
                 ran = await run_once(sessions, storage)
                 failures = 0
             except Exception:

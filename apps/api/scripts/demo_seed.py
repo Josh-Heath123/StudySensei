@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.db import get_engine, get_sessionmaker
-from app.jobs.kinds import EXTRACT_TOPICS, LINK_TOPICS, MERGE_TOPICS
+from app.jobs.kinds import EXTRACT_TOPICS, LINK_TOPICS, MERGE_TOPICS, REPLAN
 from app.jobs.worker import run_once
 from app.models import (
     AvailabilityRule,
@@ -430,10 +430,12 @@ async def seed(now: datetime) -> None:
                     user_id=uid, weekday=weekday, start_minute=start_minute, end_minute=end_minute
                 )
             )
-        # One self-rated topic, so the plan shows a low-confidence block.
+        # One self-rated topic with the student's own time for the whole chapter, so the plan
+        # has work left after the week of sessions and shows a low-confidence block.
         congestion = await db.get(Topic, topic_ids["TCP congestion control"])
         assert congestion is not None
         congestion.confidence = 2
+        congestion.estimated_minutes = 240
         await db.commit()
 
         # A week of study before `now`: one session a day on six of the seven days.
@@ -478,11 +480,12 @@ async def seed(now: datetime) -> None:
 
     # The real pipeline: extract text, chunk, embed and index. Topic jobs would call the AI,
     # so they're removed before each run (the demo's topic tree is inserted below instead).
+    # Re-plans are removed too: they'd plan at the real time, not the demo's ``now``.
     ran = 0
     while True:
         async with sessionmaker() as db:
             await db.execute(
-                delete(Job).where(Job.kind.in_((EXTRACT_TOPICS, MERGE_TOPICS, LINK_TOPICS)))
+                delete(Job).where(Job.kind.in_((EXTRACT_TOPICS, MERGE_TOPICS, LINK_TOPICS, REPLAN)))
             )
             await db.commit()
         if not await run_once(sessionmaker, storage):
@@ -628,6 +631,9 @@ async def seed(now: datetime) -> None:
             for label, material, page, _ in TUTOR_SOURCES
         ]
         db.add(quiz)
+        await db.commit()
+    async with sessionmaker() as db:
+        await db.execute(delete(Job).where(Job.kind == REPLAN))
         await db.commit()
     print(
         f"Demo seeded: NET201, {len(files)} materials ({ran} jobs), {len(week)} sessions "

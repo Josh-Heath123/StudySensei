@@ -1147,6 +1147,92 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/plan": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Plan
+     * @description The current plan version (number, trigger, summary, report) and its blocks that overlap
+     *     the local dates ``from`` to ``to`` (default today to 7 days on; at most 62 days), with
+     *     their status and texts. With no plan yet, this creates version 1 (trigger initial): the
+     *     one GET with a side effect.
+     */
+    get: operations["get_plan_plan_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/plan/next": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Next Block
+     * @description The current plan's next planned block that hasn't ended (one in progress counts), or
+     *     null.
+     */
+    get: operations["get_next_block_plan_next_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/plan/blocks/{block_id}/skip": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Skip Block
+     * @description Skip a planned block of the current plan and re-plan at once (its time is placed
+     *     again). 409 for any other block; 404 for one that isn't yours.
+     */
+    post: operations["skip_block_plan_blocks__block_id__skip_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/plan/replan": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Replan Now
+     * @description Re-plan now (trigger manual). Returns the current version: a new one only if the
+     *     blocks changed.
+     */
+    post: operations["replan_now_plan_replan_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/ai/status": {
     parameters: {
       query?: never;
@@ -2156,6 +2242,54 @@ export interface components {
       /** Method Text */
       method_text: string;
     };
+    /** PlanOut */
+    PlanOut: {
+      /** Number */
+      number: number;
+      /**
+       * Trigger
+       * @enum {string}
+       */
+      trigger:
+        | "initial"
+        | "skip"
+        | "finish"
+        | "assessment"
+        | "topic"
+        | "availability"
+        | "material"
+        | "nightly"
+        | "manual";
+      /** Summary */
+      summary: string;
+      /**
+       * Generated At
+       * Format: date-time
+       */
+      generated_at: string;
+      /**
+       * Checked At
+       * Format: date-time
+       */
+      checked_at: string;
+      /** Timezone */
+      timezone: string;
+      /** Days */
+      days: number;
+      report: components["schemas"]["FeasibilityOut"];
+      /**
+       * First
+       * Format: date
+       */
+      first: string;
+      /**
+       * Last
+       * Format: date
+       */
+      last: string;
+      /** Blocks */
+      blocks: components["schemas"]["StoredBlockOut"][];
+    };
     /** PlanPreviewOut */
     PlanPreviewOut: {
       /**
@@ -2182,6 +2316,42 @@ export interface components {
       /** Blocks */
       blocks: components["schemas"]["PlanBlockOut"][];
       feasibility: components["schemas"]["FeasibilityOut"];
+    };
+    /** PlanVersionOut */
+    PlanVersionOut: {
+      /** Number */
+      number: number;
+      /**
+       * Trigger
+       * @enum {string}
+       */
+      trigger:
+        | "initial"
+        | "skip"
+        | "finish"
+        | "assessment"
+        | "topic"
+        | "availability"
+        | "material"
+        | "nightly"
+        | "manual";
+      /** Summary */
+      summary: string;
+      /**
+       * Generated At
+       * Format: date-time
+       */
+      generated_at: string;
+      /**
+       * Checked At
+       * Format: date-time
+       */
+      checked_at: string;
+      /** Timezone */
+      timezone: string;
+      /** Days */
+      days: number;
+      report: components["schemas"]["FeasibilityOut"];
     };
     /** PlanningSettingsOut */
     PlanningSettingsOut: {
@@ -2458,6 +2628,8 @@ export interface components {
       module_id: string;
       /** Topic Id */
       topic_id?: string | null;
+      /** Plan Block Id */
+      plan_block_id?: string | null;
       start: components["schemas"]["StartEvent"];
     };
     /**
@@ -2509,6 +2681,75 @@ export interface components {
        * Format: date-time
        */
       occurred_at: string;
+    };
+    /** StoredBlockOut */
+    StoredBlockOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Start
+       * Format: date-time
+       */
+      start: string;
+      /**
+       * End
+       * Format: date-time
+       */
+      end: string;
+      /** Minutes */
+      minutes: number;
+      /**
+       * Module Id
+       * Format: uuid
+       */
+      module_id: string;
+      /** Module Code */
+      module_code: string;
+      /** Module Colour */
+      module_colour: string;
+      /**
+       * Assessment Id
+       * Format: uuid
+       */
+      assessment_id: string;
+      /** Assessment Title */
+      assessment_title: string;
+      /** Topic Id */
+      topic_id: string | null;
+      /** Topic Name */
+      topic_name: string | null;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "study" | "review";
+      /**
+       * Reason
+       * @enum {string}
+       */
+      reason:
+        "final_review" | "spacing" | "no_estimate" | "low_confidence" | "urgency" | "workload";
+      /**
+       * Method
+       * @enum {string}
+       */
+      method: "mixed_review" | "first_pass" | "active_recall" | "practice";
+      /** Reason Text */
+      reason_text: string;
+      /** Method Text */
+      method_text: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "planned" | "done" | "skipped" | "missed";
+      /** Status Changed At */
+      status_changed_at: string | null;
+      /** Fixed */
+      fixed: boolean;
     };
     /**
      * SubtreeWorkloadOut
@@ -5202,6 +5443,109 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_plan_plan_get: {
+    parameters: {
+      query?: {
+        from?: string | null;
+        to?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PlanOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_next_block_plan_next_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StoredBlockOut"] | null;
+        };
+      };
+    };
+  };
+  skip_block_plan_blocks__block_id__skip_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        block_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PlanVersionOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  replan_now_plan_replan_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PlanVersionOut"];
         };
       };
     };

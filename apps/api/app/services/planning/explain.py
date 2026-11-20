@@ -10,6 +10,7 @@ Rules for every sentence:
 
 from datetime import datetime
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from app.services.planning.feasibility import AssessmentFeasibility, Feasibility, Lever, Numbers
 from app.services.planning.inputs import PlanFacts, TopicFacts
@@ -85,7 +86,7 @@ def _across(topic: TopicFacts) -> str:
 
 def workload_sentence(topic: TopicFacts) -> str:
     """ "≈ 40 min estimated from 13 slides; 15 min studied so far (measured, 1 session)." For
-    a topic with subtopics: "≈ 7 h 15 estimated from 72 slides and 34 pages of text across Ch1
+    a topic with subtopics: "≈ 7 h estimated from 72 slides and 34 pages of text across Ch1
     and its 4 subtopics; ..." """
     if topic.workload_minutes is None:
         load = "No workload figure yet"
@@ -98,6 +99,8 @@ def workload_sentence(topic: TopicFacts) -> str:
         )
     if topic.sessions == 0:
         studied = "not studied yet (measured: no sessions)"
+    elif topic.studied_minutes == 0:
+        studied = f"under 1 min studied so far (measured, {plural(topic.sessions, 'session')})"
     else:
         studied = (
             f"{duration(topic.studied_minutes)} studied so far "
@@ -205,14 +208,25 @@ def assessment_line(report: AssessmentFeasibility, facts: PlanFacts) -> str:
 
 
 def overall_line(report: Feasibility, facts: PlanFacts, days: int) -> str:
-    """ "You need 14 h before 3 Dec and have 9 h." """
+    """ "You need 14 h before 3 Dec and have 9 h." With nothing needed: "Nothing more is
+    needed before 26 Nov; you have 21 h free." When it's short though the time would cover
+    it (the time is in the wrong place), the short assessments are named (decision 0020)."""
     if report.last_deadline is None:
         return f"Nothing is due in the next {plural(days, 'day')}."
     need, have = report.overall.required_minutes, report.overall.free_minutes
-    return (
-        f"You need {duration(need)} before {day_month(report.last_deadline, facts)} "
-        f"and have {duration(have)}."
-    )
+    before = day_month(report.last_deadline, facts)
+    if need == 0:
+        return f"Nothing more is needed before {before}; you have {duration(have)} free."
+    line = f"You need {duration(need)} before {before} and have {duration(have)}"
+    short = [a for a in report.assessments if a.numbers.status == "short"]
+    if report.overall.status == "short" and need <= have and short:
+        if len(short) == 1:
+            only = short[0]
+            name = assessment_name(only.assessment_id, facts)
+            when = day_month(only.due_at, facts)
+            return f"{line}, but {name} ({when}) is {duration(only.numbers.short_minutes)} short."
+        return f"{line}, but {len(short)} assessments are short."
+    return f"{line}."
 
 
 def lever_text(lever: Lever, facts: PlanFacts) -> str:
@@ -234,3 +248,59 @@ def later_text(assessment_id: UUID, facts: PlanFacts, days: int) -> str:
         f"{assessment_name(assessment_id, facts)} is due {day_month(due, facts)}, after these "
         f"{plural(days, 'day')}: it isn't planned yet."
     )
+
+
+# --- plan versions (decision 0021) -----------------------------------------------------
+
+WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+
+def block_when(start: datetime, timezone: ZoneInfo) -> str:
+    """ "Tue 24 Nov, 18:00" in local time."""
+    local = start.astimezone(timezone)
+    return f"{WEEKDAYS[local.weekday()]} {local.day} {MONTHS[local.month - 1]}, {local:%H:%M}"
+
+
+def version_summary(
+    trigger: str,
+    *,
+    timezone: ZoneInfo,
+    block_name: str | None = None,
+    block_start: datetime | None = None,
+    minutes: int | None = None,
+    assessment: str | None = None,
+    module: str | None = None,
+) -> str:
+    """One sentence on why a plan version exists, from its trigger and what it names. A
+    missing name falls back to a general sentence; nothing is guessed."""
+    if trigger == "skip" and block_name and block_start:
+        when = block_when(block_start, timezone)
+        return f"You skipped {block_name} ({when}): its time is placed again."
+    if trigger == "skip":
+        return "You skipped a block: its time is placed again."
+    if trigger == "finish" and block_name:
+        measured = (
+            ""
+            if minutes is None
+            else " (measured under 1 min)"
+            if minutes == 0
+            else f" (measured {duration(minutes)})"
+        )
+        return f"You finished a block on {block_name}{measured}."
+    if trigger == "finish":
+        return "You finished a block."
+    if trigger == "assessment":
+        return f"{assessment} changed." if assessment else "An assessment changed."
+    if trigger == "topic":
+        return f"A topic in {module} changed." if module else "A topic changed."
+    if trigger == "availability":
+        return "Your study time changed."
+    if trigger == "material":
+        return (
+            f"New material was processed for {module}." if module else "New material was processed."
+        )
+    if trigger == "nightly":
+        return "Updated overnight."
+    if trigger == "manual":
+        return "Re-planned on request."
+    return "Your first plan."

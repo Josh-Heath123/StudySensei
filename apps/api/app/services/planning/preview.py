@@ -1,10 +1,11 @@
 """The plan preview: load the inputs, plan, choose methods, write the text and the feasibility
-report. Computed on request and never stored (task 4 stores blocks). Read-only, scoped by
-``user_id``; no AI.
+report. ``build`` is the one code path from inputs to blocks with their texts and the report;
+``preview`` (computed on request, never stored) and ``replan.replan`` (which stores a version,
+decision 0021) both use it. No AI.
 """
 
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,44 +23,60 @@ from app.schemas.planning import (
 )
 from app.services.planning import explain, methods
 from app.services.planning.feasibility import feasibility
-from app.services.planning.inputs import DEFAULT_DAYS, load_plan_data
-from app.services.planning.planner import plan
+from app.services.planning.inputs import DEFAULT_DAYS, PlanFacts, load_plan_data
+from app.services.planning.planner import Block, PlanInput, plan
+
+
+@dataclass(frozen=True)
+class Built:
+    preview: PlanPreviewOut
+    # Each planner block with its output (texts and method), in time order.
+    blocks: tuple[tuple[Block, PlanBlockOut], ...]
 
 
 async def preview(
     session: AsyncSession, *, user_id: uuid.UUID, now: datetime, days: int = DEFAULT_DAYS
 ) -> PlanPreviewOut:
     data = await load_plan_data(session, user_id=user_id, now=now, days=days)
-    request, facts = data.input, data.facts
+    return build(data.input, data.facts, now=now, days=days).preview
+
+
+def build(request: PlanInput, facts: PlanFacts, *, now: datetime, days: int) -> Built:
+    """Plan ``request`` and write everything about it: pure, given the loaded inputs."""
     result = plan(request)
 
     def confidence(topic_id: uuid.UUID) -> int | None:
         found = facts.topics.get(topic_id)
         return found.confidence if found else None
 
-    blocks = []
+    blocks: list[tuple[Block, PlanBlockOut]] = []
     for block, block_facts in zip(
         result.blocks, methods.block_facts(result.blocks, confidence), strict=True
     ):
         rule = methods.choose(block_facts)
         module = facts.modules[block.module_id]
         blocks.append(
-            PlanBlockOut(
-                start=block.start,
-                end=block.end,
-                minutes=block.minutes,
-                module_id=block.module_id,
-                module_code=module.code,
-                module_colour=module.colour,
-                assessment_id=block.assessment_id,
-                assessment_title=facts.assessments[block.assessment_id].title,
-                topic_id=block.topic_id,
-                topic_name=explain.topic_name(block.topic_id, facts) if block.topic_id else None,
-                kind=block.kind,
-                reason=block.reason,
-                method=rule.method,
-                reason_text=explain.reason_text(block, facts),
-                method_text=rule.text,
+            (
+                block,
+                PlanBlockOut(
+                    start=block.start,
+                    end=block.end,
+                    minutes=block.minutes,
+                    module_id=block.module_id,
+                    module_code=module.code,
+                    module_colour=module.colour,
+                    assessment_id=block.assessment_id,
+                    assessment_title=facts.assessments[block.assessment_id].title,
+                    topic_id=block.topic_id,
+                    topic_name=explain.topic_name(block.topic_id, facts)
+                    if block.topic_id
+                    else None,
+                    kind=block.kind,
+                    reason=block.reason,
+                    method=rule.method,
+                    reason_text=explain.reason_text(block, facts),
+                    method_text=rule.text,
+                ),
             )
         )
 
@@ -128,13 +145,14 @@ async def preview(
         ],
         basis=explain.BASIS,
     )
-    return PlanPreviewOut(
+    out = PlanPreviewOut(
         generated_at=now,
         timezone=facts.timezone.key,
         days=days,
         first=facts.first,
         last=facts.last,
         daily_study_cap_minutes=facts.daily_cap_minutes,
-        blocks=blocks,
+        blocks=[block_out for _, block_out in blocks],
         feasibility=feasibility_out,
     )
+    return Built(out, tuple(blocks))

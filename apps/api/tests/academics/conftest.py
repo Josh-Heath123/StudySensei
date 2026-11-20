@@ -3,9 +3,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Assessment, Module, StudySession, Task, Topic, User
+from app.models import Assessment, Job, Module, StudySession, Task, Topic, User
 from app.schemas.academics import AssessmentCreate, ModuleCreate, TaskCreate, TopicCreate
 from app.schemas.sessions import EventBatch, ReflectionIn, SessionStart
 from app.services.academics import assessments, modules, tasks, topics
@@ -47,7 +48,15 @@ async def make_rows(session: AsyncSession, user: User, code: str = "COS330") -> 
     start_event_id = uuid.uuid4()
     started = datetime.now(UTC) - timedelta(hours=2)
     study = await make_ended_session(session, user, module, topic, start_event_id, started)
+    await forget_replans(session, user)
     return Rows(user, module, topic, assessment, task, study, start_event_id)
+
+
+async def forget_replans(session: AsyncSession, user: User) -> None:
+    """Drop the re-plan jobs that setting up rows queued (decision 0021): fixtures aren't
+    changes, and job tests expect only their own jobs."""
+    await session.execute(delete(Job).where(Job.user_id == user.id, Job.kind == "replan"))
+    await session.commit()
 
 
 async def make_ended_session(

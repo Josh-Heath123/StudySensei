@@ -1,4 +1,4 @@
-"""Planner v1: what to study, when. A pure function of its inputs (decisions 0017 and 0019).
+"""Planner v1: what to study, when. A pure function of its inputs (decisions 0017, 0019-0021).
 
 No database, no clock, no AI: ``plan()`` takes a ``PlanInput`` and returns the same ``Plan``
 for the same input, whatever order its lists come in. It works in three passes, sooner
@@ -75,6 +75,10 @@ class PlanInput:
     topics: tuple[TopicInput, ...]
     # Minutes already studied per topic, measured from the sessions.
     studied_minutes: Mapping[UUID, int] = field(default_factory=dict)
+    # Blocks kept from the previous version (decision 0021): returned unchanged, and busy.
+    fixed: tuple["Block", ...] = ()
+    # Measured minutes already studied per local date; they count against that day's cap.
+    studied_on: Mapping[date, int] = field(default_factory=dict)
 
 
 BlockKind = Literal["study", "review"]
@@ -170,6 +174,8 @@ class _Placed:
     topic_id: UUID | None
     kind: BlockKind
     reason: Reason
+    # The fixed block this stands for, returned unchanged (decision 0021).
+    fixed: "Block | None" = None
 
 
 @dataclass
@@ -218,10 +224,22 @@ class _Day:
         return length if self.used + length <= cap else None
 
     def next_to(self, start: int, end: int, topic_id: UUID) -> bool:
-        """Whether the block right before or right after [start, end) is on ``topic_id``."""
-        before = [b for b in self.blocks if b.end <= start][-1:]
-        after = [b for b in self.blocks if b.start >= end][:1]
-        return any(b.topic_id == topic_id for b in before + after)
+        """Whether a block on ``topic_id`` is directly next to [start, end): only the break
+        lies between them (a neighbouring day's blocks included). Decision 0020."""
+        nearby = (
+            (self.previous.blocks[-1:] if self.previous else [])
+            + self.blocks
+            + (self.following.blocks[:1] if self.following else [])
+        )
+        return any(
+            b.topic_id == topic_id
+            and (b.end + BREAK_MINUTES == start or end + BREAK_MINUTES == b.start)
+            for b in nearby
+        )
+
+    def count(self, topic_id: UUID) -> int:
+        """How many of the day's blocks are on ``topic_id``."""
+        return sum(1 for b in self.blocks if b.topic_id == topic_id)
 
 
 @dataclass
@@ -260,7 +278,7 @@ class _Calendar:
                 s, e = _ceil5(max(s, day_start, start)), _floor5(min(e, day_end, end))
                 if e - s >= SHORT_BLOCK_MINUTES:
                     pieces.append((s, e))
-            days.append(_Day(day, day_start, day_end, pieces))
+            days.append(_Day(day, day_start, day_end, pieces, request.studied_on.get(day, 0)))
             day += timedelta(days=1)
         for before, after in pairwise(days):
             before.following, after.previous = after, before
@@ -300,23 +318,32 @@ class _Calendar:
         return None
 
     def spread(self, topic: _Topic, hi: int) -> Spot | None:
-        """An extra block before ``hi``: the earliest spot on a day without the topic, else
-        the earliest not next to the topic's own block, else the earliest."""
-        best: tuple[int, int, Spot] | None = None
+        """An extra block before ``hi``: the earliest spot on a day without the topic. When
+        every day with room already has it (decision 0020): the day with the fewest of its
+        blocks, then a spot not directly next to its own block, then the earliest. Each gap
+        is tried at its earliest and its latest start. With the topic on one day only (no
+        other day has room), there's nothing to spread: the earliest spot, as before."""
+        spreading = len(topic.days) >= MIN_BLOCKS
+        best: tuple[int, int, int, Spot] | None = None
         for day in self.days:
             if day.start >= hi:
                 break
+            count = day.count(topic.input.id)
             for gap in day.gaps(self.start, hi):
                 length = day.length_for(gap, self.cap)
                 if length is None:
                     continue
-                start = gap[0]
                 if day.date not in topic.days:
-                    return day, start, length
-                level = 2 if day.next_to(start, start + length, topic.input.id) else 1
-                if best is None or (level, start) < best[:2]:
-                    best = (level, start, (day, start, length))
-        return None if best is None else best[2]
+                    return day, gap[0], length
+                starts = (gap[0], gap[1] - length) if spreading else (gap[0],)
+                for start in dict.fromkeys(starts):
+                    level = (
+                        1 if spreading and day.next_to(start, start + length, topic.input.id) else 0
+                    )
+                    key = (count if spreading else 0, level, start)
+                    if best is None or key < best[:3]:
+                        best = (*key, (day, start, length))
+        return None if best is None else best[3]
 
 
 def _assessment_key(assessment: AssessmentInput) -> tuple[datetime, float, str]:
@@ -385,8 +412,9 @@ def plan(request: PlanInput) -> Plan:
     start = _ceil5(_minutes(request.now))
     found = scope(request)
     upcoming = list(found.upcoming)
+    fixed = tuple(sorted(set(request.fixed), key=lambda b: (b.start, b.end, str(b.topic_id))))
     if not upcoming:
-        return Plan((), ())
+        return Plan(fixed, ())
     topics_by_id = {t.id: t for t in request.topics}
     topics = {
         topic_id: _Topic(topics_by_id[topic_id], assessment, need)
@@ -401,12 +429,34 @@ def plan(request: PlanInput) -> Plan:
     calendar = _Calendar(request, start, _floor5(_minutes(upcoming[-1].due_at)))
     shortfalls: list[Shortfall] = []
 
+    # 0. Fixed blocks (decision 0021): busy time on their local day, counted against its cap;
+    #    a study block is time scheduled for its unit (and its day one of the unit's days), and
+    #    a review is its assessment's final review.
+    by_date = {day.date: day for day in calendar.days}
+    by_id = {a.id: a for a in upcoming}
+    reviewed: set[UUID] = set()
+    for kept in fixed:
+        kept_day = by_date.get(kept.start.astimezone(request.timezone).date())
+        if kept_day is None:
+            continue
+        assessment = by_id.get(kept.assessment_id) or AssessmentInput(
+            kept.assessment_id, kept.module_id, kept.end, None, ()
+        )
+        held = _Placed(0, 0, assessment, kept.topic_id, kept.kind, kept.reason, kept)
+        length = round((kept.end - kept.start).total_seconds() / 60)
+        calendar.place((kept_day, round(_minutes(kept.start)), length), held)
+        if kept.kind == "review":
+            reviewed.add(kept.assessment_id)
+        elif kept.topic_id in topics:
+            topics[kept.topic_id].scheduled += length
+            topics[kept.topic_id].days.add(kept_day.date)
+
     # 1. A final review in the 3 days before each exam, test or quiz, as late as fits.
     for assessment in upcoming:
         if not found.covered[assessment.id]:
             shortfalls.append(Shortfall("no_topics", assessment.id))
             continue
-        if assessment.kind not in REVIEW_KINDS:
+        if assessment.kind not in REVIEW_KINDS or assessment.id in reviewed:
             continue
         lo = max(start, _ceil5(_minutes(assessment.due_at - timedelta(days=REVIEW_DAYS))))
         spot = calendar.latest(lo, _floor5(_minutes(assessment.due_at)))
@@ -464,6 +514,7 @@ def plan(request: PlanInput) -> Plan:
     )
     first_day: dict[UUID, date] = {}
     spaced: set[UUID] = set()
+    # A fixed block keeps its reason but still plays its part: first day, or spacing.
     for block, day in placed:
         if block.topic_id is None:
             continue
@@ -473,12 +524,15 @@ def plan(request: PlanInput) -> Plan:
             and day != first_day[block.topic_id]
         ):
             spaced.add(block.topic_id)
-            block.reason = "spacing"
+            if block.fixed is None:
+                block.reason = "spacing"
         else:
             first_day.setdefault(block.topic_id, day)
-            block.reason = _study_reason(topics[block.topic_id], block.start)
+            if block.fixed is None:
+                block.reason = _study_reason(topics[block.topic_id], block.start)
     blocks = tuple(
-        Block(
+        b.fixed
+        or Block(
             start=_datetime(b.start),
             end=_datetime(b.end),
             module_id=b.assessment.module_id,
@@ -489,4 +543,8 @@ def plan(request: PlanInput) -> Plan:
         )
         for b, _ in placed
     )
+    # Fixed blocks outside the calendar's days (none in practice) still come back.
+    outside = tuple(b for b in fixed if b not in blocks)
+    if outside:
+        blocks = tuple(sorted(blocks + outside, key=lambda b: (b.start, b.end)))
     return Plan(blocks, tuple(shortfalls))

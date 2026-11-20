@@ -32,6 +32,9 @@ class EventIn(_Input):
 class SessionStart(_Input):
     module_id: uuid.UUID
     topic_id: uuid.UUID | None = None
+    # The planned block this session is for (decision 0021): a planned block of the current
+    # plan, with the same module and topic (none for a review). Its end marks the block done.
+    plan_block_id: uuid.UUID | None = None
     start: StartEvent
 
 

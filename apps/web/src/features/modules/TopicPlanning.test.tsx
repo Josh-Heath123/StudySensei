@@ -7,7 +7,6 @@ import { renderApp } from "@/test/render";
 import type { TopicNode } from "./api";
 import { aModule, anAiStatus, aTopic, aTopicMap, roots } from "./fixtures";
 import {
-  aboutDuration,
   confidenceText,
   exactDuration,
   planDuration,
@@ -21,22 +20,22 @@ import {
 const ESTIMATED: Workload = { minutes: 115, source: "estimated", slide_pages: 18, text_pages: 0 };
 
 test("workload text says where the number came from", () => {
-  expect(workloadText(ESTIMATED)).toBe("≈ 2 h, estimated from 18 slides");
+  expect(workloadText(ESTIMATED)).toBe("≈ 1 h 55, estimated from 18 slides");
   expect(workloadText({ ...ESTIMATED, minutes: 70, text_pages: 2 })).toBe(
-    "≈ 1 h, estimated from 18 slides and 2 pages",
+    "≈ 1 h 10, estimated from 18 slides and 2 pages",
   );
   expect(workloadText({ ...ESTIMATED, minutes: 90, source: "yours" })).toBe("1 h 30 min (yours)");
   expect(workloadText({ minutes: null, source: "none", slide_pages: 0, text_pages: 0 })).toBe(
     "No estimate yet: no slides or notes are linked.",
   );
-  expect(workloadShort(ESTIMATED)).toBe("≈ 2 h");
+  expect(workloadShort(ESTIMATED)).toBe("≈ 1 h 55");
   expect(confidenceText(null)).toBe("Not rated");
   expect(confidenceText(4)).toBe("Confidence 4/5");
 });
 
 test("durations", () => {
-  expect(aboutDuration(45)).toBe("≈ 45 min");
-  expect(aboutDuration(150)).toBe("≈ 2.5 h");
+  expect(planDuration(45)).toBe("45 min");
+  expect(planDuration(135)).toBe("2 h 15");
   expect(exactDuration(60)).toBe("1 h");
   expect(exactDuration(95)).toBe("1 h 35 min");
 });
@@ -78,7 +77,7 @@ test("the tree keeps planning details quiet until hover or focus", async () => {
   serve();
 
   const row = (await screen.findByRole("button", { name: "Queues" })).parentElement!;
-  const details = within(row).getByText("≈ 2 h · Not rated");
+  const details = within(row).getByText("≈ 1 h 55 · Not rated");
   expect(details).toHaveClass("hidden", "group-hover:inline", "group-focus-within:inline");
 });
 
@@ -109,7 +108,7 @@ test("override the estimate with your own minutes, then go back to it", async ()
   const dialog = await openTopic(user);
   const planning = within(dialog).getByRole("region", { name: "Planning" });
 
-  expect(within(planning).getByText("≈ 2 h, estimated from 18 slides")).toBeVisible();
+  expect(within(planning).getByText("≈ 1 h 55, estimated from 18 slides")).toBeVisible();
   expect(
     within(planning).getByText("Estimated at 3 minutes a slide and 6 a page of notes."),
   ).toBeVisible();
@@ -120,7 +119,7 @@ test("override the estimate with your own minutes, then go back to it", async ()
 
   expect(await within(planning).findByText("1 h 30 min (yours)")).toBeVisible();
   await user.click(within(planning).getByRole("button", { name: "Use the estimate" }));
-  expect(await within(planning).findByText("≈ 2 h, estimated from 18 slides")).toBeVisible();
+  expect(await within(planning).findByText("≈ 1 h 55, estimated from 18 slides")).toBeVisible();
   expect(calls.filter((c) => c.method === "PATCH").map((c) => c.body)).toEqual([
     { estimated_minutes: 90 },
     { estimated_minutes: null },
@@ -142,9 +141,9 @@ test("a workload under 5 minutes can't be saved", async () => {
 
 test("a chapter shows its workload with its subtopics, as the planner counts it", async () => {
   const chapter = aTopic("ch1", "Ch1", [aTopic("s1", "Firewalls")], {
-    workload: { minutes: 115, source: "estimated", slide_pages: 32, text_pages: 6 },
+    workload: { minutes: 135, source: "estimated", slide_pages: 32, text_pages: 6 },
     workload_with_subtopics: {
-      minutes: 435,
+      minutes: 420,
       source: "estimated",
       slide_pages: 72,
       text_pages: 34,
@@ -165,9 +164,13 @@ test("a chapter shows its workload with its subtopics, as the planner counts it"
   const dialog = await screen.findByRole("dialog", { name: "Ch1" });
   const planning = within(dialog).getByRole("region", { name: "Planning" });
 
+  // Both figures in the planner's format (decision 0020), not rounded to half hours.
+  expect(
+    within(planning).getByText("≈ 2 h 15, estimated from 32 slides and 6 pages"),
+  ).toBeVisible();
   expect(
     within(planning).getByText(
-      "≈ 7 h 15 with its 4 subtopics (estimated from 72 slides and 34 pages)",
+      "≈ 7 h with its 4 subtopics (estimated from 72 slides and 34 pages)",
     ),
   ).toBeVisible();
   expect(

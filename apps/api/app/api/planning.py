@@ -1,5 +1,6 @@
 """Planning inputs: settings, weekly availability and its exceptions, per-topic workload and
-confidence, and the plan preview. Thin: the services in ``app/services/planning/`` do the work."""
+confidence, the plan preview, and the stored plan. Thin: the services in
+``app/services/planning/`` do the work."""
 
 import uuid
 from datetime import UTC, date, datetime
@@ -21,15 +22,18 @@ from app.schemas.planning import (
     IntervalOut,
     PlanningSettingsOut,
     PlanningSettingsUpdate,
+    PlanOut,
     PlanPreviewOut,
+    PlanVersionOut,
     RuleCreate,
     RuleOut,
     RuleUpdate,
+    StoredBlockOut,
     TopicPlanningOut,
     TopicPlanningUpdate,
     WindowOut,
 )
-from app.services.planning import store
+from app.services.planning import replan, store, stored
 from app.services.planning.availability import format_minute
 from app.services.planning.inputs import DEFAULT_DAYS
 from app.services.planning.preview import preview
@@ -217,3 +221,45 @@ async def preview_plan(
     stored: each block with its reason and study method in words (written by code, no AI),
     and the feasibility report per assessment and overall."""
     return await preview(session, user_id=user.id, now=datetime.now(UTC), days=days)
+
+
+# --- the stored plan (decision 0021) ---------------------------------------------------
+
+
+@router.get("/plan", response_model=PlanOut)
+async def get_plan(
+    session: SessionDep,
+    user: CurrentUser,
+    first: Annotated[date | None, Query(alias="from")] = None,
+    last: Annotated[date | None, Query(alias="to")] = None,
+) -> PlanOut:
+    """The current plan version (number, trigger, summary, report) and its blocks that overlap
+    the local dates ``from`` to ``to`` (default today to 7 days on; at most 62 days), with
+    their status and texts. With no plan yet, this creates version 1 (trigger initial): the
+    one GET with a side effect."""
+    return await stored.plan_for(
+        session, user_id=user.id, now=datetime.now(UTC), first=first, last=last
+    )
+
+
+@router.get("/plan/next", response_model=StoredBlockOut | None)
+async def get_next_block(session: SessionDep, user: CurrentUser) -> StoredBlockOut | None:
+    """The current plan's next planned block that hasn't ended (one in progress counts), or
+    null."""
+    return await stored.next_block(session, user_id=user.id, now=datetime.now(UTC))
+
+
+@router.post("/plan/blocks/{block_id}/skip", response_model=PlanVersionOut)
+async def skip_block(block_id: uuid.UUID, session: SessionDep, user: CurrentUser) -> PlanVersionOut:
+    """Skip a planned block of the current plan and re-plan at once (its time is placed
+    again). 409 for any other block; 404 for one that isn't yours."""
+    version = await replan.skip_block(session, block_id, user_id=user.id, now=datetime.now(UTC))
+    return await stored.version_out(session, version)
+
+
+@router.post("/plan/replan", response_model=PlanVersionOut)
+async def replan_now(session: SessionDep, user: CurrentUser) -> PlanVersionOut:
+    """Re-plan now (trigger manual). Returns the current version: a new one only if the
+    blocks changed."""
+    version = await replan.replan(session, user_id=user.id, now=datetime.now(UTC), trigger="manual")
+    return await stored.version_out(session, version)

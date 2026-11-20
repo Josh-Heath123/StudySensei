@@ -1,0 +1,107 @@
+"""The stored plan over HTTP (decision 0021): GET /plan creates version 1, the next block,
+skipping, re-planning on request, and sessions for a planned block."""
+
+import uuid
+from datetime import UTC, datetime, timedelta
+
+import pytest
+from httpx import AsyncClient
+
+from tests.academics.conftest import Rows
+
+
+@pytest.fixture
+async def planned(alice_api: AsyncClient, alice: Rows) -> Rows:
+    """Evenings free every day, and her test in 6 days on a topic of 5 h."""
+    for weekday in range(7):
+        await alice_api.post(
+            "/availability/rules", json={"weekday": weekday, "start": "18:00", "end": "21:00"}
+        )
+    due = (datetime.now(UTC) + timedelta(days=6)).isoformat()
+    await alice_api.patch(f"/assessments/{alice.assessment.id}", json={"due_at": due})
+    await alice_api.patch(f"/topics/{alice.topic.id}/planning", json={"estimated_minutes": 300})
+    return alice
+
+
+async def test_get_plan_creates_version_1_once(alice_api: AsyncClient, planned: Rows) -> None:
+    first = await alice_api.get("/plan")
+    assert first.status_code == 200
+    body = first.json()
+    assert (body["number"], body["trigger"], body["summary"]) == (1, "initial", "Your first plan.")
+    assert body["timezone"] == "Africa/Johannesburg"
+    assert body["report"]["overall"]["line"]
+    assert body["blocks"]
+    for block in body["blocks"]:
+        assert block["status"] == "planned" and block["fixed"] is False
+        assert block["module_code"] == "COS330"
+        assert block["reason_text"] and block["method_text"]
+    # Asking again doesn't make another version.
+    assert (await alice_api.get("/plan")).json()["number"] == 1
+    # A longer range holds at least as many blocks.
+    later = (datetime.now(UTC) + timedelta(days=10)).date().isoformat()
+    wide = await alice_api.get("/plan", params={"to": later})
+    assert len(wide.json()["blocks"]) >= len(body["blocks"])
+
+
+async def test_next_skip_and_replan(alice_api: AsyncClient, planned: Rows) -> None:
+    assert (await alice_api.get("/plan/next")).json() is None  # no plan yet
+    await alice_api.get("/plan")
+    upcoming = (await alice_api.get("/plan/next")).json()
+    assert upcoming["status"] == "planned"
+
+    skipped = await alice_api.post(f"/plan/blocks/{upcoming['id']}/skip")
+    assert skipped.status_code == 200
+    version = skipped.json()
+    assert (version["number"], version["trigger"]) == (2, "skip")
+    assert version["summary"].startswith("You skipped Microservices (")
+    assert version["summary"].endswith("): its time is placed again.")
+    # Only a planned block of the current plan: now it's skipped (and on version 1).
+    again = await alice_api.post(f"/plan/blocks/{upcoming['id']}/skip")
+    assert again.status_code == 409
+    assert (await alice_api.post(f"/plan/blocks/{uuid.uuid4()}/skip")).status_code == 404
+
+    replanned = (await alice_api.post("/plan/replan")).json()
+    assert replanned["number"] == 2  # nothing changed: no new version
+    assert (await alice_api.get("/plan/next")).json()["id"] != upcoming["id"]
+
+
+async def test_a_session_for_a_planned_block(alice_api: AsyncClient, planned: Rows) -> None:
+    await alice_api.get("/plan")
+    block = (await alice_api.get("/plan/next")).json()
+    start = {"id": str(uuid.uuid4()), "occurred_at": datetime.now(UTC).isoformat()}
+
+    other_topic = (
+        await alice_api.post(f"/modules/{planned.module.id}/topics", json={"name": "Other"})
+    ).json()
+    wrong = await alice_api.post(
+        "/sessions",
+        json={
+            "module_id": str(planned.module.id),
+            "topic_id": other_topic["id"],
+            "plan_block_id": block["id"],
+            "start": start,
+        },
+    )
+    assert wrong.status_code == 422
+
+    ok = await alice_api.post(
+        "/sessions",
+        json={
+            "module_id": str(planned.module.id),
+            "topic_id": str(planned.topic.id),
+            "plan_block_id": block["id"],
+            "start": start,
+        },
+    )
+    assert ok.status_code == 201
+    assert ok.json()["plan_block_id"] == block["id"]
+
+
+@pytest.mark.parametrize(
+    "params",
+    [{"from": "2026-12-10", "to": "2026-12-01"}, {"from": "2026-01-01", "to": "2026-12-31"}],
+)
+async def test_bad_ranges_are_refused(
+    alice_api: AsyncClient, planned: Rows, params: dict[str, str]
+) -> None:
+    assert (await alice_api.get("/plan", params=params)).status_code == 422

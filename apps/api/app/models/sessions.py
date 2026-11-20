@@ -48,6 +48,14 @@ class StudySession(TimestampedBase):
             ["topics.id", "topics.module_id"],
             ondelete="SET NULL (topic_id)",
         ),
+        # The planned block it was started from (decision 0021); deleting the block keeps
+        # the session.
+        ForeignKeyConstraint(
+            ["plan_block_id", "user_id"],
+            ["plan_blocks.id", "plan_blocks.user_id"],
+            name="fk_study_sessions_plan_block_id_user_id_plan_blocks",
+            ondelete="SET NULL (plan_block_id)",
+        ),
         UniqueConstraint("id", "user_id", name="uq_study_sessions_id_user"),
         UniqueConstraint("id", "module_id", name="uq_study_sessions_id_module"),
         CheckConstraint(_in("state", STATES), name="ck_study_sessions_state"),
@@ -76,7 +84,6 @@ class StudySession(TimestampedBase):
     user_id: Mapped[uuid.UUID]
     module_id: Mapped[uuid.UUID]
     topic_id: Mapped[uuid.UUID | None]
-    # Phase 4 adds the FK to plan_blocks.
     plan_block_id: Mapped[uuid.UUID | None]
     state: Mapped[str] = mapped_column(String(10))
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

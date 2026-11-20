@@ -2,6 +2,22 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-21: Phase 4, task 4 (plan versions, blocks and re-planning)
+
+- **Review fixes from #44 (ADR 0020):** pass 3 spreads a single unit (2, 2, 1, 1 over four evenings, was 3, 1, 1, 1);
+  the overall line says "Nothing more is needed…" or names the short assessment when the time is there; "under 1 min
+  studied"; topic estimates in the planner's format everywhere ("≈ 2 h 15"); the 7 h example.
+- **Data (0022, ADR 0021):** `plan_versions`, `plan_blocks` (composite FKs on `user_id`), the session's block FK and
+  one queued re-plan per user. Nothing is pruned.
+- **Planner:** fixed blocks (busy, under the cap, counted for their unit and review) and today's measured minutes
+  against today's cap. Properties first; the review property failed first (its "room" didn't count fixed blocks).
+- **`replan()`:** advisory lock, missed blocks, the next 24 h fixed, skipped slots kept free (the first scenario run
+  put the skipped block straight back), one code path with the preview, no churn. Triggers coalesce through
+  `enqueue_replan`; nightly after local 03:00.
+- **API:** `GET /plan`, `GET /plan/next`, skip, replan; `POST /sessions` with `plan_block_id`. Demo: version 1, then a
+  skip that moves the block to 18:50 with "You skipped TCP congestion control (Fri 20 Nov, 18:00): …".
+- **Next:** task 5, the week view and the next block on Today with its reason.
+
 ## 2026-11-20: Phase 4, planning scope (a fix PR from the review of #43; ADR 0019)
 
 - **Subtrees:** an assessment that ticks a topic covers its subtree. Each ticked topic with no ticked ancestor is one
