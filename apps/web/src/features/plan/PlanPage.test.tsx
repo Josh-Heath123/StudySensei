@@ -337,9 +337,11 @@ test("below 1024 px the week is an agenda from today, earlier days folded", asyn
   // Only Tuesday had a block, so only Tuesday is under "Earlier this week", with no menu.
   const earlier = screen.getByTestId("agenda-earlier");
   await user.click(within(earlier).getByText("Earlier this week"));
-  expect(within(earlier).getAllByRole("heading").map((h) => h.textContent)).toEqual([
-    "Tue 10 Nov",
-  ]);
+  expect(
+    within(earlier)
+      .getAllByRole("heading")
+      .map((h) => h.textContent),
+  ).toEqual(["Tue 10 Nov"]);
   expect(within(earlier).queryByRole("button", { name: /options/ })).toBeNull();
   expect(within(earlier).getByRole("button", { name: /missed$/ })).toBeInTheDocument();
 });
