@@ -33,9 +33,11 @@ export function SessionBanners({
   const breakDue =
     snapshot.state === "active" && snapshot.cycle.phase === "focus" && snapshot.cycle.breakDue;
 
-  if (!breakDue && sync === "synced" && problems.length === 0) return null;
+  const unlinked = snapshot.planUnlinked;
+  if (!breakDue && sync === "synced" && problems.length === 0 && !unlinked) return null;
   return (
     <div className="grid gap-3">
+      {unlinked && <p className="text-muted text-sm">Not linked to your plan: it changed.</p>}
       {breakDue && (
         <Banner>
           <strong>Break due.</strong> You&apos;ve focused for {plan.focusMin} min. Take a break when

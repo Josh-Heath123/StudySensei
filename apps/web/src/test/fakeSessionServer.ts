@@ -10,6 +10,7 @@ type StoredSession = {
   id: string;
   module_id: string;
   topic_id: string | null;
+  plan_block_id: string | null;
   events: StoredEvent[];
   reflection?: ReflectionBody;
 };
@@ -34,6 +35,8 @@ export function fakeSessionServer(extra: Record<string, Handler> = {}) {
   const sessions = new Map<string, StoredSession>();
   let mode: NetworkMode = "online";
   let nextId = 1;
+  // Plan blocks the server refuses to start a session for (the plan changed).
+  const staleBlocks = new Set<string>();
 
   const network = () => {
     if (mode === "offline") throw new TypeError("Failed to fetch");
@@ -53,9 +56,12 @@ export function fakeSessionServer(extra: Record<string, Handler> = {}) {
     },
     "POST /sessions": ({ body }) => {
       network();
-      const { start, module_id, topic_id } = body as StartBody;
+      const { start, module_id, topic_id, plan_block_id } = body as StartBody;
       const existing = findByStart(start.id);
       if (existing) return reply(existing, 200);
+      if (plan_block_id && staleBlocks.has(plan_block_id)) {
+        return json({ detail: "Only a planned block of the current plan can be started." }, 409);
+      }
       if ([...sessions.values()].some(isOpen)) {
         return json({ detail: "Another session is still open; end it first" }, 409);
       }
@@ -63,6 +69,7 @@ export function fakeSessionServer(extra: Record<string, Handler> = {}) {
         id: `server-${nextId++}`,
         module_id,
         topic_id: topic_id ?? null,
+        plan_block_id: plan_block_id ?? null,
         events: [{ id: start.id, type: "start", occurred_at: start.occurred_at }],
       };
       sessions.set(session.id, session);
@@ -100,6 +107,8 @@ export function fakeSessionServer(extra: Record<string, Handler> = {}) {
     setMode: (next: NetworkMode) => {
       mode = next;
     },
+    /** From now on, refuse starts for this plan block (409). */
+    refuseBlock: (blockId: string) => void staleBlocks.add(blockId),
     /** The one session the server holds (fails the test if there isn't exactly one). */
     only(): StoredSession {
       expect(sessions.size).toBe(1);

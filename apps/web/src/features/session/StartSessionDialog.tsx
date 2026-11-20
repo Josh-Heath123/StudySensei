@@ -37,7 +37,7 @@ export function StartSessionDialog({ moduleId: fixedModuleId, onClose }: Props) 
     event.preventDefault();
     if (!moduleId) return;
     // The session opens at once; the server hears about it as soon as it can.
-    void controller.start({ moduleId, topicId: topicId || null });
+    void controller.start({ moduleId, topicId: topicId || null, planBlockId: null });
     navigate("/session");
   }
 

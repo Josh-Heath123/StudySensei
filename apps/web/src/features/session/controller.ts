@@ -11,7 +11,12 @@ import type { components } from "@/lib/api/schema";
 
 export type ActiveSession = components["schemas"]["SessionDetailOut"];
 
-export type SessionMeta = { moduleId: string; topicId: string | null };
+export type SessionMeta = {
+  moduleId: string;
+  topicId: string | null;
+  /** The planned block it's for (decision 0021), if any. */
+  planBlockId: string | null;
+};
 
 /** An ended session, kept until its reflection is saved. */
 export type Finished = SessionMeta & {
@@ -103,10 +108,21 @@ export function createSessionController({ engine, store, fetchActive }: Controll
     }
     engine.restore(server);
     let meta: SessionMeta | null = null;
-    if (server !== null) meta = { moduleId: server.module_id, topicId: server.topic_id };
-    else {
+    if (server !== null) {
+      meta = {
+        moduleId: server.module_id,
+        topicId: server.topic_id,
+        planBlockId: server.plan_block_id,
+      };
+    } else {
       const queued = pendingStart(store);
-      if (queued) meta = { moduleId: queued.module_id, topicId: queued.topic_id ?? null };
+      if (queued) {
+        meta = {
+          moduleId: queued.module_id,
+          topicId: queued.topic_id ?? null,
+          planBlockId: queued.plan_block_id ?? null,
+        };
+      }
     }
     settle(meta);
     sync = reached ? "synced" : "offline";
@@ -162,7 +178,7 @@ export function createSessionController({ engine, store, fetchActive }: Controll
     async start(meta: SessionMeta): Promise<void> {
       store.removeItem(FINISHED_KEY);
       problems = [];
-      const flushing = engine.start(meta.moduleId, meta.topicId);
+      const flushing = engine.start(meta.moduleId, meta.topicId, meta.planBlockId);
       state = { status: "open", meta };
       notify();
       await after(flushing, meta);
@@ -228,7 +244,8 @@ export function createSessionController({ engine, store, fetchActive }: Controll
 function metaOf(state: ControllerState): SessionMeta | null {
   if (state.status === "open") return state.meta;
   if (state.status === "reflecting" || state.status === "done") {
-    return { moduleId: state.finished.moduleId, topicId: state.finished.topicId };
+    const { moduleId, topicId, planBlockId } = state.finished;
+    return { moduleId, topicId, planBlockId: planBlockId ?? null };
   }
   return null;
 }

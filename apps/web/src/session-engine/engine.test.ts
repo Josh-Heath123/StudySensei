@@ -326,4 +326,34 @@ describe("session engine", () => {
 
     await expect(engine.start("module-1")).rejects.toThrow(TimelineError);
   });
+
+  it("sends a planned block with the start, and drops it once if the block is refused", async () => {
+    const server = fakeSessionServer();
+    server.refuseBlock("b-old");
+    const { clock, page } = world();
+    const engine = page();
+
+    await engine.start("module-1", "topic-1", "b-old");
+    run(engine, clock, 5 * MIN);
+    await engine.end();
+
+    // The session is kept, unlinked, with every event.
+    expect(server.only().plan_block_id).toBeNull();
+    expect(server.only().events.map((e) => e.type)).toEqual(["start", "end"]);
+    expect(engine.snapshot()).toMatchObject({ planUnlinked: true, state: "ended" });
+  });
+
+  it("queues a planned block offline and sends it with the start later", async () => {
+    const server = fakeSessionServer();
+    server.setMode("offline");
+    const { page } = world();
+    const engine = page();
+
+    await engine.start("module-1", null, "b1");
+    server.setMode("online");
+    await engine.flush();
+
+    expect(server.only().plan_block_id).toBe("b1");
+    expect(engine.snapshot()?.planUnlinked).toBe(false);
+  });
 });
