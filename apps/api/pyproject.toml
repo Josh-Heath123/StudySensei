@@ -9,12 +9,14 @@ dependencies = [
     "fastapi>=0.162.5",
     "fastembed>=0.9.1",
     "httpx>=0.28.1",
+    "icalendar>=7.3.2",
     "pgvector>=0.5.1",
     "pydantic-settings>=2.16.2",
     "pypdfium2>=5.15.2",
     "python-docx>=1.2.0",
     "python-multipart>=0.0.33",
     "python-pptx>=1.0.2",
+    "pywebpush>=2.5.0",
     "sqlalchemy[asyncio]>=2.1.8",
     "tzdata>=2026.6",
     "uvicorn[standard]>=0.54.0",
@@ -72,3 +74,8 @@ testpaths = ["tests"]
 markers = [
     "real_embedder: uses the real embedding model (downloaded to data/models on first run)",
 ]
+
+[[tool.mypy.overrides]]
+# pywebpush and py-vapid ship no type information (decision 0024).
+module = ["pywebpush", "pywebpush.*", "py_vapid", "py_vapid.*"]
+ignore_missing_imports = true

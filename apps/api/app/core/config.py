@@ -57,6 +57,16 @@ class Settings(BaseSettings):
     # screenshots (decision 0023). Refused unless the database name ends in _demo or _e2e.
     fake_now: AwareDatetime | None = None
 
+    # --- Web Push reminders (decision 0024) ---
+    # `python -m app.push.keys` prints a key pair to paste into apps/api/.env. Without all
+    # three, push is disabled (not an error). The private key is a secret: never log it.
+    vapid_public_key: str | None = None
+    vapid_private_key: SecretStr | None = None
+    # Who runs this server, for push services to contact: "mailto:you@example.com".
+    vapid_subject: str | None = None
+    # The calendar link's base: the web app's origin as the student reaches it.
+    public_url: str = "http://localhost:5173"
+
     # --- AI providers (decision 0002, ARCHITECTURE "AI integration") ---
     # A provider without a key is skipped. Keys are secrets: never log or return them.
     gemini_api_key: SecretStr | None = None
@@ -200,7 +210,15 @@ class Settings(BaseSettings):
     def _blank_time_is_unset(cls, value: object) -> object:
         return None if isinstance(value, str) and not value.strip() else value
 
-    @field_validator("gemini_api_key", "groq_api_key", "ollama_model", mode="before")
+    @field_validator(
+        "gemini_api_key",
+        "groq_api_key",
+        "ollama_model",
+        "vapid_public_key",
+        "vapid_private_key",
+        "vapid_subject",
+        mode="before",
+    )
     @classmethod
     def _blank_is_unset(cls, value: object) -> object:
         """``GEMINI_API_KEY=`` in .env means no key."""

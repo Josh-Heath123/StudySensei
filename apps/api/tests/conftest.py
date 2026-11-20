@@ -26,6 +26,7 @@ import httpx
 import pytest
 from alembic import command
 from alembic.config import Config
+from pydantic import SecretStr
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
@@ -33,6 +34,7 @@ from app.ai.client import LLMClient, set_llm_client
 from app.ai.usage import UsageRecord
 from app.core.config import get_settings
 from app.models import User
+from app.services.push.sender import FakePushSender, set_sender
 from app.services.search.embedding import FastEmbedder, set_embedder
 from tests.fakes import FakeEmbedder, refuse_network
 
@@ -158,3 +160,26 @@ def no_real_llm() -> Iterator[None]:
     set_llm_client(client)
     yield
     set_llm_client(None)
+
+
+@pytest.fixture(autouse=True)
+def fake_push(monkeypatch: pytest.MonkeyPatch) -> Iterator[FakePushSender]:
+    """Push never reaches the network: every test sends through a FakePushSender, and push is
+    off (no VAPID keys) unless a test turns it on with ``push_on``."""
+    settings = get_settings()
+    for name in ("vapid_public_key", "vapid_private_key", "vapid_subject"):
+        monkeypatch.setattr(settings, name, None)
+    fake = FakePushSender()
+    set_sender(fake)
+    yield fake
+    set_sender(None)
+
+
+@pytest.fixture
+def push_on(monkeypatch: pytest.MonkeyPatch, fake_push: FakePushSender) -> FakePushSender:
+    """VAPID keys set (made up: the fake sender never signs anything)."""
+    settings = get_settings()
+    monkeypatch.setattr(settings, "vapid_public_key", "BPublicKeyForTests")
+    monkeypatch.setattr(settings, "vapid_private_key", SecretStr("private-key-for-tests"))
+    monkeypatch.setattr(settings, "vapid_subject", "mailto:tests@example.com")
+    return fake_push
