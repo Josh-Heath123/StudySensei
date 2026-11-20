@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.jobs.queue import enqueue_replan
 from app.models import Topic
 from app.schemas.academics import TopicCreate, TopicUpdate
 from app.services.academics.modules import get_module
@@ -106,6 +107,9 @@ async def create_topic(
     session.add(topic)
     await session.flush()
     await queue_linking(session, module_id, user_id=user_id)
+    await enqueue_replan(
+        session, user_id=user_id, trigger="topic", detail={"module_id": str(module_id)}
+    )
     await session.commit()
     return topic
 
@@ -122,6 +126,9 @@ async def update_topic(
     # Any user edit makes the topic the user's, so AI re-runs never overwrite it.
     topic.source = "user"
     await queue_linking(session, topic.module_id, user_id=user_id)
+    await enqueue_replan(
+        session, user_id=user_id, trigger="topic", detail={"module_id": str(topic.module_id)}
+    )
     await session.commit()
     return topic
 
@@ -173,6 +180,9 @@ async def move_topic(
                 session, topic.module_id, old_parent_id, user_id=user_id, exclude=topic.id
             )
         )
+    await enqueue_replan(
+        session, user_id=user_id, trigger="topic", detail={"module_id": str(topic.module_id)}
+    )
     await session.commit()
     return topic
 
@@ -185,4 +195,7 @@ async def delete_topic(session: AsyncSession, topic_id: uuid.UUID, *, user_id: u
     )
     await session.delete(topic)
     _renumber(siblings)
+    await enqueue_replan(
+        session, user_id=user_id, trigger="topic", detail={"module_id": str(topic.module_id)}
+    )
     await session.commit()

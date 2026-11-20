@@ -1,3 +1,4 @@
+import math
 import uuid
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass
@@ -8,11 +9,13 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import SessionEvent, SessionTopicRating, StudySession, Topic
+from app.jobs.queue import enqueue_replan
+from app.models import PlanBlock, SessionEvent, SessionTopicRating, StudySession, Topic
 from app.schemas.sessions import EventBatch, EventIn, ReflectionIn, SessionStart
 from app.services.academics.modules import get_module
 from app.services.academics.topics import get_topic
 from app.services.errors import Conflict, Invalid, NotFound
+from app.services.planning.replan import current_version
 from app.services.sessions.timeline import Event, EventType, Timeline, replay
 
 # How far ahead of the server clock an event may be (device clocks drift).
@@ -168,7 +171,8 @@ async def start_session(
         same = (
             stored.type == "start"
             and stored.occurred_at == start.occurred_at
-            and (study.module_id, study.topic_id) == (data.module_id, data.topic_id)
+            and (study.module_id, study.topic_id, study.plan_block_id)
+            == (data.module_id, data.topic_id, data.plan_block_id)
         )
         if not same:
             raise Conflict("That event id was already used for something else")
@@ -180,9 +184,16 @@ async def start_session(
         if topic.module_id != data.module_id:
             raise Invalid("A session's topic must be in its module")
     _check_not_future([start.occurred_at])
+    if data.plan_block_id is not None:
+        await _check_plan_block(session, data, user_id=user_id)
 
     timeline = replay([Event("start", start.occurred_at, 0)])
-    study = StudySession(user_id=user_id, module_id=data.module_id, topic_id=data.topic_id)
+    study = StudySession(
+        user_id=user_id,
+        module_id=data.module_id,
+        topic_id=data.topic_id,
+        plan_block_id=data.plan_block_id,
+    )
     _apply(study, timeline)
     try:
         async with session.begin_nested():
@@ -204,6 +215,43 @@ async def start_session(
         raise Conflict("Another session is still open; end it first") from exc
     await session.commit()
     return study, True
+
+
+async def _check_plan_block(
+    session: AsyncSession, data: SessionStart, *, user_id: uuid.UUID
+) -> None:
+    """A session may be for a planned block of the current plan, in the same module and on
+    the same topic (none for a review). Another user's block is a 404, like a missing one."""
+    block = await session.scalar(
+        select(PlanBlock).where(PlanBlock.id == data.plan_block_id, PlanBlock.user_id == user_id)
+    )
+    if block is None:
+        raise NotFound("Plan block")
+    current = await current_version(session, user_id=user_id)
+    if current is None or block.version_id != current.id or block.status != "planned":
+        raise Conflict("Only a planned block of the current plan can be started.")
+    if (block.module_id, block.topic_id) != (data.module_id, data.topic_id):
+        raise Invalid("A session for a planned block must have the block's module and topic")
+
+
+async def _finish_plan_block(
+    session: AsyncSession, study: StudySession, *, user_id: uuid.UUID
+) -> None:
+    """The session's first end marks its block done and queues a re-plan (trigger finish),
+    in this transaction."""
+    block = await session.scalar(
+        select(PlanBlock).where(PlanBlock.id == study.plan_block_id, PlanBlock.user_id == user_id)
+    )
+    if block is None or study.ended_at is None:
+        return
+    block.status = "done"
+    block.status_changed_at = study.ended_at
+    await enqueue_replan(
+        session,
+        user_id=user_id,
+        trigger="finish",
+        detail={"block_id": str(block.id), "minutes": math.floor(study.active_seconds / 60)},
+    )
 
 
 def _dedupe_batch(events: list[EventIn]) -> dict[uuid.UUID, EventIn]:
@@ -266,7 +314,10 @@ async def add_events(
         )
         for event in new
     )
+    was_open = study.ended_at is None
     _apply(study, timeline)
+    if was_open and study.ended_at is not None and study.plan_block_id is not None:
+        await _finish_plan_block(session, study, user_id=user_id)
     await session.commit()
     return study
 

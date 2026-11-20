@@ -2,6 +2,8 @@
 
 - ``enqueue`` adds a job in the caller's transaction, so a job exists exactly
   when the change that needs it is committed.
+- ``enqueue_replan`` does the same for a re-plan, but coalesces: at most one is queued per
+  user (a partial unique index), and the first trigger is kept (decision 0021).
 - ``claim_next`` takes the next due job with ``FOR UPDATE SKIP LOCKED``, so
   workers never take the same job, and puts back jobs whose worker died.
 - ``fail`` schedules a retry with exponential backoff, or gives up.
@@ -11,9 +13,11 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import or_, select, text, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.jobs.kinds import REPLAN
 from app.models import Job
 
 BACKOFF_BASE = timedelta(seconds=30)
@@ -43,6 +47,32 @@ def enqueue(
     job = Job(user_id=user_id, kind=kind, payload=payload, max_attempts=max_attempts)
     session.add(job)
     return job
+
+
+async def enqueue_replan(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    trigger: str,
+    detail: dict[str, Any] | None = None,
+) -> None:
+    """Queue a re-plan for the user in the caller's transaction, unless one is already queued
+    (then this one is folded into it, and the queued job keeps its first trigger). A re-plan
+    that's running doesn't count: a change during it queues the next one."""
+    await session.execute(
+        insert(Job)
+        .values(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            kind=REPLAN,
+            payload={"trigger": trigger, "detail": detail or {}},
+            max_attempts=3,
+        )
+        .on_conflict_do_nothing(
+            index_elements=["user_id"],
+            index_where=text("kind = 'replan' AND status = 'queued'"),
+        )
+    )
 
 
 async def claim_next(session: AsyncSession, now: datetime) -> Job | None:

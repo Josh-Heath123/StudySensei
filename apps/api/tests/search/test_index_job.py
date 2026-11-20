@@ -203,8 +203,9 @@ async def test_an_upload_is_extracted_then_indexed_then_ready(
             max_bytes=10_000_000,
         )
 
-    # extract_text, index_material, then link_topics (AI is off, so no topic extraction)
-    assert await run_jobs(session, tmp_path) == 3
+    # extract_text, index_material, then link_topics (AI is off, so no topic extraction), and
+    # the re-plan linking queues (decision 0021)
+    assert await run_jobs(session, tmp_path) == 4
     await session.refresh(material)
     assert material.status == "ready"
     chunks = await chunks_of(session, material)

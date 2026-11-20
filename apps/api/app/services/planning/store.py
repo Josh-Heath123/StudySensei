@@ -12,6 +12,7 @@ from sqlalchemy import func, literal, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.jobs.queue import enqueue_replan
 from app.models import (
     AvailabilityException,
     AvailabilityRule,
@@ -71,6 +72,7 @@ async def update_settings(
     user = await _user(session, user_id)
     for name, value in data.model_dump(exclude_unset=True).items():
         setattr(user, name, value)
+    await enqueue_replan(session, user_id=user_id, trigger="availability")
     await session.commit()
     return user
 
@@ -122,6 +124,7 @@ async def create_rule(
     )
     async with _no_overlap(session, data.weekday):
         session.add(rule)
+    await enqueue_replan(session, user_id=user_id, trigger="availability")
     await session.commit()
     return rule
 
@@ -140,6 +143,7 @@ async def update_rule(
         raise Invalid(str(exc)) from exc
     async with _no_overlap(session, weekday):
         rule.weekday, rule.start_minute, rule.end_minute = weekday, start, end
+    await enqueue_replan(session, user_id=user_id, trigger="availability")
     await session.commit()
     return rule
 
@@ -147,6 +151,7 @@ async def update_rule(
 async def delete_rule(session: AsyncSession, rule_id: uuid.UUID, *, user_id: uuid.UUID) -> None:
     rule = await get_rule(session, rule_id, user_id=user_id)
     await session.delete(rule)
+    await enqueue_replan(session, user_id=user_id, trigger="availability")
     await session.commit()
 
 
@@ -210,6 +215,7 @@ async def create_exception(
     )
     async with _one_per_date(session, data.date):
         session.add(exception)
+    await enqueue_replan(session, user_id=user_id, trigger="availability")
     await session.commit()
     return exception
 
@@ -237,6 +243,7 @@ async def update_exception(
         exception.date, exception.unavailable, exception.windows = day, unavailable, windows
         if "note" in changes:
             exception.note = changes["note"] or None
+    await enqueue_replan(session, user_id=user_id, trigger="availability")
     await session.commit()
     return exception
 
@@ -246,6 +253,7 @@ async def delete_exception(
 ) -> None:
     exception = await get_exception(session, exception_id, user_id=user_id)
     await session.delete(exception)
+    await enqueue_replan(session, user_id=user_id, trigger="availability")
     await session.commit()
 
 
@@ -370,6 +378,9 @@ async def update_topic_planning(
     topic = await get_topic(session, topic_id, user_id=user_id)
     for name, value in data.model_dump(exclude_unset=True).items():
         setattr(topic, name, value)
+    await enqueue_replan(
+        session, user_id=user_id, trigger="topic", detail={"module_id": str(topic.module_id)}
+    )
     await session.commit()
     kinds = await page_kinds(session, topic.module_id, user_id=user_id, topic_id=topic.id)
     return topic, workload(topic.estimated_minutes, *kinds.get(topic.id, (0, 0)))

@@ -4,6 +4,7 @@ from collections.abc import Collection
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.jobs.queue import enqueue_replan
 from app.models import Assessment, AssessmentTopic, Topic
 from app.schemas.academics import AssessmentCreate, AssessmentUpdate
 from app.services.academics.modules import get_module
@@ -81,6 +82,17 @@ async def _replace_topics(
     )
 
 
+async def _replan(session: AsyncSession, assessment: Assessment, *, user_id: uuid.UUID) -> None:
+    """Queue a re-plan for this change (decision 0021), named for the summary."""
+    module = await get_module(session, assessment.module_id, user_id=user_id)
+    await enqueue_replan(
+        session,
+        user_id=user_id,
+        trigger="assessment",
+        detail={"assessment_id": str(assessment.id), "name": f"{module.code} {assessment.title}"},
+    )
+
+
 async def create_assessment(
     session: AsyncSession, module_id: uuid.UUID, data: AssessmentCreate, *, user_id: uuid.UUID
 ) -> Assessment:
@@ -96,6 +108,7 @@ async def create_assessment(
     session.add(assessment)
     await session.flush()
     await _replace_topics(session, assessment, topic_ids)
+    await _replan(session, assessment, user_id=user_id)
     await session.commit()
     return assessment
 
@@ -115,6 +128,7 @@ async def update_assessment(
         setattr(assessment, name, value)
     if new_topics is not None:
         await _replace_topics(session, assessment, set(new_topics))
+    await _replan(session, assessment, user_id=user_id)
     await session.commit()
     return assessment
 
@@ -124,6 +138,7 @@ async def delete_assessment(
 ) -> None:
     """Deletes the assessment and its topic links; its tasks stay, unlinked."""
     assessment = await get_assessment(session, assessment_id, user_id=user_id)
+    await _replan(session, assessment, user_id=user_id)
     await session.delete(assessment)
     await session.commit()
 

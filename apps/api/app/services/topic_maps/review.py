@@ -15,6 +15,7 @@ from sqlalchemy import Uuid, delete, func, literal, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.jobs.queue import enqueue_replan
 from app.models import (
     Chunk,
     ChunkTopic,
@@ -231,6 +232,9 @@ async def merge_into(
     await note_review(session, target, "kept", user_id=user_id, target_id=target.id)
     await session.flush()
     await remove_topics(session, module_id, {topic.id}, user_id=user_id)
+    await enqueue_replan(
+        session, user_id=user_id, trigger="topic", detail={"module_id": str(module_id)}
+    )
     await session.commit()
     return target
 
@@ -264,6 +268,9 @@ async def dismiss_topic(session: AsyncSession, topic_id: uuid.UUID, *, user_id: 
         await note_review(session, t, "dismissed", user_id=user_id, snapshot=snapshot)
     await session.flush()
     await remove_topics(session, module_id, set(ids), user_id=user_id)
+    await enqueue_replan(
+        session, user_id=user_id, trigger="topic", detail={"module_id": str(module_id)}
+    )
     await session.commit()
     return len(doomed)
 
@@ -346,6 +353,9 @@ async def restore_topic(
         None,
     )
     await queue_linking(session, module_id, user_id=user_id)
+    await enqueue_replan(
+        session, user_id=user_id, trigger="topic", detail={"module_id": str(module_id)}
+    )
     await session.commit()
     return topic
 
@@ -473,5 +483,8 @@ async def unlink_page(
                 )
             ),
         )
+    )
+    await enqueue_replan(
+        session, user_id=user_id, trigger="topic", detail={"module_id": str(topic.module_id)}
     )
     await session.commit()

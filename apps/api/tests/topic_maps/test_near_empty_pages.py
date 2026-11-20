@@ -179,7 +179,8 @@ async def test_the_relink_job_keeps_unlinks_and_cited_links(
         session, LINK_TOPICS, {"module_id": str(module.module_id)}, user_id=module.user_id
     )
     await session.commit()
-    assert await run_jobs(session, tmp_path) == 1
+    # The relink, then the re-plan it queues (decision 0021).
+    assert await run_jobs(session, tmp_path) == 2
 
     ai_pages = await linked_pages(session, ai_topic, deck)
     assert ai_pages[1] == "pages"  # cited: unchanged
