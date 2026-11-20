@@ -2,11 +2,15 @@ import type { Plan, PlanBlock } from "./api";
 
 /** A planned study block (override anything). Times are ISO strings. */
 export function aBlock(overrides: Partial<PlanBlock> = {}): PlanBlock {
+  const start = overrides.start ?? "2026-11-13T18:00:00Z";
+  const end = overrides.end ?? "2026-11-13T18:50:00Z";
   return {
     id: "b1",
     start: "2026-11-13T18:00:00Z",
     end: "2026-11-13T18:50:00Z",
     minutes: 50,
+    planned_start: start,
+    planned_end: end,
     module_id: "m1",
     module_code: "COS330",
     module_colour: "#8FB8FF",

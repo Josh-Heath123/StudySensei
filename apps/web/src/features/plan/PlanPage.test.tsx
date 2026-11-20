@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
@@ -236,11 +236,11 @@ test("Move… offers the week's free 5-minute times and shows the server's sente
 
 test("mark a day unavailable: a new exception", async () => {
   const { user, calls } = renderPlan(() => aPlan([]));
-  await user.click(await screen.findByRole("button", { name: "Wed 11 Nov: options" }));
+  await user.click(await screen.findByRole("button", { name: "Sat 14 Nov: options" }));
   await user.click(await screen.findByRole("menuitem", { name: "Mark unavailable" }));
   await waitFor(() => expect(posts(calls, "/availability/exceptions")).toHaveLength(1));
   expect(posts(calls, "/availability/exceptions")[0]!.body).toEqual({
-    date: "2026-11-11",
+    date: "2026-11-14",
     unavailable: true,
     windows: [],
   });
@@ -249,15 +249,15 @@ test("mark a day unavailable: a new exception", async () => {
 test("mark a day with custom hours unavailable: replaces them after a confirmation", async () => {
   const custom = {
     id: "e1",
-    date: "2026-11-11",
+    date: "2026-11-14",
     unavailable: false,
     windows: [{ start: "10:00", end: "12:00" }],
     note: null,
   };
   const { user, calls } = renderPlan(() => aPlan([]), { exceptions: [custom] });
-  await user.click(await screen.findByRole("button", { name: "Wed 11 Nov: options" }));
+  await user.click(await screen.findByRole("button", { name: "Sat 14 Nov: options" }));
   await user.click(await screen.findByRole("menuitem", { name: "Mark unavailable" }));
-  const confirm = await screen.findByRole("dialog", { name: "Mark Wed 11 Nov unavailable?" });
+  const confirm = await screen.findByRole("dialog", { name: "Mark Sat 14 Nov unavailable?" });
   expect(confirm).toHaveTextContent("This replaces the custom hours you set for that day.");
   await user.click(within(confirm).getByRole("button", { name: "Mark unavailable" }));
   await waitFor(() => expect(posts(calls, "/availability/exceptions/e1")).toHaveLength(1));
@@ -268,16 +268,16 @@ test("mark a day with custom hours unavailable: replaces them after a confirmati
 });
 
 test("an unavailable day says so, and can be made available again", async () => {
-  const off = { id: "e2", date: "2026-11-12", unavailable: true, windows: [], note: null };
+  const off = { id: "e2", date: "2026-11-15", unavailable: true, windows: [], note: null };
   const { user, calls } = renderPlan(() => aPlan([]), {
     exceptions: [off],
-    unavailable: ["2026-11-12"],
+    unavailable: ["2026-11-15"],
   });
   const grid = await screen.findByTestId("week-grid");
   expect(await within(grid).findByText("Unavailable")).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Thu 12 Nov: options" }));
+  await user.click(screen.getByRole("button", { name: "Sun 15 Nov: options" }));
   await user.click(await screen.findByRole("menuitem", { name: "Make available again" }));
-  const confirm = await screen.findByRole("dialog", { name: "Make Thu 12 Nov available again?" });
+  const confirm = await screen.findByRole("dialog", { name: "Make Sun 15 Nov available again?" });
   expect(confirm).toHaveTextContent("The day goes back to your weekly hours.");
   await user.click(within(confirm).getByRole("button", { name: "Make available" }));
   await waitFor(() =>
@@ -298,15 +298,26 @@ test("while a re-plan is pending it says so and polls until it's done", async ()
   await waitFor(() => expect(screen.queryByText("Updating your plan…")).not.toBeInTheDocument());
 });
 
-test("below 1024 px the week is an agenda by day, with no grid", async () => {
+function phone() {
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches: query.includes("640"),
     media: query,
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
   }));
-  renderPlan(() =>
+}
+
+test("below 1024 px the week is an agenda from today, earlier days folded", async () => {
+  phone();
+  const { user } = renderPlan(() =>
     aPlan([
+      aBlock({
+        id: "tue",
+        start: "2026-11-10T18:00:00Z",
+        end: "2026-11-10T18:50:00Z",
+        status: "missed",
+        actions: { start: false, skip: false, move: false },
+      }),
       aBlock(),
       aBlock({ id: "b2", start: "2026-11-14T09:30:00Z", end: "2026-11-14T10:20:00Z" }),
     ]),
@@ -316,11 +327,163 @@ test("below 1024 px the week is an agenda by day, with no grid", async () => {
   const days = within(agenda)
     .getAllByRole("listitem")
     .filter((li) => li.parentElement === agenda);
-  expect(days).toHaveLength(7);
-  expect(days[4]).toHaveTextContent("Fri 13 NovTodayFree 18:00–21:00");
-  expect(days[4]).toHaveTextContent("Ch2 Cryptography18:00–18:50");
-  expect(days[5]).toHaveTextContent("Free 09:00–12:00, 18:00–21:00");
-  expect(days[0]).toHaveTextContent("Nothing planned.");
+  // Today (Friday) to Sunday.
+  expect(days).toHaveLength(3);
+  expect(days[0]).toHaveTextContent("Fri 13 NovTodayFree 18:00–21:00");
+  expect(days[0]).toHaveTextContent("Ch2 Cryptography18:00–18:50");
+  expect(days[1]).toHaveTextContent("Free 09:00–12:00, 18:00–21:00");
+  expect(days[2]).toHaveTextContent("Nothing planned.");
+
+  // Only Tuesday had a block, so only Tuesday is under "Earlier this week", with no menu.
+  const earlier = screen.getByTestId("agenda-earlier");
+  await user.click(within(earlier).getByText("Earlier this week"));
+  expect(within(earlier).getAllByRole("heading").map((h) => h.textContent)).toEqual([
+    "Tue 10 Nov",
+  ]);
+  expect(within(earlier).queryByRole("button", { name: /options/ })).toBeNull();
+  expect(within(earlier).getByRole("button", { name: /missed$/ })).toBeInTheDocument();
+});
+
+test("the agenda has no 'Earlier this week' when earlier days are empty", async () => {
+  phone();
+  renderPlan(() => aPlan([aBlock()]));
+  await screen.findByTestId("agenda");
+  expect(screen.queryByTestId("agenda-earlier")).toBeNull();
+});
+
+test("past days have no day menu; today and later days do", async () => {
+  renderPlan(() => aPlan([]));
+  const grid = await screen.findByTestId("week-grid");
+  const menus = within(grid)
+    .getAllByRole("button", { name: /: options$/ })
+    .map((b) => b.getAttribute("aria-label"));
+  expect(menus).toEqual(["Fri 13 Nov: options", "Sat 14 Nov: options", "Sun 15 Nov: options"]);
+  // The day headers stick under the floating nav.
+  expect(screen.getByTestId("week-grid-header")).toHaveClass("sticky");
+});
+
+test("cards are named with their day, time and state", async () => {
+  vi.setSystemTime(new Date("2026-11-13T18:10:00Z"));
+  renderPlan(() =>
+    aPlan([
+      aBlock({ id: "now" }),
+      aBlock({
+        id: "sat",
+        start: "2026-11-14T09:00:00Z",
+        end: "2026-11-14T09:50:00Z",
+        method: "first_pass",
+        topic_name: "Ch1 Overview",
+      }),
+      aBlock({
+        id: "done",
+        start: "2026-11-11T18:00:00Z",
+        end: "2026-11-11T18:48:00Z",
+        minutes: 48,
+        status: "done",
+        session_minutes: 48,
+      }),
+      aBlock({
+        id: "skip",
+        start: "2026-11-12T18:00:00Z",
+        end: "2026-11-12T18:50:00Z",
+        status: "skipped",
+      }),
+    ]),
+  );
+  const grid = await screen.findByTestId("week-grid");
+  const name = (id: string) =>
+    grid.querySelector(`[data-block-id="${id}"]`)!.getAttribute("aria-label");
+  expect(name("sat")).toBe("Sat 14 Nov, Ch1 Overview, 09:00 to 09:50, first pass");
+  expect(name("now")).toBe("Fri 13 Nov, Ch2 Cryptography, 18:00 to 18:50, now");
+  expect(name("done")).toBe(
+    "Wed 11 Nov, Ch2 Cryptography, 18:00 to 18:48, done, 48 min (measured)",
+  );
+  expect(name("skip")).toBe("Thu 12 Nov, Ch2 Cryptography, 18:00 to 18:50, skipped");
+});
+
+test("a block done early sits at its measured time, beside the block that took its slot", async () => {
+  // Saturday's 09:00 block was studied on Friday at 07:12 and ended; the finish re-plan put
+  // a new block in Saturday's 09:00 slot (decision 0023).
+  const { user } = renderPlan(() =>
+    aPlan([
+      aBlock({
+        id: "done",
+        start: "2026-11-13T07:12:00Z",
+        end: "2026-11-13T08:00:00Z",
+        minutes: 48,
+        planned_start: "2026-11-14T09:00:00Z",
+        planned_end: "2026-11-14T09:50:00Z",
+        status: "done",
+        session_minutes: 48,
+        actions: { start: false, skip: false, move: false },
+      }),
+      aBlock({ id: "new", start: "2026-11-14T09:00:00Z", end: "2026-11-14T09:50:00Z" }),
+    ]),
+  );
+  const grid = await screen.findByTestId("week-grid");
+  const friday = grid.querySelector('[data-date="2026-11-13"]') as HTMLElement;
+  const saturday = grid.querySelector('[data-date="2026-11-14"]') as HTMLElement;
+  expect(friday.querySelector('[data-block-id="done"]')).not.toBeNull();
+  expect(saturday.querySelector('[data-block-id="done"]')).toBeNull();
+  expect(saturday.querySelector('[data-block-id="new"]')).not.toBeNull();
+  // 48 minutes tall, from 07:12 (the grid now starts at 07:00).
+  const done = friday.querySelector('[data-block-id="done"]')!.parentElement!;
+  expect(done.style.height).toBe(`${48 * PX_PER_MINUTE}px`);
+  expect(done.style.top).toBe(`${12 * PX_PER_MINUTE}px`);
+
+  await user.click(friday.querySelector('[data-block-id="done"]')!);
+  const popover = await screen.findByRole("dialog", { name: "Ch2 Cryptography" });
+  expect(popover).toHaveTextContent("Planned for Sat 14 Nov, 09:00");
+});
+
+/** A pointer event jsdom accepts, with the fields the grid reads. */
+function pointer(type: string, clientY: number): Event {
+  const event = new MouseEvent(type, { bubbles: true, clientX: 0, clientY, button: 0 });
+  Object.defineProperty(event, "pointerId", { value: 1 });
+  return event;
+}
+
+test("a fast flick (one pointermove, then pointerup at once) still moves the block", async () => {
+  const { calls } = renderPlan(() => aPlan([aBlock()]));
+  const grid = await screen.findByTestId("week-grid");
+  const card = grid.querySelector('[data-block-id="b1"]')!.parentElement!;
+  // jsdom lays nothing out: every rect is 0, so clientY is the minutes from the grid's first
+  // hour (09:00) times PX_PER_MINUTE, and the block was grabbed at its top.
+  act(() => void card.dispatchEvent(pointer("pointerdown", 0)));
+  const y = 100 * PX_PER_MINUTE; // 10:40
+  act(() => {
+    // Both in one batch, with no render between them, as in a quick real flick.
+    card.dispatchEvent(pointer("pointermove", y));
+    card.dispatchEvent(pointer("pointerup", y));
+  });
+  await waitFor(() => expect(posts(calls, "/plan/blocks/b1/move")).toHaveLength(1));
+  expect(posts(calls, "/plan/blocks/b1/move")[0]!.body).toEqual({
+    start: "2026-11-13T10:40:00.000Z",
+  });
+});
+
+test("the drop is where the pointer is released, even with no pointermove", async () => {
+  const { calls } = renderPlan(() => aPlan([aBlock()]));
+  const grid = await screen.findByTestId("week-grid");
+  const card = grid.querySelector('[data-block-id="b1"]')!.parentElement!;
+  act(() => void card.dispatchEvent(pointer("pointerdown", 0)));
+  act(() => void fireEvent(card, pointer("pointerup", 60 * PX_PER_MINUTE)));
+  await waitFor(() => expect(posts(calls, "/plan/blocks/b1/move")).toHaveLength(1));
+  expect(posts(calls, "/plan/blocks/b1/move")[0]!.body).toEqual({
+    start: "2026-11-13T10:00:00.000Z",
+  });
+});
+
+test("Move… opens on the block's own day and time", async () => {
+  const { user } = renderPlan(() =>
+    aPlan([aBlock({ id: "late", start: "2026-11-14T19:30:00Z", end: "2026-11-14T20:20:00Z" })]),
+  );
+  const grid = await screen.findByTestId("week-grid");
+  await user.click(grid.querySelector('[data-block-id="late"]')!);
+  await user.click(await screen.findByRole("button", { name: "Move…" }));
+  const dialog = await screen.findByRole("dialog", { name: "Move Ch2 Cryptography" });
+  expect(within(dialog).getByLabelText("Day")).toHaveValue("2026-11-14");
+  expect(within(dialog).getByLabelText("Start")).toHaveValue(String(19 * 60 + 30));
 });
 
 test("with no study time, the plan points to Settings", async () => {

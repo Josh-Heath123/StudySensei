@@ -2748,6 +2748,16 @@ export interface components {
       /** Minutes */
       minutes: number;
       /**
+       * Planned Start
+       * Format: date-time
+       */
+      planned_start: string;
+      /**
+       * Planned End
+       * Format: date-time
+       */
+      planned_end: string;
+      /**
        * Module Id
        * Format: uuid
        */

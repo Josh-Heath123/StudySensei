@@ -7401,6 +7401,16 @@
             "type": "integer",
             "title": "Minutes"
           },
+          "planned_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Planned Start"
+          },
+          "planned_end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Planned End"
+          },
           "module_id": {
             "type": "string",
             "format": "uuid",
@@ -7547,6 +7557,8 @@
           "start",
           "end",
           "minutes",
+          "planned_start",
+          "planned_end",
           "module_id",
           "module_code",
           "module_colour",
