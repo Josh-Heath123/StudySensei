@@ -201,7 +201,8 @@ def spacing_applies(request: PlanInput, result: Plan, assessment: AssessmentInpu
     in_scope = [t for t, a in drivers.items() if a.due_at <= assessment.due_at]
     if not in_scope:
         return False
-    reviews = [b for b in result.blocks if b.kind == "review"]
+    # Reviews and fixed blocks are placed first; minutes studied today come off the cap.
+    reviews = [b for b in result.blocks if b.kind == "review" or b in request.fixed]
     today = local_day(request.now, request)
     last = local_day(assessment.due_at, request)
     total = 0
@@ -209,7 +210,11 @@ def spacing_applies(request: PlanInput, result: Plan, assessment: AssessmentInpu
     while day < last:
         lo, hi = day_span(day, request)
         on_day = [r for r in reviews if local_day(r.start, request) == day]
-        room = request.daily_cap_minutes - sum(r.minutes for r in on_day)
+        room = (
+            request.daily_cap_minutes
+            - request.studied_on.get(day, 0)
+            - sum(r.minutes for r in on_day)
+        )
         fits = min(_fits_50s(gaps(request, lo, hi, reviews)), room // BLOCK_MINUTES)
         total += min(fits, len(in_scope))
         day += timedelta(days=1)
@@ -235,17 +240,24 @@ def check_spacing(request: PlanInput, result: Plan) -> None:
 
 def review_spot_exists(request: PlanInput, result: Plan, assessment: AssessmentInput) -> bool:
     """Whether the 3 days before ``assessment`` have room for a review, around the other
-    reviews (which are placed before any study block)."""
+    reviews (which are placed before any study block) and the fixed blocks, under the cap
+    less the minutes already studied that day (decision 0021)."""
     lo = max(ceil5(request.now), ceil5(assessment.due_at - timedelta(days=REVIEW_DAYS)))
     hi = floor5(assessment.due_at)
-    others = [b for b in result.blocks if b.kind == "review" and b.assessment_id != assessment.id]
+    others = [
+        b
+        for b in result.blocks
+        if (b.kind == "review" and b.assessment_id != assessment.id) or b in request.fixed
+    ]
     day = local_day(request.now, request)
     while True:
         day_lo, day_hi = day_span(day, request)
         if day_lo >= hi:
             return False
-        room = request.daily_cap_minutes - sum(
-            r.minutes for r in others if local_day(r.start, request) == day
+        room = (
+            request.daily_cap_minutes
+            - request.studied_on.get(day, 0)
+            - sum(r.minutes for r in others if local_day(r.start, request) == day)
         )
         for start, end in gaps(request, max(lo, day_lo), min(hi, day_hi), others):
             length = BLOCK_MINUTES if end - start >= BLOCK_MINUTES else SHORT_BLOCK_MINUTES

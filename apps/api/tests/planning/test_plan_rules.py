@@ -393,7 +393,7 @@ def test_minutes_studied_today_count_against_todays_cap() -> None:
     plain = PlanInput(NOW, evenings(5), 120, UTC_ZONE, (test,), (topic(1, 600),))
     studied = replace(plain, studied_on={today: 80})
     assert sum(b.minutes for b in plan(plain).blocks if b.start.date() == today) == 100
-    # 80 already studied: only 40 left today, so a 25-minute block at most... none of 50.
+    # 80 already studied: 40 left under the cap, so no 50-minute block fits today.
     result = plan(studied)
     check_plan(studied, result)
     assert sum(b.minutes for b in result.blocks if b.start.date() == today) <= 40
