@@ -1124,6 +1124,28 @@ export interface paths {
     patch: operations["update_topic_planning_topics__topic_id__planning_patch"];
     trace?: never;
   };
+  "/plan/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Preview Plan
+     * @description The plan for the next ``days`` local dates (1 to 62, default 28), computed now and not
+     *     stored: each block with its reason and study method in words (written by code, no AI),
+     *     and the feasibility report per assessment and overall.
+     */
+    get: operations["preview_plan_plan_preview_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/ai/status": {
     parameters: {
       query?: never;
@@ -1262,6 +1284,46 @@ export interface components {
       notes?: string | null;
       /** Topic Ids */
       topic_ids?: string[];
+    };
+    /** AssessmentFeasibilityOut */
+    AssessmentFeasibilityOut: {
+      /** Required Minutes */
+      required_minutes: number;
+      /** Planned Minutes */
+      planned_minutes: number;
+      /** Short Minutes */
+      short_minutes: number;
+      /** Review Minutes */
+      review_minutes: number;
+      /** Free Minutes */
+      free_minutes: number;
+      /** Booked Minutes */
+      booked_minutes: number;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "fits" | "tight" | "short";
+      /**
+       * Assessment Id
+       * Format: uuid
+       */
+      assessment_id: string;
+      /** Title */
+      title: string;
+      /** Module Code */
+      module_code: string;
+      /**
+       * Due At
+       * Format: date-time
+       */
+      due_at: string;
+      /** Line */
+      line: string;
+      /** Topics */
+      topics: components["schemas"]["TopicFeasibilityOut"][];
+      /** Issues */
+      issues: components["schemas"]["IssueOut"][];
     };
     /** AssessmentOut */
     AssessmentOut: {
@@ -1592,6 +1654,18 @@ export interface components {
       /** Note */
       note?: string | null;
     };
+    /** FeasibilityOut */
+    FeasibilityOut: {
+      overall: components["schemas"]["OverallFeasibilityOut"];
+      /** Assessments */
+      assessments: components["schemas"]["AssessmentFeasibilityOut"][];
+      /** Later */
+      later: components["schemas"]["LaterAssessmentOut"][];
+      /** Levers */
+      levers: components["schemas"]["LeverOut"][];
+      /** Basis */
+      basis: string;
+    };
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
@@ -1632,10 +1706,53 @@ export interface components {
       /** Minutes */
       minutes: number;
     };
+    /** IssueOut */
+    IssueOut: {
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "not_enough_time" | "not_spaced" | "no_estimate" | "no_review_time" | "no_topics";
+      /** Topic Id */
+      topic_id: string | null;
+      /** Text */
+      text: string;
+    };
     /** KeptCount */
     KeptCount: {
       /** Kept */
       kept: number;
+    };
+    /** LaterAssessmentOut */
+    LaterAssessmentOut: {
+      /**
+       * Assessment Id
+       * Format: uuid
+       */
+      assessment_id: string;
+      /** Title */
+      title: string;
+      /** Module Code */
+      module_code: string;
+      /**
+       * Due At
+       * Format: date-time
+       */
+      due_at: string;
+      /** Text */
+      text: string;
+    };
+    /** LeverOut */
+    LeverOut: {
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "add_time" | "raise_cap" | "narrow_topics";
+      /** Assessment Id */
+      assessment_id: string | null;
+      /** Text */
+      text: string;
     };
     /** LinkedMaterialOut */
     LinkedMaterialOut: {
@@ -1927,6 +2044,30 @@ export interface components {
       /** Semester */
       semester?: string | null;
     };
+    /** OverallFeasibilityOut */
+    OverallFeasibilityOut: {
+      /** Required Minutes */
+      required_minutes: number;
+      /** Planned Minutes */
+      planned_minutes: number;
+      /** Short Minutes */
+      short_minutes: number;
+      /** Review Minutes */
+      review_minutes: number;
+      /** Free Minutes */
+      free_minutes: number;
+      /** Booked Minutes */
+      booked_minutes: number;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "fits" | "tight" | "short";
+      /** Deadline */
+      deadline: string | null;
+      /** Line */
+      line: string;
+    };
     /**
      * PageOut
      * @description One page's extracted text, as stored.
@@ -1956,6 +2097,88 @@ export interface components {
       char_count: number;
       /** Is Scanned */
       is_scanned: boolean;
+    };
+    /** PlanBlockOut */
+    PlanBlockOut: {
+      /**
+       * Start
+       * Format: date-time
+       */
+      start: string;
+      /**
+       * End
+       * Format: date-time
+       */
+      end: string;
+      /** Minutes */
+      minutes: number;
+      /**
+       * Module Id
+       * Format: uuid
+       */
+      module_id: string;
+      /** Module Code */
+      module_code: string;
+      /** Module Colour */
+      module_colour: string;
+      /**
+       * Assessment Id
+       * Format: uuid
+       */
+      assessment_id: string;
+      /** Assessment Title */
+      assessment_title: string;
+      /** Topic Id */
+      topic_id: string | null;
+      /** Topic Name */
+      topic_name: string | null;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "study" | "review";
+      /**
+       * Reason
+       * @enum {string}
+       */
+      reason:
+        "final_review" | "spacing" | "no_estimate" | "low_confidence" | "urgency" | "workload";
+      /**
+       * Method
+       * @enum {string}
+       */
+      method: "mixed_review" | "first_pass" | "active_recall" | "practice";
+      /** Reason Text */
+      reason_text: string;
+      /** Method Text */
+      method_text: string;
+    };
+    /** PlanPreviewOut */
+    PlanPreviewOut: {
+      /**
+       * Generated At
+       * Format: date-time
+       */
+      generated_at: string;
+      /** Timezone */
+      timezone: string;
+      /** Days */
+      days: number;
+      /**
+       * First
+       * Format: date
+       */
+      first: string;
+      /**
+       * Last
+       * Format: date
+       */
+      last: string;
+      /** Daily Study Cap Minutes */
+      daily_study_cap_minutes: number;
+      /** Blocks */
+      blocks: components["schemas"]["PlanBlockOut"][];
+      feasibility: components["schemas"]["FeasibilityOut"];
     };
     /** PlanningSettingsOut */
     PlanningSettingsOut: {
@@ -2362,6 +2585,22 @@ export interface components {
       parent_id?: string | null;
       /** Position */
       position?: number | null;
+    };
+    /** TopicFeasibilityOut */
+    TopicFeasibilityOut: {
+      /**
+       * Topic Id
+       * Format: uuid
+       */
+      topic_id: string;
+      /** Topic Name */
+      topic_name: string;
+      /** Required Minutes */
+      required_minutes: number;
+      /** Planned Minutes */
+      planned_minutes: number;
+      /** Short Minutes */
+      short_minutes: number;
     };
     /** TopicMapStatus */
     TopicMapStatus: {
@@ -4898,6 +5137,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["TopicPlanningOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  preview_plan_plan_preview_get: {
+    parameters: {
+      query?: {
+        days?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PlanPreviewOut"];
         };
       };
       /** @description Validation Error */

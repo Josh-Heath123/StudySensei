@@ -1,8 +1,8 @@
-"""Planning inputs: settings, weekly availability and its exceptions, and per-topic workload
-and confidence. Thin: the services in ``app/services/planning/`` do the work."""
+"""Planning inputs: settings, weekly availability and its exceptions, per-topic workload and
+confidence, and the plan preview. Thin: the services in ``app/services/planning/`` do the work."""
 
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Query, status
@@ -12,6 +12,7 @@ from app.core.db import SessionDep
 from app.models import AvailabilityException, AvailabilityRule
 from app.schemas.academics import WorkloadOut
 from app.schemas.planning import (
+    MAX_RANGE_DAYS,
     AvailabilityDayOut,
     AvailabilityOut,
     ExceptionCreate,
@@ -20,6 +21,7 @@ from app.schemas.planning import (
     IntervalOut,
     PlanningSettingsOut,
     PlanningSettingsUpdate,
+    PlanPreviewOut,
     RuleCreate,
     RuleOut,
     RuleUpdate,
@@ -29,6 +31,8 @@ from app.schemas.planning import (
 )
 from app.services.planning import store
 from app.services.planning.availability import format_minute
+from app.services.planning.inputs import DEFAULT_DAYS
+from app.services.planning.preview import preview
 
 router = APIRouter(tags=["planning"])
 
@@ -198,3 +202,18 @@ async def update_topic_planning(
             text_pages=load.text_pages,
         ),
     )
+
+
+# --- the plan preview ------------------------------------------------------------------
+
+
+@router.get("/plan/preview", response_model=PlanPreviewOut)
+async def preview_plan(
+    session: SessionDep,
+    user: CurrentUser,
+    days: Annotated[int, Query(ge=1, le=MAX_RANGE_DAYS)] = DEFAULT_DAYS,
+) -> PlanPreviewOut:
+    """The plan for the next ``days`` local dates (1 to 62, default 28), computed now and not
+    stored: each block with its reason and study method in words (written by code, no AI),
+    and the feasibility report per assessment and overall."""
+    return await preview(session, user_id=user.id, now=datetime.now(UTC), days=days)

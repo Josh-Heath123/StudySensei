@@ -3453,6 +3453,52 @@
         }
       }
     },
+    "/plan/preview": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Preview Plan",
+        "description": "The plan for the next ``days`` local dates (1 to 62, default 28), computed now and not\nstored: each block with its reason and study method in words (written by code, no AI),\nand the feasibility report per assessment and overall.",
+        "operationId": "preview_plan_plan_preview_get",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 62,
+              "minimum": 1,
+              "default": 28,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanPreviewOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ai/status": {
       "get": {
         "tags": [
@@ -3811,6 +3857,97 @@
           "kind"
         ],
         "title": "AssessmentCreate"
+      },
+      "AssessmentFeasibilityOut": {
+        "properties": {
+          "required_minutes": {
+            "type": "integer",
+            "title": "Required Minutes"
+          },
+          "planned_minutes": {
+            "type": "integer",
+            "title": "Planned Minutes"
+          },
+          "short_minutes": {
+            "type": "integer",
+            "title": "Short Minutes"
+          },
+          "review_minutes": {
+            "type": "integer",
+            "title": "Review Minutes"
+          },
+          "free_minutes": {
+            "type": "integer",
+            "title": "Free Minutes"
+          },
+          "booked_minutes": {
+            "type": "integer",
+            "title": "Booked Minutes"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "fits",
+              "tight",
+              "short"
+            ],
+            "title": "Status"
+          },
+          "assessment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assessment Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "module_code": {
+            "type": "string",
+            "title": "Module Code"
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Due At"
+          },
+          "line": {
+            "type": "string",
+            "title": "Line"
+          },
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/TopicFeasibilityOut"
+            },
+            "type": "array",
+            "title": "Topics"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/IssueOut"
+            },
+            "type": "array",
+            "title": "Issues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "required_minutes",
+          "planned_minutes",
+          "short_minutes",
+          "review_minutes",
+          "free_minutes",
+          "booked_minutes",
+          "status",
+          "assessment_id",
+          "title",
+          "module_code",
+          "due_at",
+          "line",
+          "topics",
+          "issues"
+        ],
+        "title": "AssessmentFeasibilityOut"
       },
       "AssessmentOut": {
         "properties": {
@@ -4636,6 +4773,47 @@
         "title": "ExceptionUpdate",
         "description": "``unavailable`` and ``windows`` are checked together once merged with what's stored."
       },
+      "FeasibilityOut": {
+        "properties": {
+          "overall": {
+            "$ref": "#/components/schemas/OverallFeasibilityOut"
+          },
+          "assessments": {
+            "items": {
+              "$ref": "#/components/schemas/AssessmentFeasibilityOut"
+            },
+            "type": "array",
+            "title": "Assessments"
+          },
+          "later": {
+            "items": {
+              "$ref": "#/components/schemas/LaterAssessmentOut"
+            },
+            "type": "array",
+            "title": "Later"
+          },
+          "levers": {
+            "items": {
+              "$ref": "#/components/schemas/LeverOut"
+            },
+            "type": "array",
+            "title": "Levers"
+          },
+          "basis": {
+            "type": "string",
+            "title": "Basis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "overall",
+          "assessments",
+          "later",
+          "levers",
+          "basis"
+        ],
+        "title": "FeasibilityOut"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -4717,6 +4895,44 @@
         ],
         "title": "IntervalOut"
       },
+      "IssueOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "not_enough_time",
+              "not_spaced",
+              "no_estimate",
+              "no_review_time",
+              "no_topics"
+            ],
+            "title": "Kind"
+          },
+          "topic_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "topic_id",
+          "text"
+        ],
+        "title": "IssueOut"
+      },
       "KeptCount": {
         "properties": {
           "kept": {
@@ -4729,6 +4945,77 @@
           "kept"
         ],
         "title": "KeptCount"
+      },
+      "LaterAssessmentOut": {
+        "properties": {
+          "assessment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assessment Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "module_code": {
+            "type": "string",
+            "title": "Module Code"
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Due At"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "assessment_id",
+          "title",
+          "module_code",
+          "due_at",
+          "text"
+        ],
+        "title": "LaterAssessmentOut"
+      },
+      "LeverOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "add_time",
+              "raise_cap",
+              "narrow_topics"
+            ],
+            "title": "Kind"
+          },
+          "assessment_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "assessment_id",
+          "text"
+        ],
+        "title": "LeverOut"
       },
       "LinkedMaterialOut": {
         "properties": {
@@ -5480,6 +5767,72 @@
         "type": "object",
         "title": "ModuleUpdate"
       },
+      "OverallFeasibilityOut": {
+        "properties": {
+          "required_minutes": {
+            "type": "integer",
+            "title": "Required Minutes"
+          },
+          "planned_minutes": {
+            "type": "integer",
+            "title": "Planned Minutes"
+          },
+          "short_minutes": {
+            "type": "integer",
+            "title": "Short Minutes"
+          },
+          "review_minutes": {
+            "type": "integer",
+            "title": "Review Minutes"
+          },
+          "free_minutes": {
+            "type": "integer",
+            "title": "Free Minutes"
+          },
+          "booked_minutes": {
+            "type": "integer",
+            "title": "Booked Minutes"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "fits",
+              "tight",
+              "short"
+            ],
+            "title": "Status"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "line": {
+            "type": "string",
+            "title": "Line"
+          }
+        },
+        "type": "object",
+        "required": [
+          "required_minutes",
+          "planned_minutes",
+          "short_minutes",
+          "review_minutes",
+          "free_minutes",
+          "booked_minutes",
+          "status",
+          "deadline",
+          "line"
+        ],
+        "title": "OverallFeasibilityOut"
+      },
       "PageOut": {
         "properties": {
           "page_number": {
@@ -5556,6 +5909,179 @@
         ],
         "title": "PageSummary",
         "description": "A page in the list (no text): for choosing one to open."
+      },
+      "PlanBlockOut": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          },
+          "module_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Module Id"
+          },
+          "module_code": {
+            "type": "string",
+            "title": "Module Code"
+          },
+          "module_colour": {
+            "type": "string",
+            "title": "Module Colour"
+          },
+          "assessment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assessment Id"
+          },
+          "assessment_title": {
+            "type": "string",
+            "title": "Assessment Title"
+          },
+          "topic_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Id"
+          },
+          "topic_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "study",
+              "review"
+            ],
+            "title": "Kind"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "final_review",
+              "spacing",
+              "no_estimate",
+              "low_confidence",
+              "urgency",
+              "workload"
+            ],
+            "title": "Reason"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "mixed_review",
+              "first_pass",
+              "active_recall",
+              "practice"
+            ],
+            "title": "Method"
+          },
+          "reason_text": {
+            "type": "string",
+            "title": "Reason Text"
+          },
+          "method_text": {
+            "type": "string",
+            "title": "Method Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "minutes",
+          "module_id",
+          "module_code",
+          "module_colour",
+          "assessment_id",
+          "assessment_title",
+          "topic_id",
+          "topic_name",
+          "kind",
+          "reason",
+          "method",
+          "reason_text",
+          "method_text"
+        ],
+        "title": "PlanBlockOut"
+      },
+      "PlanPreviewOut": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          },
+          "first": {
+            "type": "string",
+            "format": "date",
+            "title": "First"
+          },
+          "last": {
+            "type": "string",
+            "format": "date",
+            "title": "Last"
+          },
+          "daily_study_cap_minutes": {
+            "type": "integer",
+            "title": "Daily Study Cap Minutes"
+          },
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/PlanBlockOut"
+            },
+            "type": "array",
+            "title": "Blocks"
+          },
+          "feasibility": {
+            "$ref": "#/components/schemas/FeasibilityOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "timezone",
+          "days",
+          "first",
+          "last",
+          "daily_study_cap_minutes",
+          "blocks",
+          "feasibility"
+        ],
+        "title": "PlanPreviewOut"
       },
       "PlanningSettingsOut": {
         "properties": {
@@ -6710,6 +7236,40 @@
           "name"
         ],
         "title": "TopicCreate"
+      },
+      "TopicFeasibilityOut": {
+        "properties": {
+          "topic_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Topic Id"
+          },
+          "topic_name": {
+            "type": "string",
+            "title": "Topic Name"
+          },
+          "required_minutes": {
+            "type": "integer",
+            "title": "Required Minutes"
+          },
+          "planned_minutes": {
+            "type": "integer",
+            "title": "Planned Minutes"
+          },
+          "short_minutes": {
+            "type": "integer",
+            "title": "Short Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "topic_id",
+          "topic_name",
+          "required_minutes",
+          "planned_minutes",
+          "short_minutes"
+        ],
+        "title": "TopicFeasibilityOut"
       },
       "TopicMapStatus": {
         "properties": {

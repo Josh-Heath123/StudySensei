@@ -187,3 +187,111 @@ class TopicPlanningOut(BaseModel):
     topic_id: uuid.UUID
     confidence: int | None
     workload: WorkloadOut
+
+
+# --- plan preview (computed on request, nothing stored) ----------------------------------
+
+Status = Literal["fits", "tight", "short"]
+
+
+class PlanBlockOut(BaseModel):
+    start: dt.datetime
+    end: dt.datetime
+    minutes: int
+    module_id: uuid.UUID
+    module_code: str
+    module_colour: str
+    assessment_id: uuid.UUID
+    assessment_title: str
+    # Null for a review, which covers all of the assessment's topics.
+    topic_id: uuid.UUID | None
+    topic_name: str | None
+    kind: Literal["study", "review"]
+    reason: Literal[
+        "final_review", "spacing", "no_estimate", "low_confidence", "urgency", "workload"
+    ]
+    method: Literal["mixed_review", "first_pass", "active_recall", "practice"]
+    # Written by code from the block's facts (decision 0018), never by AI.
+    reason_text: str
+    method_text: str
+
+
+class TopicFeasibilityOut(BaseModel):
+    topic_id: uuid.UUID
+    topic_name: str
+    required_minutes: int
+    planned_minutes: int
+    short_minutes: int
+
+
+class IssueOut(BaseModel):
+    kind: Literal["not_enough_time", "not_spaced", "no_estimate", "no_review_time", "no_topics"]
+    topic_id: uuid.UUID | None
+    text: str
+
+
+class FeasibilityNumbersOut(BaseModel):
+    # Estimated: workload (yours or from pages) less measured study, scaled by confidence.
+    required_minutes: int
+    planned_minutes: int
+    # Per topic max(0, required - planned), summed.
+    short_minutes: int
+    review_minutes: int
+    # From now to the deadline, each local day at most the daily cap.
+    free_minutes: int
+    # Every block (any assessment's) that starts before the deadline.
+    booked_minutes: int
+    # short: anything short; tight: under 15 % of free time left over; else fits.
+    status: Status
+
+
+class AssessmentFeasibilityOut(FeasibilityNumbersOut):
+    assessment_id: uuid.UUID
+    title: str
+    module_code: str
+    due_at: dt.datetime
+    line: str
+    topics: list[TopicFeasibilityOut]
+    issues: list[IssueOut]
+
+
+class OverallFeasibilityOut(FeasibilityNumbersOut):
+    # The last planned deadline, or null when nothing is due in the window.
+    deadline: dt.datetime | None
+    line: str
+
+
+class LeverOut(BaseModel):
+    kind: Literal["add_time", "raise_cap", "narrow_topics"]
+    assessment_id: uuid.UUID | None
+    text: str
+
+
+class LaterAssessmentOut(BaseModel):
+    assessment_id: uuid.UUID
+    title: str
+    module_code: str
+    due_at: dt.datetime
+    text: str
+
+
+class FeasibilityOut(BaseModel):
+    overall: OverallFeasibilityOut
+    assessments: list[AssessmentFeasibilityOut]
+    # Upcoming assessments due after the window: not planned yet.
+    later: list[LaterAssessmentOut]
+    levers: list[LeverOut]
+    # What "needed" and "free" are based on.
+    basis: str
+
+
+class PlanPreviewOut(BaseModel):
+    generated_at: dt.datetime
+    timezone: str
+    days: int
+    # The local dates the plan covers (inclusive).
+    first: dt.date
+    last: dt.date
+    daily_study_cap_minutes: int
+    blocks: list[PlanBlockOut]
+    feasibility: FeasibilityOut

@@ -7,7 +7,7 @@ Alice's data must be unchanged.
 """
 
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -525,3 +525,28 @@ async def test_ai_ping_logs_and_budgets_only_against_the_caller(
     )
     owners = [user for user, model in rows if model == "flash"]
     assert sorted(owners) == sorted([user_a.id, user_a.id, user_b.id])
+
+
+async def test_the_plan_preview_is_per_user(
+    alice_api: AsyncClient, bob_api: AsyncClient, alice: Rows, bob: Rows
+) -> None:
+    # Both have evenings free and an assessment on their own topic in 5 days.
+    due = (datetime.now(UTC) + timedelta(days=5)).isoformat()
+    for api, rows in ((alice_api, alice), (bob_api, bob)):
+        for weekday in range(7):
+            await api.post(
+                "/availability/rules", json={"weekday": weekday, "start": "18:00", "end": "20:00"}
+            )
+        await api.patch(f"/assessments/{rows.assessment.id}", json={"due_at": due})
+    await alice_api.patch(f"/topics/{alice.topic.id}/planning", json={"estimated_minutes": 600})
+
+    his = (await bob_api.get("/plan/preview", params={"days": 7})).json()
+
+    assert his["blocks"]
+    assert {b["assessment_id"] for b in his["blocks"]} == {str(bob.assessment.id)}
+    assert {b["topic_id"] for b in his["blocks"]} <= {str(bob.topic.id), None}
+    report = his["feasibility"]
+    assert [a["assessment_id"] for a in report["assessments"]] == [str(bob.assessment.id)]
+    assert [t["topic_id"] for t in report["assessments"][0]["topics"]] == [str(bob.topic.id)]
+    # Her 10 hours of workload aren't his: his topic has no figure, so two default blocks.
+    assert report["overall"]["required_minutes"] == 100 - 50
