@@ -22,6 +22,8 @@ from app.models import (
     Conversation,
     Material,
     Message,
+    PlanBlock,
+    PlanVersion,
     TopicReview,
     User,
 )
@@ -149,6 +151,19 @@ ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("PATCH", "/availability/exceptions/{exception}", {"unavailable": True}),
     ("DELETE", "/availability/exceptions/{exception}", None),
     ("PATCH", "/topics/{topic}/planning", {"confidence": 1, "estimated_minutes": 5}),
+    # The stored plan (decision 0021)
+    ("POST", "/plan/blocks/{block}/skip", None),
+    # His session for her planned block.
+    (
+        "POST",
+        "/sessions",
+        {
+            "module_id": "{my_module}",
+            "topic_id": "{my_topic}",
+            "plan_block_id": "{block}",
+            "start": START,
+        },
+    ),
 ]
 
 
@@ -259,6 +274,64 @@ async def availability(
     return made
 
 
+@pytest.fixture
+async def plan_blocks(session: AsyncSession, alice: Rows, bob: Rows) -> dict[str, PlanBlock]:
+    """A current plan version each with one planned block tomorrow, straight into the
+    database."""
+    made = {}
+    now = datetime.now(UTC)
+    for name, rows in (("alice", alice), ("bob", bob)):
+        version = PlanVersion(
+            user_id=rows.user.id,
+            number=1,
+            trigger="initial",
+            summary="Your first plan.",
+            generated_at=now,
+            checked_at=now,
+            days=28,
+            report=EMPTY_REPORT,
+        )
+        session.add(version)
+        await session.flush()
+        block = PlanBlock(
+            user_id=rows.user.id,
+            version_id=version.id,
+            start_at=now + timedelta(days=1),
+            end_at=now + timedelta(days=1, minutes=50),
+            module_id=rows.module.id,
+            assessment_id=rows.assessment.id,
+            topic_id=rows.topic.id,
+            kind="study",
+            reason="workload",
+            method="first_pass",
+            reason_text="Why.",
+            method_text="How.",
+        )
+        session.add(block)
+        made[name] = block
+    await session.commit()
+    return made
+
+
+EMPTY_REPORT: dict[str, Any] = {
+    "overall": {
+        "required_minutes": 0,
+        "planned_minutes": 0,
+        "short_minutes": 0,
+        "review_minutes": 0,
+        "free_minutes": 0,
+        "booked_minutes": 0,
+        "status": "fits",
+        "deadline": None,
+        "line": "Nothing is due in the next 28 days.",
+    },
+    "assessments": [],
+    "later": [],
+    "levers": [],
+    "basis": "",
+}
+
+
 def message_of(conversation: Conversation) -> uuid.UUID:
     """The quiz message the fixture put in the conversation (looked up once, then kept)."""
     return _MESSAGES[conversation.id]
@@ -281,6 +354,7 @@ def ids_of(
     dismissed: dict[str, TopicReview],
     conversations: dict[str, Conversation],
     availability: dict[str, tuple[AvailabilityRule, AvailabilityException]],
+    plan_blocks: dict[str, PlanBlock],
 ) -> tuple[dict[str, str], dict[str, str]]:
     """(Alice's real IDs, the same keys with random IDs). Bob's own IDs are in both."""
     mine = {
@@ -305,6 +379,7 @@ def ids_of(
         "message": str(message_of(conversations["alice"])),
         "rule": str(availability["alice"][0].id),
         "exception": str(availability["alice"][1].id),
+        "block": str(plan_blocks["alice"].id),
     }
     missing = {key: str(uuid.uuid4()) for key in hers}
     return {**hers, **mine}, {**missing, **mine}
@@ -325,6 +400,7 @@ async def snapshot(api: AsyncClient, rows: Rows, conversation: Conversation) -> 
         (await api.get("/availability/rules")).json(),
         (await api.get("/availability/exceptions")).json(),
         (await api.get("/planning/settings")).json(),
+        (await api.get("/plan/next")).json(),
     )
 
 
@@ -338,6 +414,7 @@ async def test_bob_gets_the_same_404_as_for_a_missing_id(
     dismissed: dict[str, TopicReview],
     conversations: dict[str, Conversation],
     availability: dict[str, tuple[AvailabilityRule, AvailabilityException]],
+    plan_blocks: dict[str, PlanBlock],
     method: str,
     path: str,
     body: dict[str, Any] | None,
@@ -349,7 +426,9 @@ async def test_bob_gets_the_same_404_as_for_a_missing_id(
         )
 
     before = await snapshots()
-    hers, missing = ids_of(alice, bob, materials, dismissed, conversations, availability)
+    hers, missing = ids_of(
+        alice, bob, materials, dismissed, conversations, availability, plan_blocks
+    )
 
     attempt = await bob_api.request(method, fill(path, hers), json=fill(body, hers))
     baseline = await bob_api.request(method, fill(path, missing), json=fill(body, missing))
@@ -550,3 +629,25 @@ async def test_the_plan_preview_is_per_user(
     assert [t["topic_id"] for t in report["assessments"][0]["topics"]] == [str(bob.topic.id)]
     # Her 10 hours of workload aren't his: his topic has no figure, so two default blocks.
     assert report["overall"]["required_minutes"] == 100 - 50
+
+
+async def test_the_stored_plan_is_per_user(
+    alice_api: AsyncClient,
+    bob_api: AsyncClient,
+    alice: Rows,
+    bob: Rows,
+    plan_blocks: dict[str, PlanBlock],
+    session: AsyncSession,
+) -> None:
+    # His plan and next block are his own.
+    his = (await bob_api.get("/plan")).json()
+    assert [b["id"] for b in his["blocks"]] == [str(plan_blocks["bob"].id)]
+    assert (await bob_api.get("/plan/next")).json()["id"] == str(plan_blocks["bob"].id)
+    # His re-plan writes his versions only; hers is untouched.
+    before = (await alice_api.get("/plan")).json()
+    await bob_api.post("/plan/replan")
+    assert (await alice_api.get("/plan")).json() == before
+    versions = await session.scalars(
+        select(PlanVersion.number).where(PlanVersion.user_id == alice.user.id)
+    )
+    assert list(versions) == [1]

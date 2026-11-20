@@ -3499,6 +3499,170 @@
         }
       }
     },
+    "/plan": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Get Plan",
+        "description": "The current plan version (number, trigger, summary, report) and its blocks that overlap\nthe local dates ``from`` to ``to`` (default today to 7 days on; at most 62 days), with\ntheir status and texts. With no plan yet, this creates version 1 (trigger initial): the\none GET with a side effect.",
+        "operationId": "get_plan_plan_get",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plan/next": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Get Next Block",
+        "description": "The current plan's next planned block that hasn't ended (one in progress counts), or\nnull.",
+        "operationId": "get_next_block_plan_next_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/StoredBlockOut"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Next Block Plan Next Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plan/blocks/{block_id}/skip": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Skip Block",
+        "description": "Skip a planned block of the current plan and re-plan at once (its time is placed\nagain). 409 for any other block; 404 for one that isn't yours.",
+        "operationId": "skip_block_plan_blocks__block_id__skip_post",
+        "parameters": [
+          {
+            "name": "block_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Block Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanVersionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plan/replan": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Replan Now",
+        "description": "Re-plan now (trigger manual). Returns the current version: a new one only if the\nblocks changed.",
+        "operationId": "replan_now_plan_replan_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanVersionOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ai/status": {
       "get": {
         "tags": [
@@ -6038,6 +6202,86 @@
         ],
         "title": "PlanBlockOut"
       },
+      "PlanOut": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "trigger": {
+            "type": "string",
+            "enum": [
+              "initial",
+              "skip",
+              "finish",
+              "assessment",
+              "topic",
+              "availability",
+              "material",
+              "nightly",
+              "manual"
+            ],
+            "title": "Trigger"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Checked At"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          },
+          "report": {
+            "$ref": "#/components/schemas/FeasibilityOut"
+          },
+          "first": {
+            "type": "string",
+            "format": "date",
+            "title": "First"
+          },
+          "last": {
+            "type": "string",
+            "format": "date",
+            "title": "Last"
+          },
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/StoredBlockOut"
+            },
+            "type": "array",
+            "title": "Blocks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "number",
+          "trigger",
+          "summary",
+          "generated_at",
+          "checked_at",
+          "timezone",
+          "days",
+          "report",
+          "first",
+          "last",
+          "blocks"
+        ],
+        "title": "PlanOut"
+      },
       "PlanPreviewOut": {
         "properties": {
           "generated_at": {
@@ -6090,6 +6334,66 @@
           "feasibility"
         ],
         "title": "PlanPreviewOut"
+      },
+      "PlanVersionOut": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "trigger": {
+            "type": "string",
+            "enum": [
+              "initial",
+              "skip",
+              "finish",
+              "assessment",
+              "topic",
+              "availability",
+              "material",
+              "nightly",
+              "manual"
+            ],
+            "title": "Trigger"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Checked At"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          },
+          "report": {
+            "$ref": "#/components/schemas/FeasibilityOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "number",
+          "trigger",
+          "summary",
+          "generated_at",
+          "checked_at",
+          "timezone",
+          "days",
+          "report"
+        ],
+        "title": "PlanVersionOut"
       },
       "PlanningSettingsOut": {
         "properties": {
@@ -6853,6 +7157,18 @@
             ],
             "title": "Topic Id"
           },
+          "plan_block_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Block Id"
+          },
           "start": {
             "$ref": "#/components/schemas/StartEvent"
           }
@@ -6963,6 +7279,161 @@
           "occurred_at"
         ],
         "title": "StartEvent"
+      },
+      "StoredBlockOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          },
+          "module_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Module Id"
+          },
+          "module_code": {
+            "type": "string",
+            "title": "Module Code"
+          },
+          "module_colour": {
+            "type": "string",
+            "title": "Module Colour"
+          },
+          "assessment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assessment Id"
+          },
+          "assessment_title": {
+            "type": "string",
+            "title": "Assessment Title"
+          },
+          "topic_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Id"
+          },
+          "topic_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "study",
+              "review"
+            ],
+            "title": "Kind"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "final_review",
+              "spacing",
+              "no_estimate",
+              "low_confidence",
+              "urgency",
+              "workload"
+            ],
+            "title": "Reason"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "mixed_review",
+              "first_pass",
+              "active_recall",
+              "practice"
+            ],
+            "title": "Method"
+          },
+          "reason_text": {
+            "type": "string",
+            "title": "Reason Text"
+          },
+          "method_text": {
+            "type": "string",
+            "title": "Method Text"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "done",
+              "skipped",
+              "missed"
+            ],
+            "title": "Status"
+          },
+          "status_changed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Changed At"
+          },
+          "fixed": {
+            "type": "boolean",
+            "title": "Fixed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "start",
+          "end",
+          "minutes",
+          "module_id",
+          "module_code",
+          "module_colour",
+          "assessment_id",
+          "assessment_title",
+          "topic_id",
+          "topic_name",
+          "kind",
+          "reason",
+          "method",
+          "reason_text",
+          "method_text",
+          "status",
+          "status_changed_at",
+          "fixed"
+        ],
+        "title": "StoredBlockOut"
       },
       "SubtreeWorkloadOut": {
         "properties": {

@@ -297,3 +297,64 @@ class PlanPreviewOut(BaseModel):
     daily_study_cap_minutes: int
     blocks: list[PlanBlockOut]
     feasibility: FeasibilityOut
+
+
+# --- stored plans (decision 0021) ------------------------------------------------------
+
+
+class StoredBlockOut(BaseModel):
+    id: uuid.UUID
+    start: dt.datetime
+    end: dt.datetime
+    minutes: int
+    module_id: uuid.UUID
+    module_code: str
+    module_colour: str
+    assessment_id: uuid.UUID
+    assessment_title: str
+    topic_id: uuid.UUID | None
+    topic_name: str | None
+    kind: Literal["study", "review"]
+    reason: Literal[
+        "final_review", "spacing", "no_estimate", "low_confidence", "urgency", "workload"
+    ]
+    method: Literal["mixed_review", "first_pass", "active_recall", "practice"]
+    # As generated for this block's version (code-written, no AI).
+    reason_text: str
+    method_text: str
+    status: Literal["planned", "done", "skipped", "missed"]
+    status_changed_at: dt.datetime | None
+    # Carried from the previous version (it started within the next 24 h).
+    fixed: bool
+
+
+class PlanVersionOut(BaseModel):
+    number: int
+    trigger: Literal[
+        "initial",
+        "skip",
+        "finish",
+        "assessment",
+        "topic",
+        "availability",
+        "material",
+        "nightly",
+        "manual",
+    ]
+    # Why this version exists, in one code-written sentence.
+    summary: str
+    generated_at: dt.datetime
+    # When a re-plan last confirmed it (a re-plan that changes nothing writes no version).
+    checked_at: dt.datetime
+    timezone: str
+    days: int
+    # The feasibility report, as GET /plan/preview gives it, from the last check.
+    report: FeasibilityOut
+
+
+class PlanOut(PlanVersionOut):
+    # The local dates asked for (inclusive).
+    first: dt.date
+    last: dt.date
+    # The version's blocks that overlap those dates, by start.
+    blocks: list[StoredBlockOut]

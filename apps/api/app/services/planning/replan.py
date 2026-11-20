@@ -4,7 +4,8 @@
 
 1. marks the current version's past planned blocks with no linked session as missed;
 2. keeps as fixed the current version's planned blocks in the next 24 h that still make
-   sense (inside free time, for an upcoming assessment and a unit it still covers);
+   sense (inside free time, for an upcoming assessment and a unit it still covers), and
+   takes the time of skipped blocks that haven't ended out of the free time;
 3. plans again with those fixed blocks through ``preview.build`` (the preview's own code path);
 4. writes a new version only if the blocks from now on differ (no churn); otherwise it
    refreshes the current version's report and ``checked_at``.
@@ -82,6 +83,37 @@ def _inside(start: datetime, end: datetime, free: tuple[Interval, ...]) -> bool:
         else:
             spans.append((interval.start, interval.end))
     return any(s <= start and end <= e for s, e in spans)
+
+
+def without(
+    free: tuple[Interval, ...], busy: list[tuple[datetime, datetime]]
+) -> tuple[Interval, ...]:
+    """The free time with the busy stretches cut out."""
+    out: list[Interval] = []
+    for interval in free:
+        pieces = [(interval.start, interval.end)]
+        for start, end in busy:
+            pieces = [
+                part
+                for s, e in pieces
+                for part in ((s, min(e, start)), (max(s, end), e))
+                if part[1] > part[0]
+            ]
+        out.extend(Interval(s, e) for s, e in pieces)
+    return tuple(out)
+
+
+async def _skipped(
+    session: AsyncSession, user_id: uuid.UUID, now: datetime
+) -> list[tuple[datetime, datetime]]:
+    """The times of skipped blocks (any version) that haven't ended: the student said they
+    can't study then, so nothing new goes there."""
+    rows = await session.execute(
+        select(PlanBlock.start_at, PlanBlock.end_at).where(
+            PlanBlock.user_id == user_id, PlanBlock.status == "skipped", PlanBlock.end_at > now
+        )
+    )
+    return [(start, end) for start, end in rows]
 
 
 def _block(row: PlanBlock) -> Block:
@@ -224,7 +256,7 @@ async def replan(
     kept = await _keepable(session, current, data.input, now) if current else {}
     request = PlanInput(
         now=data.input.now,
-        free=data.input.free,
+        free=without(data.input.free, await _skipped(session, user_id, now)),
         daily_cap_minutes=data.input.daily_cap_minutes,
         timezone=data.input.timezone,
         assessments=data.input.assessments,
