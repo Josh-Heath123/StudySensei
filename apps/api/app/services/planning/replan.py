@@ -343,7 +343,10 @@ async def replan(
         user_id=user_id,
         number=(current.number + 1) if current else 1,
         trigger=trigger,
-        summary=await _summary(
+        # Version 1 is "Your first plan.", whatever triggered it (decision 0022).
+        summary="Your first plan."
+        if current is None
+        else await _summary(
             session,
             trigger,
             detail or {},
