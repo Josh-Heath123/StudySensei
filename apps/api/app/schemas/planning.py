@@ -35,6 +35,8 @@ def _clock(value: str) -> str:
 Clock = Annotated[str, AfterValidator(_clock)]
 Weekday = Annotated[int, Field(ge=0, le=6, description="0 is Monday, 6 is Sunday")]
 DailyCap = Annotated[int, Field(ge=15, le=1440)]
+# Minutes before a block that its push reminder comes (decision 0024); null is off.
+ReminderMinutes = Literal[5, 10, 15, 30]
 Note = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
 Minutes = Annotated[int, Field(ge=5, le=6000)]
 Confidence = Annotated[int, Field(ge=1, le=5)]
@@ -58,11 +60,15 @@ class PlanningSettingsOut(BaseModel):
 
     timezone: str
     daily_study_cap_minutes: int
+    reminder_minutes: ReminderMinutes | None
 
 
 class PlanningSettingsUpdate(_Update):
+    nullable = frozenset({"reminder_minutes"})
+
     timezone: Timezone | None = None
     daily_study_cap_minutes: DailyCap | None = None
+    reminder_minutes: ReminderMinutes | None = None
 
 
 # --- windows, rules and exceptions -----------------------------------------------------

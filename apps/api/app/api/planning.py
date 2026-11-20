@@ -79,7 +79,8 @@ async def get_planning_settings(session: SessionDep, user: CurrentUser) -> Plann
 async def update_planning_settings(
     data: PlanningSettingsUpdate, session: SessionDep, user: CurrentUser
 ) -> PlanningSettingsOut:
-    """Change the timezone (IANA) or the daily cap (15 to 1,440 minutes)."""
+    """Change the timezone (IANA), the daily cap (15 to 1,440 minutes), or how many minutes
+    before a block its push reminder comes (5, 10, 15 or 30; null turns reminders off)."""
     updated = await store.update_settings(session, data, user_id=user.id)
     return PlanningSettingsOut.model_validate(updated)
 

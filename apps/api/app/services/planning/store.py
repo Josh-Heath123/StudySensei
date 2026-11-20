@@ -70,9 +70,12 @@ async def update_settings(
     session: AsyncSession, data: PlanningSettingsUpdate, *, user_id: uuid.UUID
 ) -> User:
     user = await _user(session, user_id)
-    for name, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    for name, value in changes.items():
         setattr(user, name, value)
-    await enqueue_replan(session, user_id=user_id, trigger="availability")
+    # The reminder lead doesn't change the plan.
+    if changes.keys() - {"reminder_minutes"}:
+        await enqueue_replan(session, user_id=user_id, trigger="availability")
     await session.commit()
     return user
 

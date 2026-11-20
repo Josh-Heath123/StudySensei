@@ -24,9 +24,7 @@ def test_database_name() -> None:
 
 
 @pytest.mark.parametrize("db", ["studysensei_demo", "studysensei_e2e"])
-def test_fake_now_on_the_demo_and_e2e_databases(
-    monkeypatch: pytest.MonkeyPatch, db: str
-) -> None:
+def test_fake_now_on_the_demo_and_e2e_databases(monkeypatch: pytest.MonkeyPatch, db: str) -> None:
     settings = Settings(database_url=DEMO.replace("studysensei_demo", db), fake_now=FAKE)
     monkeypatch.setattr(clock, "get_settings", lambda: settings)
     assert clock.now() == datetime(2026, 11, 16, 8, 40, tzinfo=UTC)
