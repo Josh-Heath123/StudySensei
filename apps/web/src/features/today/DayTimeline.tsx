@@ -37,7 +37,7 @@ export function DayTimeline() {
         )}
       </div>
       {blocks.length > 0 && timeZone ? (
-        <ol className="grid gap-2">
+        <ol className="grid grid-cols-[minmax(0,1fr)] gap-2">
           {blocks.map((block) => {
             const start = zoned(block.start, timeZone);
             const end = zoned(block.end, timeZone);
@@ -47,7 +47,7 @@ export function DayTimeline() {
               <li
                 key={block.id}
                 className={cn(
-                  "border-line flex items-center gap-3 rounded-md border border-l-4 px-3 py-2",
+                  "border-line flex min-w-0 items-center gap-3 rounded-md border border-l-4 px-3 py-2",
                   quiet && "text-muted",
                 )}
                 style={{ borderLeftColor: block.module_colour }}

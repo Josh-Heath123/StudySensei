@@ -13,20 +13,24 @@ type Props = Omit<ComponentProps<"button">, "children"> & {
   now: number;
   /** Tight layout for short grid cards. */
   compact?: boolean;
+  /** Only the start time (narrow grid columns: the card's height shows its length). */
+  startOnly?: boolean;
   style?: CSSProperties;
 };
 
 /**
- * docs/DESIGN.md "Plan block card": a solid card with the module colour as its left edge,
- * the topic (or "Final review · …"), the time and the method. Done shows a check and the
- * measured minutes; skipped is muted and struck through; missed is muted and labelled; a
- * block happening now says "Now". It's a button: it opens the block's details.
+ * docs/DESIGN.md "Plan block card": a solid card with the module colour as its left edge, and
+ * two rows: the topic (or "Final review · …"), then the time with the method, or the status
+ * in its place: done shows a check and the measured minutes; skipped is muted and struck
+ * through; missed is muted and labelled; a block happening now says "Now". It's a button: it
+ * opens the block's details.
  */
 export function PlanBlockCard({
   block,
   timeZone,
   now,
   compact = false,
+  startOnly = false,
   className,
   style,
   ...props
@@ -43,7 +47,7 @@ export function PlanBlockCard({
       data-block-id={block.id}
       data-status={live ? "now" : block.status}
       className={cn(
-        "bg-surface border-line text-fg focus-visible:outline-ring flex w-full min-w-0 cursor-pointer flex-col items-start gap-0.5 overflow-hidden rounded-md border border-l-4 px-2.5 py-1.5 text-left shadow-sm transition-[box-shadow,opacity] hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2",
+        "bg-surface border-line text-fg focus-visible:outline-ring flex w-full min-w-0 cursor-pointer flex-col items-start justify-start gap-0.5 overflow-hidden rounded-md border border-l-4 px-2.5 py-1.5 text-left shadow-sm transition-[box-shadow,opacity] hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2",
         quiet && "text-muted opacity-75 shadow-none",
         live && "ring-ring ring-2",
         className,
@@ -62,25 +66,26 @@ export function PlanBlockCard({
       >
         {title}
       </span>
-      <span className="text-muted flex w-full min-w-0 items-center gap-1.5 text-xs tabular-nums">
+      <span className="text-muted flex w-full min-w-0 items-center gap-1 text-xs whitespace-nowrap tabular-nums">
         <span>
-          {clock(start.minutes)}–{clock(end.minutes)}
+          {clock(start.minutes)}
+          {!startOnly && <>–{clock(end.minutes)}</>}
         </span>
-        {!compact && <span className="truncate">· {METHOD_LABELS[block.method]}</span>}
+        {live ? (
+          <span className="text-link font-semibold">· Now</span>
+        ) : block.status === "done" ? (
+          <span className="text-success flex min-w-0 items-center gap-0.5 font-semibold">
+            <Check className="size-3.5 shrink-0" aria-hidden />
+            <span className="truncate">{measured ?? "Done"}</span>
+          </span>
+        ) : block.status === "missed" ? (
+          <span className="font-semibold">· Missed</span>
+        ) : block.status === "skipped" ? (
+          <span className="font-semibold">· Skipped</span>
+        ) : (
+          !compact && <span className="truncate">· {METHOD_LABELS[block.method]}</span>
+        )}
       </span>
-      {(live || block.status !== "planned") && (
-        <span className="flex items-center gap-1 text-xs font-semibold">
-          {live && <span className="text-link">Now</span>}
-          {block.status === "done" && (
-            <span className="text-success flex items-center gap-1">
-              <Check className="size-3.5" aria-hidden />
-              {measured ?? "Done"}
-            </span>
-          )}
-          {block.status === "missed" && <span>Missed</span>}
-          {block.status === "skipped" && <span>Skipped</span>}
-        </span>
-      )}
     </button>
   );
 }

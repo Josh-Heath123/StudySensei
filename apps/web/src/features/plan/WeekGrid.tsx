@@ -186,7 +186,7 @@ export function WeekGrid({
           );
         })}
       </div>
-      <div className="grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))]">
+      <div className="grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] pb-3">
         <div className="relative" style={{ height }} aria-hidden>
           {hours.map((hour) => (
             <span
@@ -221,7 +221,7 @@ export function WeekGrid({
                 key={`${span.start}-${span.end}`}
                 aria-hidden
                 data-free-band
-                className="bg-subtle absolute inset-x-1 rounded-md"
+                className="absolute inset-x-1 rounded-md bg-[color-mix(in_srgb,var(--accent-soft)_60%,transparent)]"
                 style={{
                   top: (span.start - top) * PX_PER_MINUTE,
                   height: (span.end - span.start) * PX_PER_MINUTE,
@@ -263,6 +263,7 @@ export function WeekGrid({
                         timeZone={timeZone}
                         now={now}
                         compact={block.minutes < 40}
+                        startOnly
                         className="h-full"
                         onClick={(e) => {
                           if (justDragged.current) e.preventDefault();
