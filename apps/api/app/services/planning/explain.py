@@ -272,6 +272,7 @@ def version_summary(
     assessment: str | None = None,
     module: str | None = None,
     short_now: int | None = None,
+    moved_to: datetime | None = None,
 ) -> str:
     """One sentence on why a plan version exists, from its trigger and what it names. A
     missing name falls back to a general sentence; nothing is guessed."""
@@ -287,6 +288,13 @@ def version_summary(
         return f"You skipped {block_name} ({when}): its time is placed again."
     if trigger == "skip":
         return "You skipped a block: its time is placed again."
+    if trigger == "move" and block_name and block_start and moved_to:
+        return (
+            f"You moved {block_name} from {block_when(block_start, timezone)} "
+            f"to {block_when(moved_to, timezone)}."
+        )
+    if trigger == "move":
+        return "You moved a block."
     if trigger == "finish" and block_name:
         measured = (
             ""

@@ -15,6 +15,7 @@ Done, skipped and missed blocks stay on the version they belong to. Nothing here
 
 import uuid
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -25,10 +26,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.jobs.kinds import REPLAN
 from app.jobs.queue import enqueue_replan
 from app.models import Assessment, Job, Module, PlanBlock, PlanVersion, StudySession, Topic, User
-from app.services.errors import Conflict, NotFound
+from app.services.errors import Conflict, Invalid, NotFound
 from app.services.planning import explain
 from app.services.planning.availability import Interval
 from app.services.planning.inputs import DEFAULT_DAYS, PlanFacts, load_plan_data
+from app.services.planning.moves import check_move
 from app.services.planning.planner import Block, PlanInput
 from app.services.planning.preview import build
 
@@ -158,8 +160,10 @@ def _row_key(row: PlanBlock) -> Key:
 async def _keepable(
     session: AsyncSession, version: PlanVersion, request: PlanInput, now: datetime
 ) -> dict[Block, PlanBlock]:
-    """The current version's planned blocks in the next 24 h (one in progress included) that
-    can stay: inside free time, for an upcoming assessment, and on a unit it still covers."""
+    """The current version's planned blocks that haven't ended and start in the next 24 h (one
+    in progress included), or that the student pinned by moving them (any time; decision 0022),
+    and can stay: inside free time, for an upcoming assessment, and on a unit it still covers.
+    An invalid pinned block is dropped, and its unit's time is placed again."""
     rows = (
         await session.scalars(
             select(PlanBlock).where(
@@ -167,7 +171,7 @@ async def _keepable(
                 PlanBlock.version_id == version.id,
                 PlanBlock.status == "planned",
                 PlanBlock.end_at > now,
-                PlanBlock.start_at < now + timedelta(hours=FIXED_HOURS),
+                (PlanBlock.start_at < now + timedelta(hours=FIXED_HOURS)) | PlanBlock.pinned,
             )
         )
     ).all()
@@ -236,6 +240,7 @@ async def _summary(
             )
         )
     minutes = detail.get("minutes")
+    moved_to = datetime.fromisoformat(str(detail["to"])) if "to" in detail else None
     return explain.version_summary(
         trigger,
         timezone=tz,
@@ -245,6 +250,7 @@ async def _summary(
         assessment=assessment,
         module=module,
         short_now=short_now,
+        moved_to=moved_to,
     )
 
 
@@ -276,8 +282,11 @@ async def replan(
     now: datetime,
     trigger: str,
     detail: Mapping[str, Any] | None = None,
+    moved: Mapping[uuid.UUID, datetime] | None = None,
 ) -> PlanVersion:
-    """Re-plan for the user (see the module docstring). Commits, which releases the lock."""
+    """Re-plan for the user (see the module docstring). Commits, which releases the lock.
+    ``moved`` maps a block of the current version to its new start: it's carried at that time
+    and pinned, with its texts kept (decision 0022)."""
     await lock_user(session, user_id)
     current = await current_version(session, user_id=user_id)
     if current is not None:
@@ -285,6 +294,17 @@ async def replan(
 
     data = await load_plan_data(session, user_id=user_id, now=now, days=DEFAULT_DAYS)
     kept = await _keepable(session, current, data.input, now) if current else {}
+    pinned_ids: set[uuid.UUID] = set()
+    for block_id, start in (moved or {}).items():
+        row = await session.scalar(
+            select(PlanBlock).where(PlanBlock.id == block_id, PlanBlock.user_id == user_id)
+        )
+        if row is None:
+            continue
+        kept = {b: r for b, r in kept.items() if r.id != row.id}
+        at = _block(row)
+        kept[replace(at, start=start, end=start + (at.end - at.start))] = row
+        pinned_ids.add(row.id)
     request = PlanInput(
         now=data.input.now,
         free=without(data.input.free, await _skipped(session, user_id, now)),
@@ -304,7 +324,8 @@ async def replan(
     for block, out in built.blocks:
         old = kept.get(block)
         if old is not None:
-            new.append((_row_key(old), old))
+            # Its texts as generated; its time as carried (moved, or the same).
+            new.append(((block.start, block.end, *_row_key(old)[2:]), old))
         else:
             key: Key = (
                 out.start,
@@ -379,6 +400,7 @@ async def replan(
             method_text=how,
             status="planned",
             fixed=old is not None,
+            pinned=old is not None and (old.pinned or old.id in pinned_ids),
         )
         session.add(row)
         if old is not None:
@@ -464,3 +486,81 @@ async def queue_nightly_replans(session: AsyncSession, now: datetime) -> int:
             queued += 1
     await session.commit()
     return queued
+
+
+async def move_block(
+    session: AsyncSession,
+    block_id: uuid.UUID,
+    start: datetime,
+    *,
+    user_id: uuid.UUID,
+    now: datetime,
+) -> PlanVersion:
+    """Move a planned block of the current version that hasn't started and has no linked
+    session to ``start`` (decision 0022), then re-plan inline (trigger move) with it pinned
+    there. ``Invalid`` with the sentence if the move breaks a rule (``moves.py``)."""
+    await lock_user(session, user_id)
+    block = await session.scalar(
+        select(PlanBlock).where(PlanBlock.id == block_id, PlanBlock.user_id == user_id)
+    )
+    if block is None:
+        raise NotFound("Plan block")
+    current = await current_version(session, user_id=user_id)
+    if current is None or block.version_id != current.id or block.status != "planned":
+        raise Conflict("Only a planned block of the current plan can be moved.")
+    if block.start_at <= now:
+        raise Conflict("It has already started.")
+    linked = await session.scalar(
+        select(StudySession.id).where(
+            StudySession.user_id == user_id, StudySession.plan_block_id == block.id
+        )
+    )
+    if linked is not None:
+        raise Conflict("It has a session.")
+
+    data = await load_plan_data(session, user_id=user_id, now=now, days=DEFAULT_DAYS)
+    others = (
+        await session.scalars(
+            select(PlanBlock).where(
+                PlanBlock.user_id == user_id,
+                PlanBlock.version_id == current.id,
+                PlanBlock.id != block.id,
+                PlanBlock.status.in_(("planned", "done")),
+            )
+        )
+    ).all()
+    due_at = await session.scalar(
+        select(Assessment.due_at).where(
+            Assessment.id == block.assessment_id, Assessment.user_id == user_id
+        )
+    )
+    problem = check_move(
+        _block(block),
+        start,
+        now=now,
+        free=without(data.input.free, await _skipped(session, user_id, now)),
+        neighbours=[_block(r) for r in others],
+        booked=[_block(r) for r in others if r.status == "planned"],
+        due_at=due_at or block.end_at,
+        daily_cap_minutes=data.input.daily_cap_minutes,
+        studied_on=data.input.studied_on,
+        timezone=data.input.timezone,
+    )
+    if problem is not None:
+        name = await _assessment_name(session, block.assessment_id, user_id=user_id)
+        raise Invalid(
+            explain.move_problem_text(
+                problem,
+                assessment=name,
+                cap=data.input.daily_cap_minutes,
+                timezone=data.input.timezone,
+            )
+        )
+    return await replan(
+        session,
+        user_id=user_id,
+        now=now,
+        trigger="move",
+        detail={"block_id": str(block.id), "to": start.isoformat()},
+        moved={block.id: start},
+    )
