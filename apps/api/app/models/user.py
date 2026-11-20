@@ -10,6 +10,7 @@ class User(TimestampedBase):
         CheckConstraint(
             "daily_study_cap_minutes BETWEEN 15 AND 1440", name="ck_users_daily_study_cap"
         ),
+        CheckConstraint("reminder_minutes IN (5, 10, 15, 30)", name="ck_users_reminder_minutes"),
     )
 
     email: Mapped[str] = mapped_column(String(320), unique=True)
@@ -19,3 +20,7 @@ class User(TimestampedBase):
         String(64), default="Africa/Johannesburg", server_default="Africa/Johannesburg"
     )
     daily_study_cap_minutes: Mapped[int] = mapped_column(Integer, default=180, server_default="180")
+    # Minutes before a block that its push reminder is sent; null means off (decision 0024).
+    reminder_minutes: Mapped[int | None] = mapped_column(
+        Integer, default=10, server_default="10", nullable=True
+    )
