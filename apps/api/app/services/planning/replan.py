@@ -425,8 +425,9 @@ def last_nightly(now: datetime, timezone: ZoneInfo) -> datetime:
 
 async def queue_nightly_replans(session: AsyncSession, now: datetime) -> int:
     """Queue a nightly re-plan for each user whose current version wasn't checked since their
-    most recent local 03:00, unless a re-plan is already queued or running. Users with no
-    version are skipped. Commits; returns how many were queued."""
+    most recent local 03:00, unless a re-plan is already queued or running, or one failed
+    since that 03:00 (so a failing re-plan isn't retried every minute; decision 0022). Users
+    with no version are skipped. Commits; returns how many were queued."""
     latest = (
         select(PlanVersion.user_id, func.max(PlanVersion.number).label("number"))
         .group_by(PlanVersion.user_id)
@@ -435,10 +436,17 @@ async def queue_nightly_replans(session: AsyncSession, now: datetime) -> int:
     pending = exists().where(
         Job.user_id == User.id, Job.kind == REPLAN, Job.status.in_(("queued", "running"))
     )
+    failed = (
+        select(Job.user_id, func.max(Job.finished_at).label("failed_at"))
+        .where(Job.kind == REPLAN, Job.status == "failed")
+        .group_by(Job.user_id)
+        .subquery()
+    )
     rows = (
         await session.execute(
-            select(User.id, User.timezone, PlanVersion.checked_at)
+            select(User.id, User.timezone, PlanVersion.checked_at, failed.c.failed_at)
             .join(latest, latest.c.user_id == User.id)
+            .outerjoin(failed, failed.c.user_id == User.id)
             .join(
                 PlanVersion,
                 (PlanVersion.user_id == User.id) & (PlanVersion.number == latest.c.number),
@@ -447,8 +455,11 @@ async def queue_nightly_replans(session: AsyncSession, now: datetime) -> int:
         )
     ).all()
     queued = 0
-    for user_id, timezone, checked_at in rows:
-        if checked_at < last_nightly(now, ZoneInfo(timezone)):
+    for user_id, timezone, checked_at, failed_at in rows:
+        night = last_nightly(now, ZoneInfo(timezone))
+        if failed_at is not None and failed_at >= night:
+            continue
+        if checked_at < night:
             await enqueue_replan(session, user_id=user_id, trigger="nightly")
             queued += 1
     await session.commit()
