@@ -84,7 +84,7 @@ StudySensei uses general evidence-based defaults (such as 25–50 minute blocks)
 | Marking short answers                                                 | AI with the reference answer and source shown; self-marking always available |
 | Assessment-profile statistics                                         | Ordinary code (exact counts)                                                 |
 | Scheduling, re-planning, feasibility                                  | Ordinary code (a tested planner)                                             |
-| Study method per block                                                | Ordinary code (rules table); AI writes the explanation                       |
+| Study method per block                                                | Ordinary code: a rules table, and code-written text from computed facts (no AI in v1) |
 | Timers, breaks, reminders, progress                                   | Ordinary code                                                                |
 | Camera signals and nudges                                             | Ordinary code in the browser                                                 |
 | Weekly insight write-up                                               | AI writes up numbers that code computed; it never invents a number           |

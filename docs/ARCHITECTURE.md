@@ -641,6 +641,27 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   one at a time, and the Phase 4 scenario with a skipped block and a 200 ms budget for 60 topics over 30 days.
 - **Later:** mastery and past-paper importance join the priority (Phases 5–6); the next 24 h stay fixed when
   re-planning (task 4).
+
+### Plan text, methods and feasibility (Phase 4, task 3; ADR 0018)
+
+- **Inputs** (`services/planning/inputs.py`, async, read-only, user-scoped): `load_plan_data(session, user_id=, now=,
+  days=)` returns the `PlanInput` and the facts the text needs (names, workload source and pages, sessions).
+  - Free time: `expand()` for `days` local dates from today (1–62, default 28) in `users.timezone`, with the cap.
+  - Assessments: `upcoming`, due after now and by the end of the window; later ones are listed, not planned.
+  - Topics they cover: workload (yours, else estimated, else none) and confidence.
+  - Studied minutes: `sum(active_seconds)` of sessions on the topic, floored; a subtopic's sessions count for it only.
+- **Methods** (`methods.py`, pure): a four-row rules table, first match wins: review → `mixed_review`; a topic's
+  first block at confidence 1–2 or unrated → `first_pass`; at 3–5 → `active_recall`; later blocks → `practice`.
+- **Text** (`explain.py`, pure): one or two sentences per block from its reason and facts, and the report's lines.
+  Every minute figure says "estimated from N slides", "by your own figure" or "measured, N sessions". No AI.
+- **Feasibility** (`feasibility.py`, pure): per topic required, planned and short; per assessment and overall the
+  sums, review minutes, free minutes to the deadline (capped per local day) and booked minutes; a status (`fits`,
+  `tight` under 15 % spare, `short`); shortfalls in words; levers (add time, raise the cap, narrow topics).
+  Hypothesis properties in `tests/planning/test_feasibility.py`.
+- **Preview:** `GET /plan/preview?days=` (`services/planning/preview.py`) returns `generated_at`, the timezone, the
+  blocks (times, module code and colour, assessment, topic, kind, reason, method, `reason_text`, `method_text`) and the
+  report. Computed on request, nothing stored. `uv run python -m app.planning.preview --days 28 [--now ISO]` prints
+  the same as a timetable by local day (dev only, read-only).
 ### Re-planning, timers and reminders
 
 - **Re-planning:** on a new assessment or material, a skipped or finished block, a mastery change, and nightly.

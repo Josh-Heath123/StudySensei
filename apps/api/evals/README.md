@@ -1,8 +1,9 @@
 # Evals
 
 Fixed yardsticks for the AI and search features, run **locally against the dev database** (the real
-COS330 data). They never run in CI. All but one never call an AI provider: search and linking use the local
-embedding model, and the topic eval only reads what's stored. **The tutor eval is the exception**: it makes
+COS330 data): search (and the tutor's retrieval), linking, topic extraction and the tutor. They never run in CI.
+All but one never call an AI provider: search and linking use the local embedding model, and the topic eval only
+reads what's stored. **The tutor eval is the exception**: it makes
 real calls on the free tier (below). The database session is read-only in
 Postgres itself (`default_transaction_read_only`), so an eval can't write.
 
