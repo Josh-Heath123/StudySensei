@@ -17,6 +17,7 @@ from sqlalchemy import or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import clock
 from app.jobs.kinds import REPLAN
 from app.models import Job
 
@@ -44,7 +45,13 @@ def enqueue(
     max_attempts: int = 3,
 ) -> Job:
     """Add a job to the session (committed with the caller's transaction)."""
-    job = Job(user_id=user_id, kind=kind, payload=payload, max_attempts=max_attempts)
+    job = Job(
+        user_id=user_id,
+        kind=kind,
+        payload=payload,
+        max_attempts=max_attempts,
+        run_after=clock.now(),
+    )
     session.add(job)
     return job
 
@@ -67,6 +74,7 @@ async def enqueue_replan(
             kind=REPLAN,
             payload={"trigger": trigger, "detail": detail or {}},
             max_attempts=3,
+            run_after=clock.now(),
         )
         .on_conflict_do_nothing(
             index_elements=["user_id"],

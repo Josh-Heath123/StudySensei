@@ -18,6 +18,7 @@ import httpx
 
 from app.ai.messages import Message, to_wire
 from app.ai.routes import Provider
+from app.core import clock
 
 # Gemini puts the wait in the error body ("retryDelay": "37s") rather than a header.
 _RETRY_DELAY = re.compile(r'"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"')
@@ -186,7 +187,7 @@ def retry_after_seconds(response: httpx.Response, now: datetime | None = None) -
         if when is not None:
             if when.tzinfo is None:
                 when = when.replace(tzinfo=UTC)
-            return max(0.0, (when - (now or datetime.now(UTC))).total_seconds())
+            return max(0.0, (when - (now or clock.now())).total_seconds())
     match = _RETRY_DELAY.search(response.text)
     return float(match.group(1)) if match else None
 

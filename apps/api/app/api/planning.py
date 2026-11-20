@@ -3,12 +3,13 @@ confidence, the plan preview, and the stored plan. Thin: the services in
 ``app/services/planning/`` do the work."""
 
 import uuid
-from datetime import UTC, date, datetime
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Query, status
 
 from app.api.deps import CurrentUser
+from app.core import clock
 from app.core.db import SessionDep
 from app.models import AvailabilityException, AvailabilityRule
 from app.schemas.academics import WorkloadOut
@@ -221,7 +222,7 @@ async def preview_plan(
     """The plan for the next ``days`` local dates (1 to 62, default 28), computed now and not
     stored: each block with its reason and study method in words (written by code, no AI),
     and the feasibility report per assessment and overall."""
-    return await preview(session, user_id=user.id, now=datetime.now(UTC), days=days)
+    return await preview(session, user_id=user.id, now=clock.now(), days=days)
 
 
 # --- the stored plan (decision 0021) ---------------------------------------------------
@@ -238,23 +239,21 @@ async def get_plan(
     the local dates ``from`` to ``to`` (default today to 7 days on; at most 62 days), with
     their status and texts. With no plan yet, this creates version 1 (trigger initial): the
     one GET with a side effect."""
-    return await stored.plan_for(
-        session, user_id=user.id, now=datetime.now(UTC), first=first, last=last
-    )
+    return await stored.plan_for(session, user_id=user.id, now=clock.now(), first=first, last=last)
 
 
 @router.get("/plan/next", response_model=StoredBlockOut | None)
 async def get_next_block(session: SessionDep, user: CurrentUser) -> StoredBlockOut | None:
     """The current plan's next planned block that hasn't ended (one in progress counts), or
     null."""
-    return await stored.next_block(session, user_id=user.id, now=datetime.now(UTC))
+    return await stored.next_block(session, user_id=user.id, now=clock.now())
 
 
 @router.post("/plan/blocks/{block_id}/skip", response_model=PlanVersionOut)
 async def skip_block(block_id: uuid.UUID, session: SessionDep, user: CurrentUser) -> PlanVersionOut:
     """Skip a planned block of the current plan and re-plan at once (its time is placed
     again). 409 for any other block; 404 for one that isn't yours."""
-    version = await replan.skip_block(session, block_id, user_id=user.id, now=datetime.now(UTC))
+    version = await replan.skip_block(session, block_id, user_id=user.id, now=clock.now())
     return await stored.version_out(session, version)
 
 
@@ -262,7 +261,7 @@ async def skip_block(block_id: uuid.UUID, session: SessionDep, user: CurrentUser
 async def replan_now(session: SessionDep, user: CurrentUser) -> PlanVersionOut:
     """Re-plan now (trigger manual). Returns the current version: a new one only if the
     blocks changed."""
-    version = await replan.replan(session, user_id=user.id, now=datetime.now(UTC), trigger="manual")
+    version = await replan.replan(session, user_id=user.id, now=clock.now(), trigger="manual")
     return await stored.version_out(session, version)
 
 
@@ -274,6 +273,6 @@ async def move_block(
     ``start`` (5-minute grid; it keeps its length), then re-plan with it pinned there. 422
     with one sentence if it can't go there; 409 for any other block; 404 if it isn't yours."""
     version = await replan.move_block(
-        session, block_id, data.start, user_id=user.id, now=datetime.now(UTC)
+        session, block_id, data.start, user_id=user.id, now=clock.now()
     )
     return await stored.version_out(session, version)

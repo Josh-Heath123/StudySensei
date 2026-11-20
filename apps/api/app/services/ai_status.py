@@ -1,7 +1,7 @@
 """GET /ai/status (providers, roles and today's usage against each budget) and POST /ai/ping."""
 
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,7 @@ from app.ai.client import LLMClient
 from app.ai.ping import ping_routes
 from app.ai.routes import ROLES, all_routes, providers, routes_for
 from app.ai.usage import count_requests
+from app.core import clock
 from app.core.config import Settings
 from app.schemas.ai import (
     AIModelStatus,
@@ -23,7 +24,7 @@ from app.schemas.ai import (
 async def ai_status(
     session: AsyncSession, settings: Settings, *, user_id: uuid.UUID, now: datetime | None = None
 ) -> AIStatusOut:
-    now = now or datetime.now(UTC)
+    now = now or clock.now()
     provider_rows = [
         AIProviderStatus(
             name=provider.name, configured=provider.configured, key_set=provider.api_key is not None

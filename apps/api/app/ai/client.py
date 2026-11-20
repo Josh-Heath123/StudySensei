@@ -64,6 +64,7 @@ from app.ai.messages import Message, has_images, system, user
 from app.ai.messages import assistant as assistant_message
 from app.ai.routes import AIRole, Route, routes_for
 from app.ai.usage import UsageRecord, UsageStore
+from app.core import clock
 from app.core.config import ReasoningEffort, Settings
 
 log = logging.getLogger("studysensei.ai")
@@ -80,7 +81,7 @@ _FENCE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL)
 
 
 def _now() -> datetime:
-    return datetime.now(UTC)
+    return clock.now()
 
 
 @dataclass(frozen=True)

@@ -4,11 +4,12 @@ extract_topics (one per material) → merge_topics (one per module) → link_top
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime
 
 from sqlalchemy import ColumnElement, and_, case, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import clock
 from app.jobs import queue
 from app.jobs.kinds import EXTRACT_TOPICS, LINK_TOPICS, MERGE_TOPICS
 from app.models import Chunk, Job, Material, Topic, TopicProposal, TopicReview
@@ -126,7 +127,7 @@ async def topic_map_status(
     now: datetime | None = None,
 ) -> TopicMapStatus:
     await get_module(session, module_id, user_id=user_id)
-    now = now or datetime.now(UTC)
+    now = now or clock.now()
     eligible = set(await session.scalars(select(Material.id).where(_eligible(module_id, user_id))))
     analysed = set(
         await session.scalars(

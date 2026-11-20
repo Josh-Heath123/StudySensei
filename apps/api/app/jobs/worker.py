@@ -8,11 +8,12 @@ import asyncio
 import logging
 from collections.abc import Callable, Mapping
 from contextlib import AbstractAsyncContextManager
-from datetime import UTC, datetime
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.errors import AIRequestFailed, AITruncated, AIUnavailable
+from app.core import clock
 from app.core.config import get_settings
 from app.core.db import get_engine, get_sessionmaker
 from app.jobs import queue
@@ -58,7 +59,7 @@ SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 
 
 def _now() -> datetime:
-    return datetime.now(UTC)
+    return clock.now()
 
 
 async def run_once(
