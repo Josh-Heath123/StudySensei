@@ -192,11 +192,16 @@ async def _summary(
     facts: PlanFacts,
     *,
     user_id: uuid.UUID,
+    before: Mapping[str, Any] | None = None,
+    after: Mapping[str, Any] | None = None,
 ) -> str:
-    """The version's one sentence, with names looked up for this user only."""
+    """The version's one sentence, with names looked up for this user only. For a skip,
+    ``before`` and ``after`` (the previous and new reports) say whether the skipped block's
+    assessment is now shorter."""
     tz = facts.timezone
     block_name: str | None = None
     block_start: datetime | None = None
+    short_now: int | None = None
     assessment: str | None = detail.get("name")
     module: str | None = None
     if "block_id" in detail:
@@ -207,6 +212,11 @@ async def _summary(
         )
         if row is not None:
             block_start = row.start_at
+            if trigger == "skip" and before is not None and after is not None:
+                grown = _short(after, row.assessment_id) - _short(before, row.assessment_id)
+                if grown > 0:
+                    short_now = _short(after, row.assessment_id)
+                    assessment = await _assessment_name(session, row.assessment_id, user_id=user_id)
             if row.topic_id is not None:
                 topic = await session.scalar(
                     select(Topic).where(Topic.id == row.topic_id, Topic.user_id == user_id)
@@ -234,7 +244,16 @@ async def _summary(
         minutes=int(minutes) if minutes is not None else None,
         assessment=assessment,
         module=module,
+        short_now=short_now,
     )
+
+
+def _short(report: Mapping[str, Any], assessment_id: uuid.UUID) -> int:
+    """An assessment's short minutes in a stored report (0 if it isn't there)."""
+    for entry in report.get("assessments", []):
+        if entry.get("assessment_id") == str(assessment_id):
+            return int(entry.get("short_minutes", 0))
+    return 0
 
 
 async def _assessment_name(
@@ -324,7 +343,15 @@ async def replan(
         user_id=user_id,
         number=(current.number + 1) if current else 1,
         trigger=trigger,
-        summary=await _summary(session, trigger, detail or {}, data.facts, user_id=user_id),
+        summary=await _summary(
+            session,
+            trigger,
+            detail or {},
+            data.facts,
+            user_id=user_id,
+            before=current.report if current else None,
+            after=report,
+        ),
         generated_at=now,
         checked_at=now,
         days=DEFAULT_DAYS,

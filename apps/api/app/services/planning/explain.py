@@ -270,11 +270,19 @@ def version_summary(
     minutes: int | None = None,
     assessment: str | None = None,
     module: str | None = None,
+    short_now: int | None = None,
 ) -> str:
     """One sentence on why a plan version exists, from its trigger and what it names. A
     missing name falls back to a general sentence; nothing is guessed."""
     if trigger == "skip" and block_name and block_start:
         when = block_when(block_start, timezone)
+        # Only true if the time was placed again: when its assessment is now shorter, say so
+        # (decision 0022).
+        if short_now is not None and assessment:
+            return (
+                f"You skipped {block_name} ({when}). There's no free time left to place it "
+                f"again before {assessment}, which is now {duration(short_now)} short."
+            )
         return f"You skipped {block_name} ({when}): its time is placed again."
     if trigger == "skip":
         return "You skipped a block: its time is placed again."
