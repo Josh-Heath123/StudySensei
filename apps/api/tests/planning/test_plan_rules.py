@@ -1,5 +1,6 @@
 """The planner's rules one at a time, with small hand-made inputs (decision 0017)."""
 
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from itertools import pairwise
 from uuid import UUID
@@ -10,6 +11,7 @@ import pytest
 from app.services.planning.availability import Interval
 from app.services.planning.planner import (
     AssessmentInput,
+    Block,
     Plan,
     PlanInput,
     TopicInput,
@@ -337,3 +339,61 @@ def test_a_single_units_blocks_spread_over_its_evenings() -> None:
     assert max(per_day.values()) <= 2
     assert max(per_day.values()) - min(per_day.values()) <= 1
     assert len(per_day) == 4
+
+
+# --- decision 0021: fixed blocks and minutes studied today -------------------------------
+
+
+def test_fixed_blocks_come_back_unchanged_and_count_as_busy() -> None:
+    test = exam(1, at(5, 9), 1)
+    base_request, base = make(free=evenings(5), assessments=(test,), topics=(topic(1, 300),))
+    first = base.blocks[0]
+    # Keep the first block, but move it: the planner must not touch it or overlap it.
+    moved = replace(
+        first, start=first.start + timedelta(hours=1), end=first.end + timedelta(hours=1)
+    )
+    request = replace(base_request, fixed=(moved,))
+    result = plan(request)
+    check_plan(request, result)
+    assert moved in result.blocks
+    on_its_evening = [b for b in result.blocks if b.start.date() == moved.start.date()]
+    assert all(
+        b == moved
+        or b.end + timedelta(minutes=10) <= moved.start
+        or b.start >= moved.end + timedelta(minutes=10)
+        for b in on_its_evening
+    )
+
+
+def test_a_fixed_study_block_counts_for_its_unit_and_its_day() -> None:
+    test = exam(1, at(5, 9), 1)
+    fixed = Block(at(0, 18), at(0, 18, 50), MODULE, test.id, UUID(int=1), "study", "workload")
+    request = PlanInput(NOW, evenings(5), 600, UTC_ZONE, (test,), (topic(1, 100),), fixed=(fixed,))
+    result = plan(request)
+    check_plan(request, result)
+    study = [b for b in result.blocks if b.topic_id == UUID(int=1)]
+    # 100 minutes: the fixed 50 and one more, on another day (spacing).
+    assert len(study) == 2
+    assert study[1].start.date() != fixed.start.date()
+    assert study[1].reason == "spacing"
+
+
+def test_a_fixed_review_is_the_assessments_final_review() -> None:
+    test = exam(1, at(5, 9), 1)
+    review = Block(at(3, 18), at(3, 18, 50), MODULE, test.id, None, "review", "final_review")
+    request = PlanInput(NOW, evenings(5), 600, UTC_ZONE, (test,), (topic(1),), fixed=(review,))
+    result = plan(request)
+    check_plan(request, result)
+    assert [b for b in result.blocks if b.kind == "review"] == [review]
+
+
+def test_minutes_studied_today_count_against_todays_cap() -> None:
+    test = exam(1, at(5, 9), 1)
+    today = NOW.date()
+    plain = PlanInput(NOW, evenings(5), 120, UTC_ZONE, (test,), (topic(1, 600),))
+    studied = replace(plain, studied_on={today: 80})
+    assert sum(b.minutes for b in plan(plain).blocks if b.start.date() == today) == 100
+    # 80 already studied: only 40 left today, so a 25-minute block at most... none of 50.
+    result = plan(studied)
+    check_plan(studied, result)
+    assert sum(b.minutes for b in result.blocks if b.start.date() == today) <= 40

@@ -1,6 +1,7 @@
 """Property tests for ``plan()`` (decision 0017), with random free time, caps, assessments and
 topics. The properties themselves are in ``plan_checks.py``."""
 
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from random import Random
 from uuid import UUID
@@ -120,7 +121,7 @@ def plan_inputs(draw: st.DrawFn, roomy: bool = False) -> PlanInput:
         assessments.append(
             AssessmentInput(UUID(int=1000 + i), module, due, weight, tuple(topic_ids), kind)
         )
-    return PlanInput(
+    request = PlanInput(
         now=now,
         free=free,
         daily_cap_minutes=draw(st.integers(100, 600) if roomy else st.integers(15, 600)),
@@ -129,6 +130,20 @@ def plan_inputs(draw: st.DrawFn, roomy: bool = False) -> PlanInput:
         topics=topics,
         studied_minutes=studied,
     )
+    return draw(with_fixed(request))
+
+
+@st.composite
+def with_fixed(draw: st.DrawFn, request: PlanInput) -> PlanInput:
+    """Often, the input re-planned (decision 0021): some of its own plan's blocks in the next
+    24 h kept as fixed, and minutes already studied today."""
+    if not draw(st.booleans()):
+        return request
+    soon = [b for b in plan(request).blocks if b.start < request.now + timedelta(hours=24)]
+    fixed = tuple(b for b in soon if draw(st.booleans()))
+    today = request.now.astimezone(request.timezone).date()
+    studied_on = {today: draw(st.integers(0, request.daily_cap_minutes))}
+    return replace(request, fixed=fixed, studied_on=studied_on)
 
 
 @PROPERTY_SETTINGS
@@ -146,6 +161,8 @@ def test_every_plan_keeps_every_property(request: PlanInput) -> None:
         event("has a review")
     if result.shortfalls:
         event("has shortfalls")
+    if request.fixed:
+        event("has fixed blocks")
 
 
 @PROPERTY_SETTINGS
@@ -170,6 +187,8 @@ def test_the_same_input_gives_the_same_plan_in_any_order(request: PlanInput, rng
         ),
         topics=shuffled(request.topics),
         studied_minutes=dict(reversed(list(request.studied_minutes.items()))),
+        fixed=shuffled(request.fixed),
+        studied_on=dict(request.studied_on),
     )
     assert plan(reordered) == first
 

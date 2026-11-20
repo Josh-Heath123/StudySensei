@@ -126,6 +126,7 @@ def driving(request: PlanInput) -> dict[UUID, AssessmentInput]:
 
 
 def check_plan(request: PlanInput, result: Plan) -> None:
+    check_fixed(request, result)
     check_blocks_are_valid(request, result)
     check_daily_cap(request, result)
     check_spacing(request, result)
@@ -147,7 +148,8 @@ def check_blocks_are_valid(request: PlanInput, result: Plan) -> None:
         assert block.minutes in (BLOCK_MINUTES, SHORT_BLOCK_MINUTES), block
         assert start % 5 == 0, block
         assert any(s <= start and end <= e for s, e in spans), f"outside free time: {block}"
-        assert block.start >= request.now, f"in the past: {block}"
+        if block not in request.fixed:
+            assert block.start >= request.now, f"in the past: {block}"
         assessment = by_id[block.assessment_id]
         assert block.end <= assessment.due_at, f"after its deadline: {block}"
         assert block.module_id == assessment.module_id
@@ -159,12 +161,26 @@ def check_blocks_are_valid(request: PlanInput, result: Plan) -> None:
             assert block.topic_id in known_topics(request, assessment), block
 
 
+def check_fixed(request: PlanInput, result: Plan) -> None:
+    """Fixed blocks come back unchanged, once each (decision 0021)."""
+    for block in request.fixed:
+        assert result.blocks.count(block) == 1, f"fixed block changed or lost: {block}"
+
+
 def check_daily_cap(request: PlanInput, result: Plan) -> None:
-    per_day: dict[date, int] = defaultdict(int)
+    """Per local day, new blocks never take the day past the cap, counting its fixed blocks
+    and the minutes already studied that day (decision 0021). Fixed blocks and studied time
+    may already be over it; then the day gets no new block."""
+    new: dict[date, int] = defaultdict(int)
+    busy: dict[date, int] = defaultdict(int, request.studied_on)
     for block in result.blocks:
-        per_day[local_day(block.start, request)] += block.minutes
-    for day, total in per_day.items():
-        assert total <= request.daily_cap_minutes, (day, total)
+        day = local_day(block.start, request)
+        if block in request.fixed:
+            busy[day] += block.minutes
+        else:
+            new[day] += block.minutes
+    for day, minutes in new.items():
+        assert busy[day] + minutes <= request.daily_cap_minutes, (day, busy[day], minutes)
 
 
 def _fits_50s(spans: list[Span]) -> int:
