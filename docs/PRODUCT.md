@@ -96,7 +96,7 @@ StudySensei uses general evidence-based defaults (such as 25–50 minute blocks)
 3. Citations on every tutor answer (slide or page), one click to check.
 4. Weekly availability and a feasibility check ("you need 14 h but have 9 h, so these topics get cut").
 5. Course outline import to create assessments and their scope.
-6. An ICS calendar feed.
+6. An ICS calendar feed (a private link, or a download) and push reminders before each planned block.
 7. A small always-on-top companion window (timer, status, push-to-talk).
 8. A privacy centre: what's collected, retention, export and delete.
 9. A per-user AI budget and usage log.
