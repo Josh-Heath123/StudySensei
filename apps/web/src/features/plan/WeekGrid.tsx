@@ -159,7 +159,9 @@ export function WeekGrid({
     }
   }
 
-  const ghost = drag?.moved ? drag : placed;
+  const ghost: Placed | null = drag?.moved
+    ? { blockId: drag.block.id, date: drag.date, minutes: drag.minutes }
+    : placed;
 
   return (
     <div className="surface-card overflow-hidden rounded-xl" data-testid="week-grid">
