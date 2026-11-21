@@ -144,6 +144,14 @@ class ItemSourceOut(BaseModel):
     page_number: int
 
 
+class ItemPageOut(BaseModel):
+    """A page an item cites, once however many of its passages are cited."""
+
+    material_id: uuid.UUID
+    material_title: str
+    page_number: int
+
+
 class ItemOut(BaseModel):
     id: uuid.UUID
     module_id: uuid.UUID
@@ -161,6 +169,8 @@ class ItemOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     sources: list[ItemSourceOut]
+    # The distinct pages of its sources, in label order (two passages of p7 are one p7).
+    pages: list[ItemPageOut]
     # An AI item whose cited passages were all deleted (with their material).
     sources_missing: bool
 

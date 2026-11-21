@@ -22,7 +22,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Chunk, Material, PracticeItem, PracticeItemSource, Review, Topic
-from app.schemas.practice import ItemCreate, ItemOut, ItemSourceOut, ItemUpdate, ReviewIn
+from app.schemas.practice import (
+    ItemCreate,
+    ItemOut,
+    ItemPageOut,
+    ItemSourceOut,
+    ItemUpdate,
+    ReviewIn,
+)
 from app.services.academics.modules import get_module
 from app.services.errors import Conflict, Invalid, NotFound
 from app.services.practice.filter import prompt_key
@@ -84,6 +91,12 @@ async def sources_of(
     return found
 
 
+def distinct_pages(sources: list[ItemSourceOut]) -> list[ItemPageOut]:
+    """Each (material, page) once, in label order."""
+    pages = dict.fromkeys((s.material_id, s.material_title, s.page_number) for s in sources)
+    return [ItemPageOut(material_id=m, material_title=t, page_number=n) for m, t, n in pages]
+
+
 def item_out(item: PracticeItem, sources: list[ItemSourceOut]) -> ItemOut:
     return ItemOut(
         id=item.id,
@@ -102,6 +115,7 @@ def item_out(item: PracticeItem, sources: list[ItemSourceOut]) -> ItemOut:
         created_at=item.created_at,
         updated_at=item.updated_at,
         sources=sources,
+        pages=distinct_pages(sources),
         # Written by the AI from passages that have all gone (their material was deleted).
         sources_missing=item.provider is not None and not sources,
     )

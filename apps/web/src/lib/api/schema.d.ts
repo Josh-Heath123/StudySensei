@@ -2265,6 +2265,8 @@ export interface components {
       updated_at: string;
       /** Sources */
       sources: components["schemas"]["ItemSourceOut"][];
+      /** Pages */
+      pages: components["schemas"]["ItemPageOut"][];
       /** Sources Missing */
       sources_missing: boolean;
     };
@@ -2274,6 +2276,21 @@ export interface components {
       items: components["schemas"]["ItemOut"][];
       /** Total */
       total: number;
+    };
+    /**
+     * ItemPageOut
+     * @description A page an item cites, once however many of its passages are cited.
+     */
+    ItemPageOut: {
+      /**
+       * Material Id
+       * Format: uuid
+       */
+      material_id: string;
+      /** Material Title */
+      material_title: string;
+      /** Page Number */
+      page_number: number;
     };
     /** ItemSourceOut */
     ItemSourceOut: {

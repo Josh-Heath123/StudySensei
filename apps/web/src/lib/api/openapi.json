@@ -6329,6 +6329,13 @@
             "type": "array",
             "title": "Sources"
           },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/ItemPageOut"
+            },
+            "type": "array",
+            "title": "Pages"
+          },
           "sources_missing": {
             "type": "boolean",
             "title": "Sources Missing"
@@ -6352,6 +6359,7 @@
           "created_at",
           "updated_at",
           "sources",
+          "pages",
           "sources_missing"
         ],
         "title": "ItemOut"
@@ -6376,6 +6384,31 @@
           "total"
         ],
         "title": "ItemPage"
+      },
+      "ItemPageOut": {
+        "properties": {
+          "material_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Material Id"
+          },
+          "material_title": {
+            "type": "string",
+            "title": "Material Title"
+          },
+          "page_number": {
+            "type": "integer",
+            "title": "Page Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "material_id",
+          "material_title",
+          "page_number"
+        ],
+        "title": "ItemPageOut",
+        "description": "A page an item cites, once however many of its passages are cited."
       },
       "ItemSourceOut": {
         "properties": {
