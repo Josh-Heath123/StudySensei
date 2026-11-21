@@ -91,10 +91,18 @@ async def generate(name: str, out: TextIO = sys.stdout) -> int:
                         max_tokens=settings.practice_context_max_tokens,
                     )
                     await pacer.before(sum(estimate_tokens(m.text) for m in prepared.messages))
+                    seen = len(usage.rows)
                     try:
                         reply = await ask(client, prepared, user_id=user_id)
                     except (GenerationFailed, AIUnavailable) as exc:
                         print(f"{topic_name}: failed ({exc})", file=out)
+                        # Why (what didn't validate, or the provider's status): no course text.
+                        for row in usage.rows[seen:]:
+                            if row.outcome != "ok" and row.detail:
+                                print(
+                                    f"  {row.provider}/{row.model} {row.outcome}: {row.detail}",
+                                    file=out,
+                                )
                         totals["topics"].append({"requested": count, "failed": True})
                         totals["requested"] += count
                         continue
