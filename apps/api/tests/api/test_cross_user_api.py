@@ -736,3 +736,103 @@ async def test_calendar_feeds_are_per_user(
     mine = (await bob_api.post("/calendar/feed")).json()["url"]
     assert mine != url
     assert (await alice_api.get(f"/calendar/{token}.ics")).status_code == 200
+
+
+# --- Practice items (ADR 0025) ----------------------------------------------------------
+
+PRACTICE_ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
+    ("POST", "/topics/{topic}/practice/generate", {"count": 4}),
+    ("GET", "/topics/{topic}/practice/generations", None),
+    (
+        "POST",
+        "/practice/items",
+        {"module_id": "{module}", "kind": "flashcard", "prompt": "Planted?", "answer": "Yes."},
+    ),
+    # His card on her topic.
+    (
+        "POST",
+        "/practice/items",
+        {
+            "module_id": "{my_module}",
+            "topic_id": "{topic}",
+            "kind": "flashcard",
+            "prompt": "Planted?",
+            "answer": "Yes.",
+        },
+    ),
+    ("PATCH", "/practice/items/{item}", {"prompt": "Hacked?"}),
+    ("PATCH", "/practice/items/{item}", {"status": "rejected", "reject_reason": "wrong"}),
+    # Moving his card to her topic.
+    ("PATCH", "/practice/items/{my_item}", {"topic_id": "{topic}"}),
+    ("DELETE", "/practice/items/{item}", None),
+    ("POST", "/practice/items/{item}/reviews", {"grade": 3}),
+    ("GET", "/practice/items/{item}/reviews", None),
+]
+
+
+async def _card(api: AsyncClient, rows: Rows) -> str:
+    response = await api.post(
+        "/practice/items",
+        json={
+            "module_id": str(rows.module.id),
+            "topic_id": str(rows.topic.id),
+            "kind": "flashcard",
+            "prompt": "What is a microservice?",
+            "answer": "A small service.",
+        },
+    )
+    assert response.status_code == 201
+    await api.post(f"/practice/items/{response.json()['id']}/reviews", json={"grade": 2})
+    return str(response.json()["id"])
+
+
+async def _practice_snapshot(api: AsyncClient, rows: Rows, item: str) -> tuple[Any, ...]:
+    return (
+        (await api.get("/practice/items")).json(),
+        (await api.get(f"/practice/items/{item}/reviews")).json(),
+        (await api.get(f"/topics/{rows.topic.id}/practice/generations")).json(),
+        (await api.get(f"/modules/{rows.module.id}/topics")).json(),
+    )
+
+
+@pytest.mark.parametrize(("method", "path", "body"), PRACTICE_ATTEMPTS)
+async def test_bob_cant_reach_alices_practice(
+    alice_api: AsyncClient,
+    bob_api: AsyncClient,
+    alice: Rows,
+    bob: Rows,
+    method: str,
+    path: str,
+    body: dict[str, Any] | None,
+) -> None:
+    her_item, his_item = await _card(alice_api, alice), await _card(bob_api, bob)
+
+    async def snapshots() -> tuple[Any, ...]:
+        return (
+            await _practice_snapshot(alice_api, alice, her_item),
+            await _practice_snapshot(bob_api, bob, his_item),
+        )
+
+    before = await snapshots()
+    mine = {"my_module": str(bob.module.id), "my_topic": str(bob.topic.id), "my_item": his_item}
+    hers = {"module": str(alice.module.id), "topic": str(alice.topic.id), "item": her_item}
+    missing = {key: str(uuid.uuid4()) for key in hers}
+    attempt = await bob_api.request(
+        method, fill(path, {**hers, **mine}), json=fill(body, {**hers, **mine})
+    )
+    baseline = await bob_api.request(
+        method, fill(path, {**missing, **mine}), json=fill(body, {**missing, **mine})
+    )
+    assert attempt.status_code == 404
+    assert (attempt.status_code, attempt.json()) == (baseline.status_code, baseline.json())
+    assert await snapshots() == before
+
+
+async def test_practice_lists_hold_only_your_own_items(
+    alice_api: AsyncClient, bob_api: AsyncClient, alice: Rows, bob: Rows
+) -> None:
+    hers, his = await _card(alice_api, alice), await _card(bob_api, bob)
+    for params in ({}, {"module_id": str(alice.module.id)}, {"topic_id": str(alice.topic.id)}):
+        listed = (await bob_api.get("/practice/items", params=params)).json()
+        assert hers not in {i["id"] for i in listed["items"]}
+    assert [i["id"] for i in (await bob_api.get("/practice/items")).json()["items"]] == [his]

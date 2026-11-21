@@ -1403,6 +1403,118 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/topics/{topic_id}/practice/generate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Generate
+     * @description Queue the AI to write ``count`` items (4 to 12, default 8) from the topic's linked
+     *     slides and notes (AI-allowed only). 409 while one is queued or running for the topic;
+     *     422 when no eligible source is linked to it.
+     */
+    post: operations["generate_topics__topic_id__practice_generate_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/topics/{topic_id}/practice/generations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Generations
+     * @description The topic's last 10 generations, newest first.
+     */
+    get: operations["list_generations_topics__topic_id__practice_generations_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/practice/items": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Items
+     * @description Your items, newest first, each with its sources (label, material, page).
+     */
+    get: operations["list_items_practice_items_get"];
+    put?: never;
+    /**
+     * Create Item
+     * @description Your own card or question (origin user).
+     */
+    post: operations["create_item_practice_items_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/practice/items/{item_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete Item */
+    delete: operations["delete_item_practice_items__item_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Item
+     * @description Editing an AI item's text makes it yours (origin user); its sources stay. Rejecting
+     *     needs a ``reject_reason``.
+     */
+    patch: operations["update_item_practice_items__item_id__patch"];
+    trace?: never;
+  };
+  "/practice/items/{item_id}/reviews": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Reviews
+     * @description The item's reviews, newest first.
+     */
+    get: operations["list_reviews_practice_items__item_id__reviews_get"];
+    put?: never;
+    /**
+     * Add Review
+     * @description Record a self-marked answer: grade 1 (again) to 4 (easy). Reviews are never changed.
+     */
+    post: operations["add_review_practice_items__item_id__reviews_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/ai/status": {
     parameters: {
       query?: never;
@@ -1970,6 +2082,58 @@ export interface components {
       /** Basis */
       basis: string;
     };
+    /** GenerateIn */
+    GenerateIn: {
+      /**
+       * Count
+       * @default 8
+       */
+      count: number;
+    };
+    /** GenerationOut */
+    GenerationOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Module Id
+       * Format: uuid
+       */
+      module_id: string;
+      /**
+       * Topic Id
+       * Format: uuid
+       */
+      topic_id: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "queued" | "running" | "succeeded" | "failed";
+      /** Requested */
+      requested: number;
+      /** Produced */
+      produced: number;
+      /** Dropped */
+      dropped: {
+        [key: string]: number;
+      };
+      /** Provider */
+      provider: string | null;
+      /** Model */
+      model: string | null;
+      /** Error */
+      error: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Finished At */
+      finished_at: string | null;
+    };
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
@@ -2021,6 +2185,128 @@ export interface components {
       topic_id: string | null;
       /** Text */
       text: string;
+    };
+    /**
+     * ItemCreate
+     * @description The student's own card or question.
+     */
+    ItemCreate: {
+      /**
+       * Module Id
+       * Format: uuid
+       */
+      module_id: string;
+      /** Topic Id */
+      topic_id?: string | null;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "flashcard" | "short_answer";
+      /** Prompt */
+      prompt: string;
+      /** Answer */
+      answer: string;
+      /** Key Points */
+      key_points?: string[] | null;
+    };
+    /** ItemOut */
+    ItemOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Module Id
+       * Format: uuid
+       */
+      module_id: string;
+      /** Topic Id */
+      topic_id: string | null;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "flashcard" | "short_answer";
+      /** Prompt */
+      prompt: string;
+      /** Answer */
+      answer: string;
+      /** Key Points */
+      key_points: string[] | null;
+      /**
+       * Origin
+       * @enum {string}
+       */
+      origin: "ai" | "user";
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "active" | "suspended" | "rejected";
+      /** Reject Reason */
+      reject_reason: ("wrong" | "unclear" | "not_in_source" | "duplicate" | "other") | null;
+      /** Provider */
+      provider: string | null;
+      /** Model */
+      model: string | null;
+      /** Generation Id */
+      generation_id: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Sources */
+      sources: components["schemas"]["ItemSourceOut"][];
+      /** Sources Missing */
+      sources_missing: boolean;
+    };
+    /** ItemPage */
+    ItemPage: {
+      /** Items */
+      items: components["schemas"]["ItemOut"][];
+      /** Total */
+      total: number;
+    };
+    /** ItemSourceOut */
+    ItemSourceOut: {
+      /** Label */
+      label: string;
+      /**
+       * Material Id
+       * Format: uuid
+       */
+      material_id: string;
+      /** Material Title */
+      material_title: string;
+      /** Page Number */
+      page_number: number;
+    };
+    /**
+     * ItemUpdate
+     * @description Text edits make an AI item the student's (decision 0009). ``reject_reason`` is
+     *     required when, and only when, the status becomes rejected.
+     */
+    ItemUpdate: {
+      /** Prompt */
+      prompt?: string | null;
+      /** Answer */
+      answer?: string | null;
+      /** Key Points */
+      key_points?: string[] | null;
+      /** Topic Id */
+      topic_id?: string | null;
+      /** Status */
+      status?: ("active" | "suspended" | "rejected") | null;
+      /** Reject Reason */
+      reject_reason?: ("wrong" | "unclear" | "not_in_source" | "duplicate" | "other") | null;
     };
     /** KeptCount */
     KeptCount: {
@@ -2699,6 +2985,47 @@ export interface components {
       covered_notes?: string | null;
       /** Topic Ratings */
       topic_ratings?: components["schemas"]["TopicRatingIn"][];
+    };
+    /** ReviewIn */
+    ReviewIn: {
+      /**
+       * Grade
+       * @description 1 again, 2 hard, 3 good, 4 easy
+       */
+      grade: number;
+      /** Duration Ms */
+      duration_ms?: number | null;
+      /** Answer Text */
+      answer_text?: string | null;
+    };
+    /** ReviewOut */
+    ReviewOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Item Id
+       * Format: uuid
+       */
+      item_id: string;
+      /**
+       * Reviewed At
+       * Format: date-time
+       */
+      reviewed_at: string;
+      /** Grade */
+      grade: number;
+      /**
+       * Marked By
+       * @enum {string}
+       */
+      marked_by: "self" | "ai";
+      /** Duration Ms */
+      duration_ms: number | null;
+      /** Answer Text */
+      answer_text: string | null;
     };
     /** RuleCreate */
     RuleCreate: {
@@ -6129,6 +6456,271 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  generate_topics__topic_id__practice_generate_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        topic_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["GenerateIn"] | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GenerationOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_generations_topics__topic_id__practice_generations_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        topic_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GenerationOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_items_practice_items_get: {
+    parameters: {
+      query?: {
+        module_id?: string | null;
+        topic_id?: string | null;
+        status?: ("active" | "suspended" | "rejected") | null;
+        origin?: ("ai" | "user") | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ItemPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_item_practice_items_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ItemCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ItemOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_item_practice_items__item_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        item_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_item_practice_items__item_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        item_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ItemUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ItemOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_reviews_practice_items__item_id__reviews_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        item_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  add_review_practice_items__item_id__reviews_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        item_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReviewIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewOut"];
+        };
       };
       /** @description Validation Error */
       422: {
