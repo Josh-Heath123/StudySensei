@@ -21,6 +21,7 @@ from app.jobs.context import Handler, JobContext, JobError
 from app.jobs.kinds import (
     EXTRACT_TEXT,
     EXTRACT_TOPICS,
+    GENERATE_PRACTICE,
     INDEX_MATERIAL,
     LINK_TOPICS,
     MERGE_TOPICS,
@@ -30,6 +31,7 @@ from app.jobs.kinds import (
 from app.jobs.tasks import (
     extract_text,
     extract_topics,
+    generate_practice,
     index_material,
     link_topics,
     merge_topics,
@@ -52,6 +54,7 @@ HANDLERS: Mapping[str, Handler] = {
     LINK_TOPICS: Handler(run=link_topics.run),
     REPLAN: Handler(run=replan.run),
     PUSH_REMINDER: Handler(run=push_reminder.run),
+    GENERATE_PRACTICE: Handler(run=generate_practice.run, on_failure=generate_practice.on_failure),
 }
 # How often the main loop looks for users due a nightly re-plan (decision 0021) and for
 # blocks due a push reminder (decision 0024), and prunes old reminder records.
