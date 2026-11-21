@@ -7,7 +7,7 @@ import { useMoveBlock, type PlanBlock } from "./api";
 import { BlockPopover } from "./BlockPopover";
 import { DayMenu } from "./DayMenu";
 import { PlanBlockCard } from "./PlanBlockCard";
-import { clock, dayLabel, fromZoned, hourRange, snap5, zoned, type Span } from "./week";
+import { cardHeight, clock, dayLabel, fromZoned, hourRange, snap5, zoned, type Span } from "./week";
 
 /** Pixels per minute: a 50-minute block is 55 px tall. */
 export const PX_PER_MINUTE = 1.1;
@@ -286,7 +286,7 @@ export function WeekGrid({
                 const dragging = ghost?.blockId === block.id || drag?.block.id === block.id;
                 const style = {
                   top: (start.minutes - top) * PX_PER_MINUTE,
-                  height: block.minutes * PX_PER_MINUTE,
+                  height: cardHeight(block, PX_PER_MINUTE),
                 };
                 return (
                   <div
