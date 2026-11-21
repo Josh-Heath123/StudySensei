@@ -209,6 +209,8 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 - [ ] Per-user AI budgets and bring-your-own-key (encrypted)
 - [ ] Error monitoring, backups and a restore drill
 - [ ] POPIA review
+- [ ] Restrict push subscription endpoints to known push-service hosts (the worker posts to whatever https URL a browser gives it)
+- [ ] Rate-limit the public calendar route (`GET /calendar/{token}.ics`)
 
 **Done when:** classmates use it for 2 weeks with no data or privacy incidents.
 
