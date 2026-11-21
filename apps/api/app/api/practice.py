@@ -18,10 +18,16 @@ from app.schemas.practice import (
     ItemPage,
     ItemStatus,
     ItemUpdate,
+    PracticeSettingsOut,
+    PracticeSettingsUpdate,
+    PreviewOut,
+    QueueOut,
     ReviewIn,
     ReviewOut,
+    ReviewResultOut,
+    ScheduledOut,
 )
-from app.services.practice import generation, items
+from app.services.practice import generation, items, queue, reviewing
 
 router = APIRouter(tags=["practice"])
 
@@ -96,14 +102,66 @@ async def delete_item(item_id: uuid.UUID, session: SessionDep, user: CurrentUser
 
 @router.post(
     "/practice/items/{item_id}/reviews",
-    response_model=ReviewOut,
+    response_model=ReviewResultOut,
     status_code=status.HTTP_201_CREATED,
 )
 async def add_review(
     item_id: uuid.UUID, data: ReviewIn, session: SessionDep, user: CurrentUser
-) -> Review:
-    """Record a self-marked answer: grade 1 (again) to 4 (easy). Reviews are never changed."""
-    return await items.add_review(session, item_id, data, user_id=user.id, now=clock.now())
+) -> ReviewResultOut:
+    """Record a self-marked answer, grade 1 (again) to 4 (easy), and schedule the item with
+    FSRS. 409 for a suspended or rejected item. Returns the review, the new due time and
+    the queue's counts. Reviews are never changed."""
+    now = clock.now()
+    done = await reviewing.review_item(session, item_id, data, user_id=user.id, now=now)
+    review = ReviewOut.model_validate(done.review)
+    counts = await queue.queue_counts(session, user_id=user.id, now=now)
+    return ReviewResultOut(
+        review=review,
+        scheduled=ScheduledOut(
+            state=done.state.state, due=done.state.due, scheduled_days=done.scheduled_days
+        ),
+        counts=counts,
+    )
+
+
+@router.get("/practice/items/{item_id}/preview", response_model=PreviewOut)
+async def preview(item_id: uuid.UUID, session: SessionDep, user: CurrentUser) -> PreviewOut:
+    """For each grade, when the item would be due if reviewed now, and as a short label."""
+    return await reviewing.preview(session, item_id, user_id=user.id, now=clock.now())
+
+
+@router.get("/practice/queue", response_model=QueueOut)
+async def review_queue(
+    session: SessionDep,
+    user: CurrentUser,
+    module_id: uuid.UUID | None = None,
+    topic_id: uuid.UUID | None = None,
+    limit: Annotated[int, Query(ge=1, le=queue.MAX_LIMIT)] = queue.DEFAULT_LIMIT,
+) -> QueueOut:
+    """Due items (oldest due first), then new items up to today's allowance (oldest first),
+    with the counts."""
+    found, counts = await queue.review_queue(
+        session,
+        user_id=user.id,
+        now=clock.now(),
+        scope=queue.Scope(module_id=module_id, topic_id=topic_id),
+        limit=limit,
+    )
+    return QueueOut(items=found, counts=counts)
+
+
+@router.get("/practice/settings", response_model=PracticeSettingsOut)
+async def get_settings(session: SessionDep, user: CurrentUser) -> PracticeSettingsOut:
+    return await queue.get_settings(session, user_id=user.id)
+
+
+@router.patch("/practice/settings", response_model=PracticeSettingsOut)
+async def update_settings(
+    data: PracticeSettingsUpdate, session: SessionDep, user: CurrentUser
+) -> PracticeSettingsOut:
+    """New items a day (0-200) and desired retention (0.80-0.97). A new retention applies to
+    later reviews only."""
+    return await queue.update_settings(session, data, user_id=user.id)
 
 
 @router.get("/practice/items/{item_id}/reviews", response_model=list[ReviewOut])

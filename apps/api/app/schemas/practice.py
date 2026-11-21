@@ -173,6 +173,8 @@ class ItemOut(BaseModel):
     pages: list[ItemPageOut]
     # An AI item whose cited passages were all deleted (with their material).
     sources_missing: bool
+    # FSRS (decision 0026): where the item stands now.
+    memory: "MemoryOut"
 
 
 class ItemPage(BaseModel):
@@ -196,3 +198,92 @@ class ReviewOut(BaseModel):
     marked_by: Literal["self", "ai"]
     duration_ms: int | None
     answer_text: str | None
+    # Null on reviews from before scheduling (task 1).
+    scheduled_days: int | None
+    fsrs_version: str | None
+
+
+# --- FSRS scheduling and the queue (decision 0026) ------------------------------------
+
+MemoryStateName = Literal["new", "learning", "review", "relearning"]
+
+
+class Estimate(BaseModel):
+    """A number shown to the student: always estimated here, with its sample size."""
+
+    value: float
+    label: Literal["estimated"] = "estimated"
+    # Reviews it rests on.
+    sample_size: int
+
+
+class MemoryOut(BaseModel):
+    state: MemoryStateName
+    due: datetime | None
+    stability: float | None
+    difficulty: float | None
+    # FSRS's R at the time of the request: the estimated chance of recalling it now.
+    retrievability: Estimate | None
+    reps: int
+    lapses: int
+
+
+ItemOut.model_rebuild()
+
+
+class ScheduledOut(BaseModel):
+    state: MemoryStateName
+    due: datetime
+    scheduled_days: int
+
+
+class QueueCounts(BaseModel):
+    # Active items due now.
+    due_now: int
+    # New items still allowed today (the daily allowance less new items first reviewed today).
+    new_today_left: int
+    # Active items never reviewed.
+    new_total: int
+    # The earliest due time after now, for "next review in 3 h".
+    next_due_at: datetime | None
+
+
+class QueueOut(BaseModel):
+    items: list[ItemOut]
+    counts: QueueCounts
+
+
+class ReviewResultOut(BaseModel):
+    review: ReviewOut
+    scheduled: ScheduledOut
+    counts: QueueCounts
+
+
+GradeName = Literal["again", "hard", "good", "easy"]
+
+
+class PreviewOption(BaseModel):
+    grade: int
+    name: GradeName
+    due: datetime
+    # "1 min", "10 min", "1 day", "4 days".
+    interval: str
+
+
+class PreviewOut(BaseModel):
+    at: datetime
+    options: list[PreviewOption]
+
+
+Retention = Annotated[float, Field(ge=0.8, le=0.97)]
+NewPerDay = Annotated[int, Field(ge=0, le=200)]
+
+
+class PracticeSettingsOut(BaseModel):
+    new_per_day: int
+    desired_retention: float
+
+
+class PracticeSettingsUpdate(_Update):
+    new_per_day: NewPerDay | None = None
+    desired_retention: Retention | None = None

@@ -1506,13 +1506,78 @@ export interface paths {
     put?: never;
     /**
      * Add Review
-     * @description Record a self-marked answer: grade 1 (again) to 4 (easy). Reviews are never changed.
+     * @description Record a self-marked answer, grade 1 (again) to 4 (easy), and schedule the item with
+     *     FSRS. 409 for a suspended or rejected item. Returns the review, the new due time and
+     *     the queue's counts. Reviews are never changed.
      */
     post: operations["add_review_practice_items__item_id__reviews_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
+    trace?: never;
+  };
+  "/practice/items/{item_id}/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Preview
+     * @description For each grade, when the item would be due if reviewed now, and as a short label.
+     */
+    get: operations["preview_practice_items__item_id__preview_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/practice/queue": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Review Queue
+     * @description Due items (oldest due first), then new items up to today's allowance (oldest first),
+     *     with the counts.
+     */
+    get: operations["review_queue_practice_queue_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/practice/settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Settings */
+    get: operations["get_settings_practice_settings_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Settings
+     * @description New items a day (0-200) and desired retention (0.80-0.97). A new retention applies to
+     *     later reviews only.
+     */
+    patch: operations["update_settings_practice_settings_patch"];
     trace?: never;
   };
   "/ai/status": {
@@ -1977,6 +2042,22 @@ export interface components {
       retry_at?: string | null;
     };
     /**
+     * Estimate
+     * @description A number shown to the student: always estimated here, with its sample size.
+     */
+    Estimate: {
+      /** Value */
+      value: number;
+      /**
+       * Label
+       * @default estimated
+       * @constant
+       */
+      label: "estimated";
+      /** Sample Size */
+      sample_size: number;
+    };
+    /**
      * EventBatch
      * @description Events to add, in any order. Ids already stored are skipped if unchanged.
      */
@@ -2269,6 +2350,7 @@ export interface components {
       pages: components["schemas"]["ItemPageOut"][];
       /** Sources Missing */
       sources_missing: boolean;
+      memory: components["schemas"]["MemoryOut"];
     };
     /** ItemPage */
     ItemPage: {
@@ -2494,6 +2576,25 @@ export interface components {
         | null;
       /** Allow Ai */
       allow_ai?: boolean | null;
+    };
+    /** MemoryOut */
+    MemoryOut: {
+      /**
+       * State
+       * @enum {string}
+       */
+      state: "new" | "learning" | "review" | "relearning";
+      /** Due */
+      due: string | null;
+      /** Stability */
+      stability: number | null;
+      /** Difficulty */
+      difficulty: number | null;
+      retrievability: components["schemas"]["Estimate"] | null;
+      /** Reps */
+      reps: number;
+      /** Lapses */
+      lapses: number;
     };
     /** MergeInto */
     MergeInto: {
@@ -2893,6 +2994,47 @@ export interface components {
       /** Reminder Minutes */
       reminder_minutes?: (5 | 10 | 15 | 30) | null;
     };
+    /** PracticeSettingsOut */
+    PracticeSettingsOut: {
+      /** New Per Day */
+      new_per_day: number;
+      /** Desired Retention */
+      desired_retention: number;
+    };
+    /** PracticeSettingsUpdate */
+    PracticeSettingsUpdate: {
+      /** New Per Day */
+      new_per_day?: number | null;
+      /** Desired Retention */
+      desired_retention?: number | null;
+    };
+    /** PreviewOption */
+    PreviewOption: {
+      /** Grade */
+      grade: number;
+      /**
+       * Name
+       * @enum {string}
+       */
+      name: "again" | "hard" | "good" | "easy";
+      /**
+       * Due
+       * Format: date-time
+       */
+      due: string;
+      /** Interval */
+      interval: string;
+    };
+    /** PreviewOut */
+    PreviewOut: {
+      /**
+       * At
+       * Format: date-time
+       */
+      at: string;
+      /** Options */
+      options: components["schemas"]["PreviewOption"][];
+    };
     /**
      * PushConfigOut
      * @description Whether the server can send push (its VAPID keys are set), and the public key the
@@ -2961,6 +3103,23 @@ export interface components {
     PushTestOut: {
       /** Devices */
       devices: components["schemas"]["PushDeviceOutcomeOut"][];
+    };
+    /** QueueCounts */
+    QueueCounts: {
+      /** Due Now */
+      due_now: number;
+      /** New Today Left */
+      new_today_left: number;
+      /** New Total */
+      new_total: number;
+      /** Next Due At */
+      next_due_at: string | null;
+    };
+    /** QueueOut */
+    QueueOut: {
+      /** Items */
+      items: components["schemas"]["ItemOut"][];
+      counts: components["schemas"]["QueueCounts"];
     };
     /**
      * Quiz
@@ -3043,6 +3202,16 @@ export interface components {
       duration_ms: number | null;
       /** Answer Text */
       answer_text: string | null;
+      /** Scheduled Days */
+      scheduled_days: number | null;
+      /** Fsrs Version */
+      fsrs_version: string | null;
+    };
+    /** ReviewResultOut */
+    ReviewResultOut: {
+      review: components["schemas"]["ReviewOut"];
+      scheduled: components["schemas"]["ScheduledOut"];
+      counts: components["schemas"]["QueueCounts"];
     };
     /** RuleCreate */
     RuleCreate: {
@@ -3081,6 +3250,21 @@ export interface components {
       start?: string | null;
       /** End */
       end?: string | null;
+    };
+    /** ScheduledOut */
+    ScheduledOut: {
+      /**
+       * State
+       * @enum {string}
+       */
+      state: "new" | "learning" | "review" | "relearning";
+      /**
+       * Due
+       * Format: date-time
+       */
+      due: string;
+      /** Scheduled Days */
+      scheduled_days: number;
     };
     /** SearchOut */
     SearchOut: {
@@ -6736,7 +6920,124 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["ReviewOut"];
+          "application/json": components["schemas"]["ReviewResultOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  preview_practice_items__item_id__preview_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        item_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PreviewOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  review_queue_practice_queue_get: {
+    parameters: {
+      query?: {
+        module_id?: string | null;
+        topic_id?: string | null;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["QueueOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_settings_practice_settings_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PracticeSettingsOut"];
+        };
+      };
+    };
+  };
+  update_settings_practice_settings_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PracticeSettingsUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PracticeSettingsOut"];
         };
       };
       /** @description Validation Error */
