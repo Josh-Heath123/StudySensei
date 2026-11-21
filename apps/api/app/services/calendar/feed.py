@@ -128,9 +128,7 @@ async def calendar_events(
             description=(
                 done_description(active_seconds=done_seconds)
                 if done_seconds is not None
-                else event_description(
-                    method_text=block.method_text, reason_text=block.reason_text
-                )
+                else event_description(method_text=block.method_text, reason_text=block.reason_text)
             ),
         )
 

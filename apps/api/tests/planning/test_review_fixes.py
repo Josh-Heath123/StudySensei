@@ -46,7 +46,6 @@ async def test_deleting_an_assessment_writes_a_version_even_if_the_blocks_are_eq
     assert str(later.id) not in {a["assessment_id"] for a in second.report["later"]}
 
 
-
 def test_a_changed_assessment_still_reads_changed() -> None:
     tz = ZoneInfo("Africa/Johannesburg")
     assert version_summary("assessment", timezone=tz, assessment="COS330 Test") == (
