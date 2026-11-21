@@ -135,7 +135,9 @@ def events_of(log: list[tuple[int, int, float]]) -> list[ReviewEvent]:
 def step_by_step(events: list[ReviewEvent]) -> MemoryState | None:
     state: MemoryState | None = None
     for event in events:
-        state, _ = schedule(state, event.grade, event.at, SchedulingSettings(event.retention))
+        state, _ = schedule(
+            state, event.grade, event.at, SchedulingSettings(event.retention or 0.9)
+        )
     return state
 
 
