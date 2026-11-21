@@ -37,7 +37,7 @@ from app.jobs.tasks import (
     replan,
 )
 from app.services.planning.replan import queue_nightly_replans
-from app.services.push.reminders import queue_reminders
+from app.services.push.reminders import prune_reminders_sent, queue_reminders
 from app.services.search.embedding import get_embedder
 from app.storage.base import Storage
 from app.storage.local import get_storage
@@ -54,7 +54,7 @@ HANDLERS: Mapping[str, Handler] = {
     PUSH_REMINDER: Handler(run=push_reminder.run),
 }
 # How often the main loop looks for users due a nightly re-plan (decision 0021) and for
-# blocks due a push reminder (decision 0024).
+# blocks due a push reminder (decision 0024), and prunes old reminder records.
 NIGHTLY_CHECK_SECONDS = 60.0
 
 UNEXPECTED = "Something went wrong while processing this file. It will be retried."
@@ -145,6 +145,10 @@ async def main() -> None:
                         reminders = await queue_reminders(session, _now())
                     if reminders:
                         log.info("Queued %s push reminder(s)", reminders)
+                    async with sessions() as session:
+                        pruned = await prune_reminders_sent(session, _now())
+                    if pruned:
+                        log.info("Pruned %s reminder record(s) over 30 days old", pruned)
                 ran = await run_once(sessions, storage)
                 failures = 0
             except Exception:

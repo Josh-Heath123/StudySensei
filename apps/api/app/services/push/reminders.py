@@ -15,7 +15,7 @@ import uuid
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import delete, exists, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,6 +34,9 @@ from app.models import (
 )
 from app.services.push.payload import reminder_payload, slot_key
 from app.services.push.sender import push_enabled
+
+# A slot is reminded only while its block is ahead, so a row this old can never stop a reminder.
+KEEP_SENT = timedelta(days=30)
 
 
 async def queue_reminders(session: AsyncSession, now: datetime) -> int:
@@ -120,3 +123,16 @@ async def _queue_for(
         )
         queued += 1
     return queued
+
+
+async def prune_reminders_sent(session: AsyncSession, now: datetime) -> int:
+    """Delete ``reminders_sent`` rows sent more than 30 days ago (every user's: they only
+    stop a slot being reminded twice). Returns how many were deleted."""
+    deleted = await session.execute(
+        delete(ReminderSent)
+        .where(ReminderSent.sent_at < now - KEEP_SENT)
+        .returning(ReminderSent.id)
+    )
+    count = len(deleted.all())
+    await session.commit()
+    return count

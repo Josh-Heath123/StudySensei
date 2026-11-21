@@ -11,9 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.jobs.kinds import PUSH_REMINDER
 from app.jobs.worker import run_once
-from app.models import AvailabilityException, Job, PlanBlock, PushSubscription, User
+from app.models import (
+    AvailabilityException,
+    Job,
+    PlanBlock,
+    PushSubscription,
+    ReminderSent,
+    User,
+)
 from app.services.planning.replan import move_block, replan
-from app.services.push.reminders import queue_reminders
+from app.services.push.reminders import prune_reminders_sent, queue_reminders
 from app.services.push.sender import FakePushSender
 from app.services.push.subscriptions import upsert
 from app.storage.base import Storage
@@ -238,3 +245,19 @@ async def test_a_reminder_for_a_started_block_is_dropped_without_sending(
     [job] = await reminder_jobs(session, user_a)
     await session.refresh(job)
     assert job.status == "succeeded"  # dropped, not failed: nothing to retry
+
+
+async def test_reminder_records_over_30_days_old_are_pruned(
+    session: AsyncSession, user_a: User, user_b: User
+) -> None:
+    now = NOW
+    for user, days in ((user_a, 31), (user_a, 29), (user_b, 45), (user_b, 1)):
+        session.add(
+            ReminderSent(
+                user_id=user.id, slot_key=f"{user.id}-{days}", sent_at=now - timedelta(days=days)
+            )
+        )
+    await session.commit()
+    assert await prune_reminders_sent(session, now) == 2
+    left = await session.scalars(select(ReminderSent.slot_key).order_by(ReminderSent.sent_at))
+    assert list(left) == [f"{user_a.id}-29", f"{user_b.id}-1"]
