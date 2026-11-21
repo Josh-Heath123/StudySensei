@@ -273,6 +273,7 @@ def version_summary(
     module: str | None = None,
     short_now: int | None = None,
     moved_to: datetime | None = None,
+    assessment_deleted: bool = False,
 ) -> str:
     """One sentence on why a plan version exists, from its trigger and what it names. A
     missing name falls back to a general sentence; nothing is guessed."""
@@ -306,6 +307,8 @@ def version_summary(
         return f"You finished a block on {block_name}{measured}."
     if trigger == "finish":
         return "You finished a block."
+    if trigger == "assessment" and assessment_deleted:
+        return f"{assessment} was deleted." if assessment else "An assessment was deleted."
     if trigger == "assessment":
         return f"{assessment} changed." if assessment else "An assessment changed."
     if trigger == "topic":

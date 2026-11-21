@@ -37,10 +37,13 @@ def test_models_match_migrations(migrated_db: None) -> None:
 COMPOSITE_PARENTS = {
     "plan_versions": set(),
     "plan_blocks": {"plan_versions", "modules", "assessments", "topics"},
+    # Practice (ADR 0025); their topic FKs go through module_id.
+    "practice_generations": {"modules"},
+    "practice_items": {"modules", "practice_generations"},
 }
 
 
-def test_plan_tables_are_isolated_by_composite_keys() -> None:
+def test_plan_and_practice_tables_are_isolated_by_composite_keys() -> None:
     tables = {table.name: table for table in Base.metadata.sorted_tables}
     for name, parents in COMPOSITE_PARENTS.items():
         table = tables[name]

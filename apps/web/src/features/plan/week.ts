@@ -130,3 +130,16 @@ export function startsWithin(spans: Span[], length: number): number[] {
   }
   return out;
 }
+
+/** A done card is at least this tall, so a very short session is still a card you can see and
+ * click (a 4-second one was a 14 px sliver under the next card). */
+export const MIN_DONE_CARD_PX = 24;
+
+/** A grid card's height: its minutes at ``pxPerMinute``; at least MIN_DONE_CARD_PX if done. */
+export function cardHeight(
+  block: { minutes: number; status: string },
+  pxPerMinute: number,
+): number {
+  const height = block.minutes * pxPerMinute;
+  return block.status === "done" ? Math.max(MIN_DONE_CARD_PX, height) : height;
+}

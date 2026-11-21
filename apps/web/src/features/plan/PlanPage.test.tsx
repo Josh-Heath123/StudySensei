@@ -7,6 +7,7 @@ import { renderApp } from "@/test/render";
 
 import type { Plan } from "./api";
 import { aBlock, aPlan, UTC_SETTINGS } from "./fixtures";
+import { MIN_DONE_CARD_PX } from "./week";
 import { PX_PER_MINUTE } from "./WeekGrid";
 
 // Friday 13 November 2026, 10:00 UTC: the week is Mon 9 – Sun 15 Nov.
@@ -436,6 +437,35 @@ test("a block done early sits at its measured time, beside the block that took i
   await user.click(friday.querySelector('[data-block-id="done"]')!);
   const popover = await screen.findByRole("dialog", { name: "Ch2 Cryptography" });
   expect(popover).toHaveTextContent("Planned for Sat 14 Nov, 09:00");
+});
+
+test("a done card for a very short session is still 24 px tall", async () => {
+  // Post-merge review of #47: a 4-second session was a 14 px sliver under the next card.
+  renderPlan(() =>
+    aPlan([
+      aBlock({
+        id: "short",
+        start: "2026-11-14T09:00:00Z",
+        end: "2026-11-14T09:00:04Z",
+        minutes: 0,
+        status: "done",
+        session_minutes: 0,
+        actions: { start: false, skip: false, move: false },
+      }),
+      aBlock({
+        id: "planned",
+        start: "2026-11-14T10:00:00Z",
+        end: "2026-11-14T10:10:00Z",
+        minutes: 10,
+      }),
+    ]),
+  );
+  const grid = await screen.findByTestId("week-grid");
+  const short = grid.querySelector('[data-block-id="short"]')!.parentElement!;
+  expect(short.style.height).toBe(`${MIN_DONE_CARD_PX}px`);
+  // A planned card keeps its true length, however short.
+  const planned = grid.querySelector('[data-block-id="planned"]')!.parentElement!;
+  expect(planned.style.height).toBe(`${10 * PX_PER_MINUTE}px`);
 });
 
 /** A pointer event jsdom accepts, with the fields the grid reads. */

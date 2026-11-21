@@ -1,6 +1,5 @@
 """Schemas for the tutor: conversations, messages, and the events of a streamed answer."""
 
-import re
 import uuid
 from datetime import datetime
 from typing import Annotated, Literal
@@ -8,6 +7,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from app.schemas.academics import _Input
+from app.schemas.labels import plain_labels
 from app.services.tutor.prompts import MessageMode, TutorMode
 
 MessageStatus = Literal["complete", "truncated", "failed", "stopped"]
@@ -32,7 +32,6 @@ class MessageCreate(_Input):
 
 QUIZ_OPTIONS = 4
 Option = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
-_LABEL = re.compile(r"[\[【]?\s*[sS](\d+)\s*[\]】]?")
 
 
 class QuizQuestion(BaseModel):
@@ -52,17 +51,7 @@ class QuizQuestion(BaseModel):
     # labels aren't all among the answer's sources.
     sources: list[str] = Field(min_length=1, max_length=8)
 
-    @field_validator("sources", mode="before")
-    @classmethod
-    def _plain_labels(cls, value: object) -> object:
-        """ "[S1]", "【S1】" and "s1" all mean "S1"; anything else is kept, and won't match."""
-        if not isinstance(value, list):
-            return value
-        labels: list[object] = []
-        for item in value:
-            match = _LABEL.fullmatch(item.strip()) if isinstance(item, str) else None
-            labels.append(f"S{int(match.group(1))}" if match else item)
-        return labels
+    _plain_labels = field_validator("sources", mode="before")(plain_labels)
 
 
 class Quiz(BaseModel):

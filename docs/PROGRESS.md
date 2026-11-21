@@ -2,6 +2,19 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-21: Phase 5, task 1 (practice items, reviews and the generation job)
+
+- **Review fixes from #47:** a done block's calendar event says "Done · 48 min studied (measured)."; a push TTL is
+  worked out when sending and a reminder for a started block is dropped; "COS330 X was deleted."; done grid cards are at
+  least 24 px; the worker prunes `reminders_sent` over 30 days; ROADMAP Phase 9 gains push-host and calendar rate limits.
+- **Data (0025, ADR 0025):** `practice_items`, `practice_item_sources`, `practice_generations`, append-only `reviews`
+  (a trigger refuses UPDATE); one prompt per topic unless rejected; one queued or running generation per topic.
+- **Generation:** the topic subtree's AI-allowed learning material (never past papers, tests, assignments or outlines),
+  best link first within 4,500 tokens; a pure filter with counts by reason; a `generate_practice` job that waits out
+  rate limits. Endpoints with cross-user cases; topic merges move items. Dry runs on a chapter and a subtopic: 8 of 8
+  kept each. Eval: 48 requested, 48 kept (one earlier run had one topic fail validation twice; it didn't recur).
+- **Next:** the reviewer marks the spot-check sheet (`evals.practice score cos330`); then task 2, FSRS and the queue.
+
 ## 2026-11-22: Phase 4, task 6 (Web Push reminders and the private ICS feed)
 
 - **Review fixes from #46 (ADR 0023), tests first:** a done block shows at its session's measured time (it hid under

@@ -2,10 +2,12 @@
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import clock
 from app.models import Job
 from app.storage.base import Storage
 
@@ -15,6 +17,8 @@ class JobContext:
     session: AsyncSession
     job: Job
     storage: Storage
+    # The worker's clock (tests pass their own).
+    now: Callable[[], datetime] = clock.now
 
 
 class JobError(Exception):

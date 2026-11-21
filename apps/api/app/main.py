@@ -14,6 +14,7 @@ from app.api import (
     materials,
     modules,
     planning,
+    practice,
     push,
     search,
     sessions,
@@ -69,6 +70,7 @@ def create_app() -> FastAPI:
     app.include_router(planning.router)
     app.include_router(push.router)
     app.include_router(calendar.router)
+    app.include_router(practice.router)
     app.include_router(ai.router)
     return app
 

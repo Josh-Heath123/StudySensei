@@ -1,5 +1,6 @@
 import {
   addDays,
+  cardHeight,
   dayLabel,
   fromZoned,
   hourRange,
@@ -49,4 +50,10 @@ test("snapping and the starts a free window allows", () => {
   expect(snap5(1083)).toBe(1085);
   const evening = [{ date: "2026-11-24", start: 18 * 60, end: 19 * 60 }];
   expect(startsWithin(evening, 50)).toEqual([1080, 1085, 1090]);
+});
+
+test("a done card is at least 24 px; a planned one keeps its length", () => {
+  expect(cardHeight({ minutes: 0, status: "done" }, 1.1)).toBe(24);
+  expect(cardHeight({ minutes: 48, status: "done" }, 1.1)).toBeCloseTo(52.8);
+  expect(cardHeight({ minutes: 10, status: "planned" }, 1.1)).toBe(11);
 });

@@ -11,6 +11,7 @@ from app.services.calendar.feed import calendar_events
 from app.services.calendar.ics import (
     CalendarEvent,
     build_calendar,
+    done_description,
     event_description,
     event_summary,
 )
@@ -90,6 +91,12 @@ def test_summaries_and_descriptions() -> None:
     assert event_description(method_text="Read.", reason_text="Because.") == (
         "How: Read.\nWhy: Because."
     )
+
+
+def test_a_done_description_is_the_measured_time() -> None:
+    assert done_description(active_seconds=48 * 60 + 59) == "Done · 48 min studied (measured)."
+    assert done_description(active_seconds=4) == "Done · under 1 min studied (measured)."
+    assert done_description(active_seconds=0) == "Done · under 1 min studied (measured)."
 
 
 async def test_uids_hold_across_a_replan_and_change_for_a_moved_block(

@@ -178,6 +178,10 @@ class Settings(BaseSettings):
     # app/services/tutor/prompts.py). Sized for Groq's 8,000 tokens a minute on the smart
     # role: 4,500 for sources + about 600 for the prompts and question + 2,000 for the answer.
     tutor_context_max_tokens: int = 4500
+    # --- Practice generation (Phase 5; ADR 0025) ---
+    # The sources' share of a generation request, estimated like the tutor's: the topic's
+    # linked passages, best link score first, until this many tokens.
+    practice_context_max_tokens: int = 4500
     # Connecting gives up quickly; reading allows for a long answer (and thinking) to arrive.
     ai_connect_timeout_seconds: float = 10.0
     ai_read_timeout_seconds: float = 90.0

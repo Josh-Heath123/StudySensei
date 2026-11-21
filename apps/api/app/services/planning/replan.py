@@ -233,10 +233,15 @@ async def _summary(
             else:
                 name = await _assessment_name(session, row.assessment_id, user_id=user_id)
                 block_name = f"the final review for {name}" if name else None
-    if assessment is None and "assessment_id" in detail:
-        assessment = await _assessment_name(
+    assessment_deleted = False
+    if "assessment_id" in detail:
+        found = await _assessment_name(
             session, uuid.UUID(str(detail["assessment_id"])), user_id=user_id
         )
+        # The name was stored with the trigger, so a deleted one can still be named.
+        assessment_deleted = trigger == "assessment" and found is None
+        if assessment is None:
+            assessment = found
     if "module_id" in detail:
         module = await session.scalar(
             select(Module.code).where(
@@ -255,6 +260,7 @@ async def _summary(
         module=module,
         short_now=short_now,
         moved_to=moved_to,
+        assessment_deleted=assessment_deleted,
     )
 
 

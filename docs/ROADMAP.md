@@ -129,7 +129,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 **Objective:** measure understanding and build it.
 **Depends on:** Phases 2 and 4.
 
-- [ ] `practice_items` + `reviews`, and the generation job (flashcards and questions linked to source chunks)
+- [x] `practice_items` + `reviews`, and the generation job (flashcards and questions linked to source chunks)
 - [ ] FSRS integration (`py-fsrs` / `ts-fsrs`) and the review queue
 - [ ] Mastery formula with unit tests, documented in `services/mastery/README.md`
 - [ ] Practice UI: own cards, short-answer AI marking against a reference, self-marking
@@ -209,6 +209,8 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 - [ ] Per-user AI budgets and bring-your-own-key (encrypted)
 - [ ] Error monitoring, backups and a restore drill
 - [ ] POPIA review
+- [ ] Restrict push subscription endpoints to known push-service hosts (the worker posts to whatever https URL a browser gives it)
+- [ ] Rate-limit the public calendar route (`GET /calendar/{token}.ics`)
 
 **Done when:** classmates use it for 2 weeks with no data or privacy incidents.
 

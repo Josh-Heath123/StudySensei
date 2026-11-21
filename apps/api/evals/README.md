@@ -1,10 +1,9 @@
 # Evals
 
 Fixed yardsticks for the AI and search features, run **locally against the dev database** (the real
-COS330 data): search (and the tutor's retrieval), linking, topic extraction and the tutor. They never run in CI.
-All but one never call an AI provider: search and linking use the local embedding model, and the topic eval only
-reads what's stored. **The tutor eval is the exception**: it makes
-real calls on the free tier (below). The database session is read-only in
+COS330 data): search (and the tutor's retrieval), linking, topic extraction, the tutor and practice items. They
+never run in CI. Search and linking use the local embedding model, and the topic eval only reads what's stored.
+**The tutor and practice evals are the exceptions**: they make real calls on the free tier (below). The database session is read-only in
 Postgres itself (`default_transaction_read_only`), so an eval can't write.
 
 Run them from the repo root with the Docker database up (`npm run db:up`; `npm run dev` can be stopped):
@@ -16,6 +15,7 @@ Run them from the repo root with the Docker database up (`npm run db:up`; `npm r
 | Linking | `uv run --directory apps/api python -m evals.linking cos330` | The current similarity links (count, near-empty pages, same vs cross-chapter), then a sweep of link rules re-scored the way `linking.py` does |
 | Topic extraction | `uv run --directory apps/api python -m evals.topic_extraction cos330` | The current tree against the reviewed reference (matched, missing, extra, moved), and citation precision per material kind |
 | Tutor (**real AI calls**) | `uv run --directory apps/api python -m evals.tutor cos330 --label run1 --review <file outside the repo>` | 20 questions through the tutor in answer mode, each with its topic: cited pages, whether one is acceptable, coverage, "doesn't cover" answers, time to first token, the model; then "Quiz me" after 5 of them. Writes `evals/results/tutor-<date>-<label>.json`. **Target:** a correct page cited for ≥ 17 of 20 (85 %), first token under 2 s |
+| Practice (**real AI calls**) | `uv run --directory apps/api python -m evals.practice cos330`, then `... python -m evals.practice score cos330` | Practice items written for the 6 topics in `practice/cos330.yaml` (8 each), not stored; a spot-check sheet for a person to mark; then grounded %, and answerable % overall and by kind. **Target:** at least 90 % of at least 30 marked items answerable from their cited source |
 
 ### The tutor eval
 
@@ -45,6 +45,20 @@ Run them from the repo root with the Docker database up (`npm run db:up`; `npm r
 - **What's committed:** `evals/results/` holds numbers, labels and page references only, never answer or course
   text. `--review FILE` writes the answers and the quiz questions for checking; keep that file outside the
   repository.
+
+### The practice eval
+
+- **Topics:** `practice/cos330.yaml` names 6 topics; each gets 8 items through the job's own service (`prepare`, `ask`
+  and the filter in `services/practice/generation.py`), on a read-only session with usage in memory. Nothing is
+  stored. Calls are paced like the tutor eval's (Groq's 8,000 tokens a minute), so a run takes several minutes.
+- **The sheet:** `evals/practice/.local/spotcheck-<date>.csv` (**gitignored**: it holds AI text about the course),
+  with columns item, topic, kind, prompt, answer, key points, cited material and page, and an empty `answerable`
+  column. Mark each item `y` or `n`: can it be answered from its cited page(s) alone? The run's counts (requested,
+  returned, kept, dropped by reason, tokens, time) sit beside it in `spotcheck-<date>.json`.
+- **Score:** `python -m evals.practice score cos330` reads the newest sheet with at least one mark and writes
+  `evals/results/practice-cos330.json`: items, grounded % (of the items returned, those citing only their given
+  sources), marked, answerable % overall and by kind, and whether the target was met (exit code 1 otherwise).
+- **What's committed:** the topic names and the results' numbers. Never the sheet.
 
 `... python -m evals.topic_extraction cos330 --export` rewrites the reference from the dev database
 (after a deliberate review, not to make the eval pass).

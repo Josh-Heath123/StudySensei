@@ -33,6 +33,7 @@ from app.schemas.topic_maps import (
 )
 from app.services.academics.modules import get_module
 from app.services.errors import Invalid, NotFound
+from app.services.practice.items import move_items
 from app.services.topic_maps import queue_linking, remove_topics
 from app.services.topic_maps.merge import name_key
 
@@ -169,8 +170,8 @@ def _subtree(topics: list[Topic], root: uuid.UUID) -> list[Topic]:
 async def merge_into(
     session: AsyncSession, topic_id: uuid.UUID, target_id: uuid.UUID, *, user_id: uuid.UUID
 ) -> Topic:
-    """Fold a topic into another: its subtopics, cited pages and page links move to the
-    target (after the target's own), then it's deleted. Returns the target."""
+    """Fold a topic into another: its subtopics, cited pages, page links and practice items
+    move to the target (after the target's own), then it's deleted. Returns the target."""
     topic = await _topic(session, topic_id, user_id=user_id)
     target = await _topic(session, target_id, user_id=user_id)
     if target.module_id != topic.module_id:
@@ -227,6 +228,8 @@ async def merge_into(
         )
     ):
         alias.target_id = target.id
+    # Its practice items go too; any the target already has are rejected as duplicates.
+    await move_items(session, topic.id, target.id, user_id=user_id)
     await note_review(session, topic, "merged", user_id=user_id, target_id=target.id)
     # Choosing it as the home confirms the target too.
     await note_review(session, target, "kept", user_id=user_id, target_id=target.id)

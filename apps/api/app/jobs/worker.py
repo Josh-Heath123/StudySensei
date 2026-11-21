@@ -21,6 +21,7 @@ from app.jobs.context import Handler, JobContext, JobError
 from app.jobs.kinds import (
     EXTRACT_TEXT,
     EXTRACT_TOPICS,
+    GENERATE_PRACTICE,
     INDEX_MATERIAL,
     LINK_TOPICS,
     MERGE_TOPICS,
@@ -30,6 +31,7 @@ from app.jobs.kinds import (
 from app.jobs.tasks import (
     extract_text,
     extract_topics,
+    generate_practice,
     index_material,
     link_topics,
     merge_topics,
@@ -37,7 +39,7 @@ from app.jobs.tasks import (
     replan,
 )
 from app.services.planning.replan import queue_nightly_replans
-from app.services.push.reminders import queue_reminders
+from app.services.push.reminders import prune_reminders_sent, queue_reminders
 from app.services.search.embedding import get_embedder
 from app.storage.base import Storage
 from app.storage.local import get_storage
@@ -52,9 +54,10 @@ HANDLERS: Mapping[str, Handler] = {
     LINK_TOPICS: Handler(run=link_topics.run),
     REPLAN: Handler(run=replan.run),
     PUSH_REMINDER: Handler(run=push_reminder.run),
+    GENERATE_PRACTICE: Handler(run=generate_practice.run, on_failure=generate_practice.on_failure),
 }
 # How often the main loop looks for users due a nightly re-plan (decision 0021) and for
-# blocks due a push reminder (decision 0024).
+# blocks due a push reminder (decision 0024), and prunes old reminder records.
 NIGHTLY_CHECK_SECONDS = 60.0
 
 UNEXPECTED = "Something went wrong while processing this file. It will be retried."
@@ -82,7 +85,7 @@ async def run_once(
 
     handler = handlers.get(job.kind)
     async with sessions() as session:
-        ctx = JobContext(session, job, storage)
+        ctx = JobContext(session, job, storage, now)
         try:
             if handler is None:
                 raise JobError(f"Unknown job kind {job.kind!r}")
@@ -145,6 +148,10 @@ async def main() -> None:
                         reminders = await queue_reminders(session, _now())
                     if reminders:
                         log.info("Queued %s push reminder(s)", reminders)
+                    async with sessions() as session:
+                        pruned = await prune_reminders_sent(session, _now())
+                    if pruned:
+                        log.info("Pruned %s reminder record(s) over 30 days old", pruned)
                 ran = await run_once(sessions, storage)
                 failures = 0
             except Exception:

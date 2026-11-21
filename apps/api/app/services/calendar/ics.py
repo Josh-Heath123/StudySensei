@@ -42,6 +42,15 @@ def event_description(*, method_text: str, reason_text: str) -> str:
     return f"How: {method_text}\nWhy: {reason_text}"
 
 
+def done_description(*, active_seconds: float) -> str:
+    """A done block's description: what was measured, not the plan-time "How/Why".
+    "Done · 48 min studied (measured).", or "Done · under 1 min studied (measured)."
+    """
+    minutes = int(active_seconds // 60)
+    studied = "under 1 min" if minutes < 1 else f"{minutes} min"
+    return f"Done · {studied} studied (measured)."
+
+
 def build_calendar(events: Iterable[CalendarEvent], *, now: datetime) -> bytes:
     calendar = Calendar()
     calendar.add("prodid", PRODID)

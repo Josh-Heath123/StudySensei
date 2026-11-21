@@ -19,6 +19,7 @@ from app.models import Assessment, CalendarFeed, Module, PlanBlock, StudySession
 from app.services.calendar.ics import (
     CalendarEvent,
     build_calendar,
+    done_description,
     event_description,
     event_summary,
 )
@@ -110,8 +111,9 @@ async def calendar_events(
         start: datetime,
         end: datetime,
         *,
-        done: bool,
+        done_seconds: float | None = None,
     ) -> CalendarEvent:
+        done = done_seconds is not None
         # The slot as shown: a done block's measured times, so it never shares a UID with the
         # block the finish re-plan put in its old slot.
         key = slot_key(start, end, block.assessment_id, block.topic_id)
@@ -122,8 +124,11 @@ async def calendar_events(
             summary=event_summary(
                 topic_name=topic, module_code=code, assessment_title=title, done=done
             ),
-            description=event_description(
-                method_text=block.method_text, reason_text=block.reason_text
+            # A done block says what was measured; its plan-time "How/Why" no longer applies.
+            description=(
+                done_description(active_seconds=done_seconds)
+                if done_seconds is not None
+                else event_description(method_text=block.method_text, reason_text=block.reason_text)
             ),
         )
 
@@ -138,12 +143,12 @@ async def calendar_events(
             )
         )
         for block, code, title, topic in planned:
-            events.append(
-                event(block, code, title, topic, block.start_at, block.end_at, done=False)
-            )
+            events.append(event(block, code, title, topic, block.start_at, block.end_at))
 
     studied = await session.execute(
-        names.add_columns(StudySession.started_at, StudySession.ended_at)
+        names.add_columns(
+            StudySession.started_at, StudySession.ended_at, StudySession.active_seconds
+        )
         .join(
             StudySession,
             (StudySession.plan_block_id == PlanBlock.id) & (StudySession.user_id == user_id),
@@ -155,9 +160,9 @@ async def calendar_events(
             StudySession.started_at <= now,
         )
     )
-    for block, code, title, topic, started, ended in studied.all():
+    for block, code, title, topic, started, ended, active in studied.all():
         assert ended is not None
-        events.append(event(block, code, title, topic, started, ended, done=True))
+        events.append(event(block, code, title, topic, started, ended, done_seconds=active))
     # One event per UID (a block studied twice keeps its latest session).
     unique = {e.uid: e for e in events}
     return sorted(unique.values(), key=lambda e: (e.start, e.uid))

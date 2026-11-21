@@ -222,3 +222,38 @@ async def test_a_block_done_early_shows_at_its_measured_time(
             )
         ).json()["blocks"]
         assert block["id"] not in {b["id"] for b in there}
+
+
+async def test_a_done_blocks_calendar_event_says_what_was_measured(
+    alice_api: AsyncClient, planned: Rows
+) -> None:
+    """Post-merge review of #47: a done block's event drops its plan-time "How/Why" for the
+    measured time."""
+    from icalendar import Calendar
+
+    await alice_api.get("/plan")
+    block = (await alice_api.get("/plan/next")).json()
+    began = datetime.now(UTC).replace(microsecond=0) - timedelta(minutes=50)
+    study = (
+        await alice_api.post(
+            "/sessions",
+            json={
+                "module_id": str(planned.module.id),
+                "topic_id": str(planned.topic.id),
+                "plan_block_id": block["id"],
+                "start": {"id": str(uuid.uuid4()), "occurred_at": began.isoformat()},
+            },
+        )
+    ).json()
+    ended = began + timedelta(minutes=48)
+    end = {"id": str(uuid.uuid4()), "type": "end", "occurred_at": ended.isoformat()}
+    await alice_api.post(f"/sessions/{study['id']}/events", json={"events": [end]})
+
+    ics = Calendar.from_ical((await alice_api.get("/calendar/plan.ics")).content)
+    events = list(ics.walk("VEVENT"))
+    done = [e for e in events if str(e["SUMMARY"]).startswith("✓ ")]
+    assert len(done) == 1
+    assert str(done[0]["DESCRIPTION"]) == "Done · 48 min studied (measured)."
+    planned_events = [e for e in events if e not in done]
+    assert planned_events
+    assert all(str(e["DESCRIPTION"]).startswith("How: ") for e in planned_events)
