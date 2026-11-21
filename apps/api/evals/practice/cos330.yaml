@@ -1,0 +1,12 @@
+# The practice eval on COS330 (Phase 5 task 1, ADR 0025): practice items are written for each
+# topic below (8 each, about 48 in all) without storing them, for a person to mark whether each
+# can be answered from its cited source. Only topic names: never course text.
+module: COS330
+count: 8
+topics:
+  - Password-Based Authentication
+  - Symmetric Encryption and Block Ciphers
+  - Access Control Policies and Models
+  - SQL Injection Attacks and Countermeasures
+  - Viruses, Worms, and Web Propagation
+  - Types of Firewalls

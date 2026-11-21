@@ -45,3 +45,6 @@ apps/web/playwright-report/
 
 # npm run check lock (scripts/with-lock.mjs)
 /.locks/
+
+# The practice eval's spot-check sheets hold AI text about course material (local only)
+apps/api/evals/practice/.local/
