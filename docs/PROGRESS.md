@@ -2,6 +2,19 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-22: Phase 5, task 2 (FSRS scheduling and the review queue)
+
+- **From #48's review:** the spot check is committed (`evals/results/practice-cos330.json`): 47 of 48 answerable,
+  97.9 % against 90 %, so **Phase 5's first Verify line is met**. The generation prompt now forbids invented reasons,
+  examples and facts; items list distinct cited pages. The two dry runs again kept 8 of 8 each.
+- **FSRS (ADR 0026):** `fsrs` 6.3.3 pinned, fuzzing off; pure `schedule`/`replay` with a golden test against py-fsrs
+  (due dates follow FSRS) and Hypothesis properties (none failed, even at 4,000 examples).
+- **Data (0026):** `practice_item_states`; review snapshots, retention and library version; `practice_new_per_day` and
+  `practice_desired_retention` on users. Reviews run under a row lock (a concurrent pair is serialised); a suspended or
+  rejected item is a 409. Previews per grade, the queue (due, then new within a local-day allowance, DST-tested) and
+  settings. Simulation: about 130 reviews (45 active minutes) a day by day 30 at the defaults.
+- **Next:** task 3, the mastery formula.
+
 ## 2026-11-21: Phase 5, task 1 (practice items, reviews and the generation job)
 
 - **Review fixes from #47:** a done block's calendar event says "Done · 48 min studied (measured)."; a push TTL is
