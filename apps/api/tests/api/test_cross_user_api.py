@@ -27,6 +27,7 @@ from app.models import (
     TopicReview,
     User,
 )
+from app.services.push.sender import FakePushSender
 from app.storage.local import LocalStorage
 from tests.academics.conftest import Rows
 from tests.fakes import FakeLLM, ok
@@ -655,3 +656,83 @@ async def test_the_stored_plan_is_per_user(
         select(PlanVersion.number).where(PlanVersion.user_id == alice.user.id)
     )
     assert list(versions) == [1]
+
+
+# --- reminders and the calendar feed (decision 0024) -------------------------------------
+
+
+async def _subscribe(api: AsyncClient, name: str) -> dict[str, Any]:
+    response = await api.post(
+        "/push/subscriptions",
+        json={
+            "endpoint": f"https://push.example/{name}",
+            "keys": {"p256dh": "BKey", "auth": "Auth"},
+            "label": f"Edge on Windows ({name})",
+        },
+    )
+    assert response.status_code == 201
+    return dict(response.json())
+
+
+async def test_push_devices_are_per_user(
+    alice_api: AsyncClient, bob_api: AsyncClient, alice: Rows, bob: Rows, push_on: FakePushSender
+) -> None:
+    hers = await _subscribe(alice_api, "alice")
+    his = await _subscribe(bob_api, "bob")
+
+    # He lists only his own; removing hers is the same 404 as a missing id, and keeps hers.
+    assert [d["id"] for d in (await bob_api.get("/push/subscriptions")).json()] == [his["id"]]
+    attempt = await bob_api.delete(f"/push/subscriptions/{hers['id']}")
+    baseline = await bob_api.delete(f"/push/subscriptions/{uuid.uuid4()}")
+    assert attempt.status_code == 404
+    assert attempt.json() == baseline.json()
+    assert [d["id"] for d in (await alice_api.get("/push/subscriptions")).json()] == [hers["id"]]
+
+    # The same endpoint saved by Bob is his own row, not a takeover of hers.
+    same = await bob_api.post(
+        "/push/subscriptions",
+        json={
+            "endpoint": "https://push.example/alice",
+            "keys": {"p256dh": "BOther", "auth": "Other"},
+            "label": "Bob's",
+        },
+    )
+    assert same.status_code == 201 and same.json()["id"] != hers["id"]
+    assert (await alice_api.get("/push/subscriptions")).json()[0]["label"] == (
+        "Edge on Windows (alice)"
+    )
+
+    # His test push goes to his devices only.
+    sent = (await bob_api.post("/push/test")).json()["devices"]
+    assert {d["id"] for d in sent} == {his["id"], same.json()["id"]}
+    # Sent with his keys: his row for the shared endpoint, not hers.
+    assert sorted((t.endpoint, t.p256dh) for t, _, _ in push_on.sent) == [
+        ("https://push.example/alice", "BOther"),
+        ("https://push.example/bob", "BKey"),
+    ]
+
+
+async def test_calendar_feeds_are_per_user(
+    alice_api: AsyncClient,
+    bob_api: AsyncClient,
+    alice: Rows,
+    bob: Rows,
+    plan_blocks: dict[str, PlanBlock],
+) -> None:
+    url = (await alice_api.post("/calendar/feed")).json()["url"]
+    token = url.rsplit("/", 1)[-1].removesuffix(".ics")
+
+    # Her link serves her plan only, to anyone holding it (no sign-in).
+    body = (await bob_api.get(f"/calendar/{token}.ics")).text
+    assert body.count("BEGIN:VEVENT") == 1
+    assert "Microservices · COS330" in body
+    his = (await bob_api.get("/calendar/plan.ics")).text
+    assert his.count("BEGIN:VEVENT") == 1
+
+    # He can't see, reset or delete her link: his own state says there's none.
+    assert (await bob_api.get("/calendar/feed")).json()["exists"] is False
+    assert (await bob_api.delete("/calendar/feed")).status_code == 404
+    assert (await alice_api.get("/calendar/feed")).json()["exists"] is True
+    mine = (await bob_api.post("/calendar/feed")).json()["url"]
+    assert mine != url
+    assert (await alice_api.get(f"/calendar/{token}.ics")).status_code == 200

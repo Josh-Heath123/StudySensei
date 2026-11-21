@@ -57,6 +57,7 @@ export function BlockDetails({ block, timeZone, week, freeByDate, onDone }: Prop
         )}
         {measured && <> · {measured}</>}
       </p>
+      {block.status === "done" && <PlannedFor block={block} timeZone={timeZone} />}
       <div className="grid gap-1">
         <h3 className="type-label text-muted">Why</h3>
         <p className="text-sm">{block.reason_text}</p>
@@ -113,5 +114,15 @@ export function BlockDetails({ block, timeZone, week, freeByDate, onDone }: Prop
         />
       )}
     </div>
+  );
+}
+
+/** A done block is shown when it was studied; this says when the plan had it (decision 0023). */
+function PlannedFor({ block, timeZone }: { block: PlanBlock; timeZone: string }) {
+  const planned = zoned(block.planned_start, timeZone);
+  return (
+    <p className="text-muted -mt-2 text-xs tabular-nums">
+      Planned for {dayLabel(planned.date)}, {clock(planned.minutes)}
+    </p>
   );
 }

@@ -18,53 +18,68 @@ Self-hosted from npm (no requests to Google Fonts).
 
 - **Inter** (`@fontsource-variable/inter`): SIL Open Font License 1.1 (OFL-1.1). Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter).
 
-## Python packages (59)
+## Python packages (75)
 
 | Package | Version | Licence |
 | --- | --- | --- |
+| aiohappyeyeballs | 2.7.1 | PSF-2.0 |
+| aiohttp | 3.14.5 | Apache-2.0 AND MIT |
+| aiosignal | 1.4.0 | Apache 2.0 |
 | alembic | 1.20.1 | MIT |
 | annotated-doc | 0.0.6 | MIT |
 | annotated-types | 0.8.0 | MIT |
 | anyio | 4.16.0 | MIT |
 | asyncpg | 0.32.0 | Apache-2.0 |
+| attrs | 26.1.0 | MIT |
 | certifi | 2026.10.23 | MPL-2.0 |
+| cffi | 2.1.1 | MIT-0 |
 | charset-normalizer | 3.5.2 | MIT |
 | click | 8.5.1 | BSD-3-Clause |
 | colorama | 0.4.6 | BSD License |
+| cryptography | 50.0.2 | Apache-2.0 OR BSD-3-Clause |
 | fastapi | 0.162.5 | MIT |
 | fastembed | 0.9.1 | Apache-2.0 |
 | filelock | 4.2.10 | MIT |
 | flatbuffers | 25.12.19 | Apache 2.0 |
+| frozenlist | 1.8.0 | Apache-2.0 |
 | fsspec | 2026.9.0 | BSD-3-Clause |
 | greenlet | 3.5.6 | MIT AND PSF-2.0 |
 | h11 | 0.16.0 | MIT |
 | hf-xet | 1.8.0 | Apache-2.0 |
+| http-ece | 1.2.1 | MIT |
 | httpcore | 1.0.9 | BSD-3-Clause |
 | httptools | 0.9.0 | MIT |
 | httpx | 0.28.1 | BSD-3-Clause |
 | huggingface-hub | 1.33.0 | Apache-2.0 |
+| icalendar | 7.3.2 | BSD-2-Clause |
 | idna | 3.20 | BSD-3-Clause |
 | loguru | 0.7.3 | MIT License |
 | lxml | 6.1.3 | BSD-3-Clause |
 | mako | 1.4.3 | MIT |
 | markupsafe | 3.0.4 | BSD-3-Clause |
 | mmh3 | 5.3.1 | MIT License |
+| multidict | 7.2.1 | Apache-2.0 |
 | numpy | 2.5.4 | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 |
 | onnxruntime | 1.32.0 | MIT License |
 | opentelemetry-api | 1.45.2 | Apache-2.0 |
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause |
 | pgvector | 0.5.1 | MIT |
 | pillow | 13.0.0 | MIT-CMU |
+| propcache | 0.5.4 | Apache-2.0 |
 | protobuf | 7.36.2 | 3-Clause BSD License |
 | py-rust-stemmers | 0.1.8 | unknown (see note) |
+| py-vapid | 1.9.6 | MPL-2.0 |
+| pycparser | 3.12 | BSD-3-Clause |
 | pydantic | 2.14.3 | MIT |
 | pydantic-core | 2.50.4 | MIT |
 | pydantic-settings | 2.16.2 | MIT |
 | pypdfium2 | 5.15.2 | BSD-3-Clause, Apache-2.0, dependency licenses |
+| python-dateutil | 4.0.0 | BSD-3-Clause |
 | python-docx | 1.2.0 | MIT |
 | python-dotenv | 1.2.4 | BSD-3-Clause |
 | python-multipart | 0.0.33 | Apache-2.0 |
 | python-pptx | 1.0.2 | MIT |
+| pywebpush | 2.5.0 | MPL-2.0 |
 | pyyaml | 6.0.3 | MIT |
 | requests | 2.34.2 | Apache-2.0 |
 | sqlalchemy | 2.1.8 | MIT |
@@ -81,6 +96,7 @@ Self-hosted from npm (no requests to Google Fonts).
 | websockets | 17.4 | BSD-3-Clause |
 | win32-setctime | 1.2.1 | MIT license |
 | xlsxwriter | 3.3.1 | BSD-2-Clause |
+| yarl | 1.25.1 | Apache-2.0 |
 
 Notes:
 

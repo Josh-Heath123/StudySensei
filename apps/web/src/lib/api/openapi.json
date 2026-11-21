@@ -2957,7 +2957,7 @@
           "planning"
         ],
         "summary": "Update Planning Settings",
-        "description": "Change the timezone (IANA) or the daily cap (15 to 1,440 minutes).",
+        "description": "Change the timezone (IANA), the daily cap (15 to 1,440 minutes), or how many minutes\nbefore a block its push reminder comes (5, 10, 15 or 30; null turns reminders off).",
         "operationId": "update_planning_settings_planning_settings_patch",
         "requestBody": {
           "content": {
@@ -3703,6 +3703,276 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/push/config": {
+      "get": {
+        "tags": [
+          "push"
+        ],
+        "summary": "Get Push Config",
+        "description": "Whether reminders can be sent from this server, and the key to subscribe with.",
+        "operationId": "get_push_config_push_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushConfigOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/push/subscriptions": {
+      "get": {
+        "tags": [
+          "push"
+        ],
+        "summary": "List Subscriptions",
+        "description": "Your devices with reminders on (never their endpoints).",
+        "operationId": "list_subscriptions_push_subscriptions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PushSubscriptionOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Subscriptions Push Subscriptions Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "push"
+        ],
+        "summary": "Save Subscription",
+        "description": "Save this browser's subscription (201), or refresh it if it's already saved (200).",
+        "operationId": "save_subscription_push_subscriptions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushSubscriptionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushSubscriptionOut"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushSubscriptionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/push/subscriptions/{subscription_id}": {
+      "delete": {
+        "tags": [
+          "push"
+        ],
+        "summary": "Delete Subscription",
+        "operationId": "delete_subscription_push_subscriptions__subscription_id__delete",
+        "parameters": [
+          {
+            "name": "subscription_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Subscription Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/push/test": {
+      "post": {
+        "tags": [
+          "push"
+        ],
+        "summary": "Send Test",
+        "description": "Send \"Reminders work\" to each of your devices now, and say how each went.",
+        "operationId": "send_test_push_test_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushTestOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/calendar/feed": {
+      "get": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "Get Feed",
+        "description": "Whether the link exists, when it was made and last fetched. Never the token.",
+        "operationId": "get_feed_calendar_feed_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarFeedOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "Create Feed",
+        "description": "Create the private calendar link, or reset it (the old link stops working). The URL is\nreturned this once.",
+        "operationId": "create_feed_calendar_feed_post",
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarFeedCreatedOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "Delete Feed",
+        "operationId": "delete_feed_calendar_feed_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/calendar/plan.ics": {
+      "get": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "Download Plan",
+        "description": "Your plan as an .ics file, for the Download button.",
+        "operationId": "download_plan_calendar_plan_ics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/calendar": {}
+            }
+          }
+        }
+      }
+    },
+    "/calendar/{token}.ics": {
+      "get": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "Subscribed Plan",
+        "description": "The plan of the user this link belongs to (no sign-in: the token is the key).",
+        "operationId": "subscribed_plan_calendar__token__ics_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/calendar": {}
+            }
+          },
+          "404": {
+            "description": "Not Found"
           },
           "422": {
             "description": "Validation Error",
@@ -4564,6 +4834,66 @@
           "kind"
         ],
         "title": "Body_upload_material_modules__module_id__materials_post"
+      },
+      "CalendarFeedCreatedOut": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "created_at"
+        ],
+        "title": "CalendarFeedCreatedOut",
+        "description": "The private link, shown once."
+      },
+      "CalendarFeedOut": {
+        "properties": {
+          "exists": {
+            "type": "boolean",
+            "title": "Exists"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "last_fetched_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Fetched At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "exists",
+          "created_at",
+          "last_fetched_at"
+        ],
+        "title": "CalendarFeedOut",
+        "description": "Whether a calendar link exists, and when it was made and last fetched. Never the token."
       },
       "ClearedTopics": {
         "properties": {
@@ -6504,12 +6834,30 @@
           "daily_study_cap_minutes": {
             "type": "integer",
             "title": "Daily Study Cap Minutes"
+          },
+          "reminder_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  5,
+                  10,
+                  15,
+                  30
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reminder Minutes"
           }
         },
         "type": "object",
         "required": [
           "timezone",
-          "daily_study_cap_minutes"
+          "daily_study_cap_minutes",
+          "reminder_minutes"
         ],
         "title": "PlanningSettingsOut"
       },
@@ -6538,11 +6886,191 @@
               }
             ],
             "title": "Daily Study Cap Minutes"
+          },
+          "reminder_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  5,
+                  10,
+                  15,
+                  30
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reminder Minutes"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "title": "PlanningSettingsUpdate"
+      },
+      "PushConfigOut": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "public_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "public_key"
+        ],
+        "title": "PushConfigOut",
+        "description": "Whether the server can send push (its VAPID keys are set), and the public key the\nbrowser subscribes with."
+      },
+      "PushDeviceOutcomeOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "sent",
+              "failed",
+              "removed"
+            ],
+            "title": "Outcome"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "outcome"
+        ],
+        "title": "PushDeviceOutcomeOut"
+      },
+      "PushKeysIn": {
+        "properties": {
+          "p256dh": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_=-]+$",
+            "title": "P256Dh"
+          },
+          "auth": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_=-]+$",
+            "title": "Auth"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "p256dh",
+          "auth"
+        ],
+        "title": "PushKeysIn"
+      },
+      "PushSubscriptionIn": {
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "maxLength": 2000,
+            "pattern": "^https://\\S+$",
+            "title": "Endpoint"
+          },
+          "keys": {
+            "$ref": "#/components/schemas/PushKeysIn"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "endpoint",
+          "keys",
+          "label"
+        ],
+        "title": "PushSubscriptionIn",
+        "description": "A browser's PushSubscription, as ``subscription.toJSON()`` gives it, and a label."
+      },
+      "PushSubscriptionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "created_at",
+          "last_success_at"
+        ],
+        "title": "PushSubscriptionOut",
+        "description": "A device: never its endpoint (a capability) or keys."
+      },
+      "PushTestOut": {
+        "properties": {
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/PushDeviceOutcomeOut"
+            },
+            "type": "array",
+            "title": "Devices"
+          }
+        },
+        "type": "object",
+        "required": [
+          "devices"
+        ],
+        "title": "PushTestOut"
       },
       "Quiz": {
         "properties": {
@@ -7401,6 +7929,16 @@
             "type": "integer",
             "title": "Minutes"
           },
+          "planned_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Planned Start"
+          },
+          "planned_end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Planned End"
+          },
           "module_id": {
             "type": "string",
             "format": "uuid",
@@ -7547,6 +8085,8 @@
           "start",
           "end",
           "minutes",
+          "planned_start",
+          "planned_end",
           "module_id",
           "module_code",
           "module_colour",

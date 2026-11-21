@@ -2,6 +2,20 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-22: Phase 4, task 6 (Web Push reminders and the private ICS feed)
+
+- **Review fixes from #46 (ADR 0023), tests first:** a done block shows at its session's measured time (it hid under
+  the block that re-used its slot) with `planned_start`/`planned_end`; drags drop from the pointerup, heard on the
+  window (a flick was lost); no day menu on past days and the agenda starts at today; card names with day and state;
+  sticky day headers; Move… on the block's own time; a version when an assessment's blocks cascade away.
+- **One clock:** `clock.now()` with `FAKE_NOW` (demo and e2e databases only). The screenshots run the API, worker and
+  browser at Thu 19 Nov 18:20, with three days of seeded history, so QA finally showed planned, Now, done, skipped and
+  missed together; it found a clipped first hour label and "(measured)" cut on done grid cards.
+- **Reminders (0024, ADR 0024):** `push_subscriptions`, `reminders_sent` (one per slot, not per block id),
+  `calendar_feeds` (hashed token), `users.reminder_minutes`; pywebpush behind `PushSender`; the worker queues reminders
+  once a minute; Settings → Reminders and Calendar; a push-only service worker. e2e fetches the .ics.
+- **Next:** a week of real use for Phase 4's "done when", then Phase 5.
+
 ## 2026-11-21: Phase 4, task 5 (the week view, moving blocks, and Next up from the plan)
 
 - **Review fixes from #45 (ADR 0022), tests first:** a linked session follows its block into a new version (it used to

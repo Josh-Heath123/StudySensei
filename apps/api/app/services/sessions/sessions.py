@@ -2,13 +2,14 @@ import math
 import uuid
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import cast
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import clock
 from app.jobs.queue import enqueue_replan
 from app.models import PlanBlock, SessionEvent, SessionTopicRating, StudySession, Topic
 from app.schemas.sessions import EventBatch, EventIn, ReflectionIn, SessionStart
@@ -135,7 +136,7 @@ async def ratings_for(
 
 
 def _check_not_future(times: Iterable[datetime]) -> None:
-    limit = datetime.now(UTC) + CLOCK_TOLERANCE
+    limit = clock.now() + CLOCK_TOLERANCE
     if any(time > limit for time in times):
         raise Invalid("An event is in the future; check the device clock")
 
@@ -349,7 +350,7 @@ async def set_reflection(
     )
     study.focus_rating = data.focus_rating
     study.covered_notes = data.covered_notes
-    study.reflected_at = datetime.now(UTC)
+    study.reflected_at = clock.now()
     await session.commit()
     return study
 

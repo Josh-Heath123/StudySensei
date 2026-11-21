@@ -4,7 +4,7 @@ import type { CSSProperties, ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
 import type { PlanBlock } from "./api";
-import { blockTitle, isNow, measuredText, METHOD_LABELS } from "./planText";
+import { blockLabel, blockTitle, isNow, measuredText, METHOD_LABELS } from "./planText";
 import { clock, zoned } from "./week";
 
 type Props = Omit<ComponentProps<"button">, "children"> & {
@@ -41,6 +41,7 @@ export function PlanBlockCard({
   const quiet = block.status === "skipped" || block.status === "missed";
   const live = isNow(block, now);
   const title = blockTitle(block);
+  const label = blockLabel(block, timeZone, now);
   return (
     <button
       type="button"
@@ -53,9 +54,9 @@ export function PlanBlockCard({
         className,
       )}
       style={{ borderLeftColor: block.module_colour, ...style }}
-      aria-label={`${title}, ${clock(start.minutes)} to ${clock(end.minutes)}${
-        block.status !== "planned" ? `, ${block.status}` : live ? ", now" : ""
-      }`}
+      aria-label={label}
+      // Narrow grid columns cut the second row; hovering shows it whole.
+      title={label}
       {...props}
     >
       <span
@@ -67,10 +68,13 @@ export function PlanBlockCard({
         {title}
       </span>
       <span className="text-muted flex w-full min-w-0 items-center gap-1 text-xs whitespace-nowrap tabular-nums">
-        <span>
-          {clock(start.minutes)}
-          {!startOnly && <>–{clock(end.minutes)}</>}
-        </span>
+        {/* In the grid a done card's place shows its time; the row keeps "(measured)". */}
+        {!(startOnly && block.status === "done") && (
+          <span>
+            {clock(start.minutes)}
+            {!startOnly && <>–{clock(end.minutes)}</>}
+          </span>
+        )}
         {live ? (
           <span className="text-link font-semibold">· Now</span>
         ) : block.status === "done" ? (

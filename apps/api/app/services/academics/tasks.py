@@ -1,10 +1,10 @@
 import uuid
 from collections.abc import Collection
-from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import clock
 from app.models import Task
 from app.schemas.academics import TaskCreate, TaskUpdate
 from app.services.academics.assessments import get_assessment
@@ -52,7 +52,7 @@ async def _check_assessment(
 def _apply_status(task: Task, status: str) -> None:
     """Keep completed_at in step with status."""
     if status == "done" and task.status != "done":
-        task.completed_at = datetime.now(UTC)
+        task.completed_at = clock.now()
     elif status != "done":
         task.completed_at = None
     task.status = status

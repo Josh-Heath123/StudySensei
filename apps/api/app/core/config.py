@@ -1,8 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, SecretStr, field_validator
+from pydantic import AwareDatetime, BaseModel, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -53,6 +53,19 @@ class Settings(BaseSettings):
     # Load the embedding model when the API and the worker start, rather than on the first
     # search (about 1.4 s, 19 Nov 2026). The API loads it in the background.
     preload_embedder: bool = True
+    # Freezes app.core.clock.now() at this time (ISO, with a timezone), for the demo's
+    # screenshots (decision 0023). Refused unless the database name ends in _demo or _e2e.
+    fake_now: AwareDatetime | None = None
+
+    # --- Web Push reminders (decision 0024) ---
+    # `python -m app.push.keys` prints a key pair to paste into apps/api/.env. Without all
+    # three, push is disabled (not an error). The private key is a secret: never log it.
+    vapid_public_key: str | None = None
+    vapid_private_key: SecretStr | None = None
+    # Who runs this server, for push services to contact: "mailto:you@example.com".
+    vapid_subject: str | None = None
+    # The calendar link's base: the web app's origin as the student reaches it.
+    public_url: str = "http://localhost:5173"
 
     # --- AI providers (decision 0002, ARCHITECTURE "AI integration") ---
     # A provider without a key is skipped. Keys are secrets: never log or return them.
@@ -181,11 +194,40 @@ class Settings(BaseSettings):
             return [{"route": item} if isinstance(item, str) else item for item in value]
         return value
 
-    @field_validator("gemini_api_key", "groq_api_key", "ollama_model", mode="before")
+    @model_validator(mode="after")
+    def _fake_now_only_for_demo_and_e2e(self) -> Self:
+        if self.fake_now is not None:
+            name = database_name(self.database_url)
+            if not name.endswith(("_demo", "_e2e")):
+                raise ValueError(
+                    f"FAKE_NOW is set, but the database is {name!r}. A fake clock is only for "
+                    "the demo and e2e databases (names ending in _demo or _e2e): unset FAKE_NOW."
+                )
+        return self
+
+    @field_validator("fake_now", mode="before")
+    @classmethod
+    def _blank_time_is_unset(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
+
+    @field_validator(
+        "gemini_api_key",
+        "groq_api_key",
+        "ollama_model",
+        "vapid_public_key",
+        "vapid_private_key",
+        "vapid_subject",
+        mode="before",
+    )
     @classmethod
     def _blank_is_unset(cls, value: object) -> object:
         """``GEMINI_API_KEY=`` in .env means no key."""
         return None if isinstance(value, str) and not value.strip() else value
+
+
+def database_name(url: str) -> str:
+    """The database in a SQLAlchemy URL (the path after the host, without a query)."""
+    return url.rsplit("/", 1)[-1].split("?", 1)[0]
 
 
 @lru_cache

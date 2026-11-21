@@ -991,7 +991,8 @@ export interface paths {
     head?: never;
     /**
      * Update Planning Settings
-     * @description Change the timezone (IANA) or the daily cap (15 to 1,440 minutes).
+     * @description Change the timezone (IANA), the daily cap (15 to 1,440 minutes), or how many minutes
+     *     before a block its push reminder comes (5, 10, 15 or 30; null turns reminders off).
      */
     patch: operations["update_planning_settings_planning_settings_patch"];
     trace?: never;
@@ -1249,6 +1250,153 @@ export interface paths {
      *     with one sentence if it can't go there; 409 for any other block; 404 if it isn't yours.
      */
     post: operations["move_block_plan_blocks__block_id__move_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/push/config": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Push Config
+     * @description Whether reminders can be sent from this server, and the key to subscribe with.
+     */
+    get: operations["get_push_config_push_config_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/push/subscriptions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Subscriptions
+     * @description Your devices with reminders on (never their endpoints).
+     */
+    get: operations["list_subscriptions_push_subscriptions_get"];
+    put?: never;
+    /**
+     * Save Subscription
+     * @description Save this browser's subscription (201), or refresh it if it's already saved (200).
+     */
+    post: operations["save_subscription_push_subscriptions_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/push/subscriptions/{subscription_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete Subscription */
+    delete: operations["delete_subscription_push_subscriptions__subscription_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/push/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Send Test
+     * @description Send "Reminders work" to each of your devices now, and say how each went.
+     */
+    post: operations["send_test_push_test_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/calendar/feed": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Feed
+     * @description Whether the link exists, when it was made and last fetched. Never the token.
+     */
+    get: operations["get_feed_calendar_feed_get"];
+    put?: never;
+    /**
+     * Create Feed
+     * @description Create the private calendar link, or reset it (the old link stops working). The URL is
+     *     returned this once.
+     */
+    post: operations["create_feed_calendar_feed_post"];
+    /** Delete Feed */
+    delete: operations["delete_feed_calendar_feed_delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/calendar/plan.ics": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Download Plan
+     * @description Your plan as an .ics file, for the Download button.
+     */
+    get: operations["download_plan_calendar_plan_ics_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/calendar/{token}.ics": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Subscribed Plan
+     * @description The plan of the user this link belongs to (no sign-in: the token is the key).
+     */
+    get: operations["subscribed_plan_calendar__token__ics_get"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1580,6 +1728,31 @@ export interface components {
        * @default true
        */
       allow_ai: boolean;
+    };
+    /**
+     * CalendarFeedCreatedOut
+     * @description The private link, shown once.
+     */
+    CalendarFeedCreatedOut: {
+      /** Url */
+      url: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+    };
+    /**
+     * CalendarFeedOut
+     * @description Whether a calendar link exists, and when it was made and last fetched. Never the token.
+     */
+    CalendarFeedOut: {
+      /** Exists */
+      exists: boolean;
+      /** Created At */
+      created_at: string | null;
+      /** Last Fetched At */
+      last_fetched_at: string | null;
     };
     /** ClearedTopics */
     ClearedTopics: {
@@ -2405,6 +2578,8 @@ export interface components {
       timezone: string;
       /** Daily Study Cap Minutes */
       daily_study_cap_minutes: number;
+      /** Reminder Minutes */
+      reminder_minutes: (5 | 10 | 15 | 30) | null;
     };
     /** PlanningSettingsUpdate */
     PlanningSettingsUpdate: {
@@ -2412,6 +2587,77 @@ export interface components {
       timezone?: string | null;
       /** Daily Study Cap Minutes */
       daily_study_cap_minutes?: number | null;
+      /** Reminder Minutes */
+      reminder_minutes?: (5 | 10 | 15 | 30) | null;
+    };
+    /**
+     * PushConfigOut
+     * @description Whether the server can send push (its VAPID keys are set), and the public key the
+     *     browser subscribes with.
+     */
+    PushConfigOut: {
+      /** Enabled */
+      enabled: boolean;
+      /** Public Key */
+      public_key: string | null;
+    };
+    /** PushDeviceOutcomeOut */
+    PushDeviceOutcomeOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Label */
+      label: string;
+      /**
+       * Outcome
+       * @enum {string}
+       */
+      outcome: "sent" | "failed" | "removed";
+    };
+    /** PushKeysIn */
+    PushKeysIn: {
+      /** P256Dh */
+      p256dh: string;
+      /** Auth */
+      auth: string;
+    };
+    /**
+     * PushSubscriptionIn
+     * @description A browser's PushSubscription, as ``subscription.toJSON()`` gives it, and a label.
+     */
+    PushSubscriptionIn: {
+      /** Endpoint */
+      endpoint: string;
+      keys: components["schemas"]["PushKeysIn"];
+      /** Label */
+      label: string;
+    };
+    /**
+     * PushSubscriptionOut
+     * @description A device: never its endpoint (a capability) or keys.
+     */
+    PushSubscriptionOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Label */
+      label: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Last Success At */
+      last_success_at: string | null;
+    };
+    /** PushTestOut */
+    PushTestOut: {
+      /** Devices */
+      devices: components["schemas"]["PushDeviceOutcomeOut"][];
     };
     /**
      * Quiz
@@ -2747,6 +2993,16 @@ export interface components {
       end: string;
       /** Minutes */
       minutes: number;
+      /**
+       * Planned Start
+       * Format: date-time
+       */
+      planned_start: string;
+      /**
+       * Planned End
+       * Format: date-time
+       */
+      planned_end: string;
       /**
        * Module Id
        * Format: uuid
@@ -5626,6 +5882,253 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["PlanVersionOut"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_push_config_push_config_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PushConfigOut"];
+        };
+      };
+    };
+  };
+  list_subscriptions_push_subscriptions_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PushSubscriptionOut"][];
+        };
+      };
+    };
+  };
+  save_subscription_push_subscriptions_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PushSubscriptionIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PushSubscriptionOut"];
+        };
+      };
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PushSubscriptionOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_subscription_push_subscriptions__subscription_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        subscription_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  send_test_push_test_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PushTestOut"];
+        };
+      };
+    };
+  };
+  get_feed_calendar_feed_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CalendarFeedOut"];
+        };
+      };
+    };
+  };
+  create_feed_calendar_feed_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CalendarFeedCreatedOut"];
+        };
+      };
+    };
+  };
+  delete_feed_calendar_feed_delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  download_plan_calendar_plan_ics_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/calendar": unknown;
+        };
+      };
+    };
+  };
+  subscribed_plan_calendar__token__ics_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        token: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/calendar": unknown;
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Validation Error */
       422: {

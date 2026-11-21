@@ -23,8 +23,11 @@ const API_PORT = 8002;
 const WEB_PORT = 5176;
 const DATABASE_URL = `postgresql+asyncpg://studysensei:studysensei@localhost:5433/${DB}`;
 const STORAGE_DIR = path.join(root, "data", "demo-materials");
-// The demo's "now": a Monday morning. Sessions, deadlines and tasks are seeded around it.
-const NOW = "2026-11-16T10:40:00+02:00";
+// The demo's "now": a Thursday evening, 20 minutes into a planned block, with three days of
+// plan history behind it. Sessions, deadlines and tasks are seeded around it. The API, the
+// worker and the seed run with FAKE_NOW set to it (decision 0023), and the browser's clock
+// is fixed to the same instant, so both sides agree on the date.
+const NOW = "2026-11-19T18:20:00+02:00";
 const TIMEZONE = "Africa/Johannesburg";
 const VIEWPORT = { width: 1440, height: 900 };
 
@@ -36,6 +39,12 @@ const env = {
   GEMINI_API_KEY: "",
   GROQ_API_KEY: "",
   OLLAMA_MODEL: "",
+  FAKE_NOW: NOW,
+  // The private calendar link points at this web app.
+  PUBLIC_URL: `http://localhost:${WEB_PORT}`,
+  // No push from the demo, whatever apps/api/.env holds.
+  VAPID_PUBLIC_KEY: "",
+  VAPID_PRIVATE_KEY: "",
 };
 const run = (cmd, extra = {}) =>
   execSync(cmd, { cwd: root, stdio: "inherit", env: { ...env, ...extra } });
@@ -169,11 +178,30 @@ async function main() {
   run("uv run --directory apps/api python -m app.seed");
   run(`uv run --directory apps/api python -m scripts.demo_seed --now ${NOW}`);
 
+  // A throwaway VAPID pair, so Settings shows Reminders as set up on the server. Only the
+  // API gets it: the worker keeps push off, so nothing is ever sent from the demo.
+  const vapid = Object.fromEntries(
+    execSync("uv run --directory apps/api python -m app.push.keys", {
+      cwd: root,
+    })
+      .toString()
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("VAPID_"))
+      .map((line) => line.split(/=(.*)/s).slice(0, 2)),
+  );
+
   console.log("Starting the API and the web app on their own ports…");
   start(
     "API",
     `uv run uvicorn app.main:app --port ${API_PORT}`,
     path.join(root, "apps", "api"),
+    vapid,
+  );
+  start(
+    "worker",
+    "uv run python -m app.jobs.worker",
+    path.join(root, "apps", "api"),
+    { PRELOAD_EMBEDDER: "false" },
   );
   start(
     "web",
@@ -336,11 +364,35 @@ async function main() {
   }
 }
 
+// Init scripts for the Reminders card's states: notifications allowed with this browser
+// already subscribed (the card saves the subscription, finding "This device"), and blocked.
+const REMINDER_STATES = {
+  on: `(() => {
+    Object.defineProperty(Notification, "permission", { get: () => "granted" });
+    const sub = {
+      endpoint: "https://push.example/qa-this-browser",
+      toJSON: () => ({ endpoint: "https://push.example/qa-this-browser", keys: { p256dh: "BQA", auth: "QA" } }),
+      unsubscribe: async () => true,
+    };
+    navigator.serviceWorker.getRegistration = async () => ({ pushManager: { getSubscription: async () => sub } });
+  })()`,
+  denied: `Object.defineProperty(Notification, "permission", { get: () => "denied" });`,
+};
+
 /** Every screen and the main dialogs, in both themes, at three widths (full page, scale 1). */
 async function review(browser, dir, moduleId, fixed) {
   if (!dir) throw new Error("--qa needs a folder");
   mkdirSync(dir, { recursive: true });
-  const later = fixed + 20 * 60 * 1000;
+  // Another device with reminders on, for the card's "Other devices".
+  await fetch(`http://localhost:${API_PORT}/push/subscriptions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      endpoint: "https://push.example/qa-phone",
+      keys: { p256dh: "BPhone", auth: "Phone" },
+      label: "Chrome on Android",
+    }),
+  });
   const tabs = ["assessments", "tasks", "sessions", "topics", "materials"];
   const screens = [
     ["today", "/"],
@@ -357,10 +409,10 @@ async function review(browser, dir, moduleId, fixed) {
     for (const width of [1440, 768, 375]) {
       const ctx = await context(browser, theme, { width, height: 900 }, 1);
       const page = await ctx.newPage();
-      await page.clock.setFixedTime(later);
-      const shoot = async (name) => {
+      await page.clock.setFixedTime(fixed);
+      const shoot = async (name, full = true) => {
         const file = path.join(dir, `${name}-${theme}-${width}.png`);
-        await page.screenshot({ path: file, fullPage: true });
+        await page.screenshot({ path: file, fullPage: full });
         shots.push(file);
       };
       for (const [name, url] of screens) {
@@ -368,6 +420,67 @@ async function review(browser, dir, moduleId, fixed) {
         await page.waitForLoadState("networkidle");
         await settle(page, 700);
         await shoot(name);
+      }
+      // The plan: earlier days (folded in the agenda) and the block popover, a sheet on
+      // phones, for the block in progress and the done one.
+      await page.goto("/plan");
+      await page.locator('[data-status="now"]').first().waitFor();
+      const earlier = page.getByText("Earlier this week");
+      if (await earlier.count()) {
+        await earlier.click();
+        await settle(page, 300);
+        await shoot("plan-earlier");
+      }
+      for (const status of ["now", "done"]) {
+        await page.locator(`[data-status="${status}"]`).first().click();
+        await page.locator('[role="dialog"][data-state="open"]').waitFor();
+        await settle(page, 400);
+        await shoot(`plan-popover-${status}`, false);
+        await page.keyboard.press("Escape");
+        await settle(page, 400);
+      }
+      // Settings → Reminders and Calendar: a calendar link just made (shown once), then the
+      // reminder states a real permission prompt can't reach headless (decision 0024).
+      await page.goto("/settings");
+      const calendar = page.getByRole("region", {
+        name: "Calendar",
+        exact: true,
+      });
+      await calendar
+        .getByRole("button", { name: "Create a private calendar link" })
+        .click();
+      await calendar.getByLabel("Private calendar link").waitFor();
+      await calendar.scrollIntoViewIfNeeded();
+      await settle(page, 300);
+      await shoot("settings-calendar-link", false);
+      await page.request.delete("/api/calendar/feed");
+      for (const [state, script] of Object.entries(REMINDER_STATES)) {
+        const extra = await ctx.newPage();
+        await extra.clock.setFixedTime(fixed);
+        await extra.addInitScript(script);
+        await extra.goto("/settings");
+        const reminders = extra.getByRole("region", {
+          name: "Reminders",
+          exact: true,
+        });
+        await reminders
+          .getByText(
+            state === "on" ? "This device" : "Notifications are blocked",
+            {
+              exact: state === "on",
+            },
+          )
+          .first()
+          .waitFor();
+        await reminders.scrollIntoViewIfNeeded();
+        await settle(extra, 300);
+        const file = path.join(
+          dir,
+          `settings-reminders-${state}-${theme}-${width}.png`,
+        );
+        await extra.screenshot({ path: file });
+        shots.push(file);
+        await extra.close();
       }
       // The main dialogs.
       await page.goto(`/modules/${moduleId}?tab=topics`);
@@ -406,7 +519,7 @@ async function review(browser, dir, moduleId, fixed) {
   for (const theme of ["light", "dark"]) {
     const ctx = await context(browser, theme, { width: 1440, height: 900 }, 1);
     const page = await ctx.newPage();
-    await page.clock.setFixedTime(later);
+    await page.clock.setFixedTime(fixed);
     const shoot = async (name, full = false) => {
       const file = path.join(dir, `${name}-${theme}-1440.png`);
       await page.screenshot({ path: file, fullPage: full });
@@ -453,7 +566,7 @@ async function review(browser, dir, moduleId, fixed) {
       theme,
     );
     const mobile = await phone.newPage();
-    await mobile.clock.setFixedTime(later);
+    await mobile.clock.setFixedTime(fixed);
     await mobile.goto(`/modules/${moduleId}?tab=topics`);
     await mobile
       .getByRole("button", { name: "Actions for Flow control" })

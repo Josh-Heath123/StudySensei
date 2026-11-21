@@ -1,7 +1,7 @@
 """Seed synthetic demo data for the README screenshots: ``npm run screenshots`` runs this.
 
     DATABASE_URL=...studysensei_demo STORAGE_DIR=data/demo-materials \\
-        uv run python -m scripts.demo_seed --now 2026-11-16T10:40:00+02:00
+        uv run python -m scripts.demo_seed --now 2026-11-19T18:20:00+02:00
 
 Dev only, and only against a database whose name ends in ``_demo``. Everything here is
 original text written for the demo (never course material). It makes one module, two
@@ -9,6 +9,11 @@ assessments, open tasks, a week of finished study sessions, and two slide decks 
 notes on TCP, which go through the real pipeline (extraction, chunking, local embeddings and
 indexing; no AI calls). The topic tree is inserted directly, with the pages each topic cites,
 and linked to the chunks the way the app does it (cited pages plus local similarity).
+
+The plan has three days of history before ``now`` (a Thursday evening), made through the real
+re-plan code: version 1 from Monday morning, Monday's block done with a linked session,
+Tuesday's skipped and Wednesday's missed; then the week's plan as of ``now``, with the block in
+progress.
 
 It also opens a study session 18 minutes before ``now``, with one tutor exchange about it: a
 question and a stored answer written for the demo (no AI call), citing the demo's own pages,
@@ -20,6 +25,7 @@ import asyncio
 import io
 import uuid
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, select
 from sqlalchemy.engine import make_url
@@ -30,6 +36,7 @@ from app.core.db import get_engine, get_sessionmaker
 from app.jobs.kinds import EXTRACT_TOPICS, LINK_TOPICS, MERGE_TOPICS, REPLAN
 from app.jobs.worker import run_once
 from app.models import (
+    AvailabilityException,
     AvailabilityRule,
     Conversation,
     Job,
@@ -37,6 +44,7 @@ from app.models import (
     MaterialPage,
     Message,
     MessageSource,
+    PlanBlock,
     Topic,
     TopicPage,
     User,
@@ -47,12 +55,15 @@ from app.schemas.sessions import EventBatch, ReflectionIn, SessionStart
 from app.schemas.tutor import Quiz
 from app.services.academics import assessments, modules, tasks, topics
 from app.services.materials import upload_material
-from app.services.planning.replan import replan
+from app.services.planning.replan import current_version, replan, skip_block
 from app.services.search.embedding import get_embedder
 from app.services.sessions import sessions
 from app.services.topic_maps.linking import link_module
 from app.storage.local import get_storage
 from tests.fixtures.make_fixtures import notes_docx, slide_deck_pdf
+
+# The local user's timezone (the default in users.timezone).
+TIMEZONE = "Africa/Johannesburg"
 
 RELIABLE = [
     ("Week 5: TCP reliable transport", ["NET201 Computer Networks", "Lecture 9"]),
@@ -333,6 +344,73 @@ async def make_session(
     )
 
 
+async def plan_history(db: AsyncSession, *, user_id: uuid.UUID, now: datetime) -> None:
+    """Monday to Wednesday of ``now``'s week, through the real re-plan code: one hour of study
+    time on each of those evenings (so one block a day), version 1 from Monday at 08:00,
+    Monday's block studied (a linked session) and Tuesday's skipped; Wednesday's is left to be
+    marked missed by the next re-plan."""
+    tz = ZoneInfo(TIMEZONE)
+    local = now.astimezone(tz)
+    monday = (local - timedelta(days=local.weekday())).replace(
+        hour=8, minute=0, second=0, microsecond=0
+    )
+    if local - monday < timedelta(days=2, hours=11):  # Wednesday 19:00, after its block
+        raise SystemExit("--now must be after Wednesday 19:00 in its week: the plan needs history")
+    for offset in range(3):
+        db.add(
+            AvailabilityException(
+                user_id=user_id,
+                date=(monday + timedelta(days=offset)).date(),
+                unavailable=False,
+                windows=[{"start": 18 * 60, "end": 19 * 60}],
+                note="Busy start to the week",
+            )
+        )
+    await db.commit()
+    await replan(db, user_id=user_id, now=monday, trigger="initial")
+
+    async def first_block(day: int) -> PlanBlock:
+        version = await current_version(db, user_id=user_id)
+        assert version is not None
+        found = await db.scalar(
+            select(PlanBlock)
+            .where(
+                PlanBlock.version_id == version.id,
+                PlanBlock.status == "planned",
+                PlanBlock.kind == "study",
+                PlanBlock.start_at >= monday + timedelta(days=day),
+                PlanBlock.start_at < monday + timedelta(days=day + 1),
+            )
+            .order_by(PlanBlock.start_at)
+            .limit(1)
+        )
+        if found is None:
+            raise SystemExit(f"No study block on day {day} of the demo week")
+        return found
+
+    done = await first_block(0)
+    began = done.start_at + timedelta(minutes=2)
+    study, _ = await sessions.start_session(
+        db,
+        SessionStart.model_validate(
+            {
+                "module_id": done.module_id,
+                "topic_id": done.topic_id,
+                "plan_block_id": done.id,
+                "start": {"id": uuid.uuid4(), "occurred_at": began},
+            }
+        ),
+        user_id=user_id,
+    )
+    end = {"id": uuid.uuid4(), "type": "end", "occurred_at": began + timedelta(minutes=46)}
+    await sessions.add_events(
+        db, study.id, EventBatch.model_validate({"events": [end]}), user_id=user_id
+    )
+    await replan(db, user_id=user_id, now=began + timedelta(minutes=50), trigger="finish")
+    skipped = await first_block(1)
+    await skip_block(db, skipped.id, user_id=user_id, now=monday + timedelta(days=1))
+
+
 async def seed(now: datetime) -> None:
     settings = get_settings()
     database = make_url(settings.database_url).database or ""
@@ -459,6 +537,7 @@ async def seed(now: datetime) -> None:
                 focus=focus,
                 covered=covered,
             )
+        await plan_history(db, user_id=uid, now=now)
 
         files: list[tuple[str, str, MaterialKind, bytes]] = [
             ("week5-tcp.pdf", "Week 5 slides", "slides", slide_deck_pdf(RELIABLE)),
@@ -636,10 +715,14 @@ async def seed(now: datetime) -> None:
     async with sessionmaker() as db:
         await db.execute(delete(Job).where(Job.kind == REPLAN))
         await db.commit()
-        # The plan as of the demo's ``now`` (version 1), for the week view and Today.
+        # The plan for the week view and Today: the nightly re-plan at 03:00 on ``now``'s day
+        # (Wednesday's block is marked missed; tonight's is in progress at ``now``).
         user = await db.scalar(select(User).where(User.email == settings.local_user_email))
         assert user is not None
-        await replan(db, user_id=user.id, now=now, trigger="initial")
+        night = now.astimezone(ZoneInfo(TIMEZONE)).replace(
+            hour=3, minute=0, second=0, microsecond=0
+        )
+        await replan(db, user_id=user.id, now=night, trigger="nightly")
     print(
         f"Demo seeded: NET201, {len(files)} materials ({ran} jobs), {len(week)} sessions "
         f"and one open, {len(topic_ids)} topics, {links} chunk links, "

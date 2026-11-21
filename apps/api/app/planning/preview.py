@@ -12,11 +12,12 @@ block through the service and prints the version that follows. Both write to the
 import argparse
 import asyncio
 import sys
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 
+from app.core import clock
 from app.core.config import get_settings
 from app.core.db import get_engine, get_sessionmaker
 from app.models import User
@@ -155,7 +156,7 @@ def cli() -> None:
     args = parser.parse_args()
     if not 1 <= args.days <= MAX_RANGE_DAYS:
         parser.error(f"--days must be 1 to {MAX_RANGE_DAYS}")
-    now = args.now or datetime.now(UTC)
+    now = args.now or clock.now()
     if now.tzinfo is None:
         parser.error("--now needs a UTC offset, like 2026-11-20T08:00:00+02:00")
     # The text has "≈" and "→"; Windows consoles default to a code page without them.

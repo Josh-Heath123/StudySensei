@@ -20,14 +20,22 @@ from tests.academics.conftest import Rows
 async def test_settings_default_to_johannesburg_and_three_hours(alice_api: AsyncClient) -> None:
     response = await alice_api.get("/planning/settings")
 
-    assert response.json() == {"timezone": "Africa/Johannesburg", "daily_study_cap_minutes": 180}
+    assert response.json() == {
+        "timezone": "Africa/Johannesburg",
+        "daily_study_cap_minutes": 180,
+        "reminder_minutes": 10,
+    }
 
 
 async def test_settings_change_and_are_validated(alice_api: AsyncClient) -> None:
     changed = await alice_api.patch(
         "/planning/settings", json={"timezone": "Europe/London", "daily_study_cap_minutes": 240}
     )
-    assert changed.json() == {"timezone": "Europe/London", "daily_study_cap_minutes": 240}
+    assert changed.json() == {
+        "timezone": "Europe/London",
+        "daily_study_cap_minutes": 240,
+        "reminder_minutes": 10,
+    }
 
     for body in (
         {"timezone": "Mars/Olympus"},

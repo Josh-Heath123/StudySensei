@@ -26,7 +26,12 @@ export default defineConfig({
     {
       command: `uv run --directory ../api uvicorn app.main:app --port ${API_PORT}`,
       url: `http://localhost:${API_PORT}/health`,
-      env: { DATABASE_URL: E2E_DATABASE_URL, STORAGE_DIR: E2E_STORAGE_DIR },
+      env: {
+        DATABASE_URL: E2E_DATABASE_URL,
+        STORAGE_DIR: E2E_STORAGE_DIR,
+        // The private calendar link points at this web app (decision 0024).
+        PUBLIC_URL: `http://localhost:${WEB_PORT}`,
+      },
       reuseExistingServer: false,
       timeout: 60_000,
     },

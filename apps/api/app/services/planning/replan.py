@@ -7,8 +7,8 @@
    sense (inside free time, for an upcoming assessment and a unit it still covers), and
    takes the time of skipped blocks that haven't ended out of the free time;
 3. plans again with those fixed blocks through ``preview.build`` (the preview's own code path);
-4. writes a new version only if the blocks from now on differ (no churn); otherwise it
-   refreshes the current version's report and ``checked_at``.
+4. writes a new version only if the blocks from now on, or the assessments covered,
+   differ (no churn); otherwise it refreshes the current version's report and ``checked_at``.
 
 Done, skipped and missed blocks stay on the version they belong to. Nothing here calls AI.
 """
@@ -258,6 +258,15 @@ async def _summary(
     )
 
 
+def _assessment_ids(report: Mapping[str, Any]) -> set[str]:
+    """The assessments a stored report covers (planned ones and those beyond its days)."""
+    return {
+        str(entry.get("assessment_id"))
+        for part in ("assessments", "later")
+        for entry in report.get(part, [])
+    }
+
+
 def _short(report: Mapping[str, Any], assessment_id: uuid.UUID) -> int:
     """An assessment's short minutes in a stored report (0 if it isn't there)."""
     for entry in report.get("assessments", []):
@@ -358,7 +367,11 @@ async def replan(
                 .order_by(PlanBlock.start_at, PlanBlock.end_at)
             )
         ).all()
-        if sorted(_row_key(r) for r in rows) == sorted(k for k, _ in new):
+        # Equal blocks and the same assessments: nothing to say. (Deleting an assessment
+        # cascades its blocks away, so the blocks alone can look unchanged; decision 0023.)
+        if sorted(_row_key(r) for r in rows) == sorted(k for k, _ in new) and _assessment_ids(
+            current.report
+        ) == _assessment_ids(report):
             current.report = report
             current.checked_at = now
             await session.commit()

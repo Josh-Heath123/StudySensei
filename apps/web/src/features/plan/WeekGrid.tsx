@@ -36,6 +36,9 @@ type Drag = {
   moved: boolean;
 };
 
+/** A pointer's position (a React or a native pointer event). */
+type Pointer = { clientX: number; clientY: number };
+
 /** Where a block is placed while it waits for the server (after a drop). */
 type Placed = { blockId: string; date: string; minutes: number };
 
@@ -59,11 +62,22 @@ export function WeekGrid({
 }: Props) {
   const move = useMoveBlock();
   const columns = useRef<(HTMLDivElement | null)[]>([]);
-  const [drag, setDrag] = useState<Drag | null>(null);
+  // The drag lives in a ref, so pointer events between renders see the latest one (a fast
+  // flick is one pointermove then pointerup at once); the state only re-renders the ghost.
+  // While a drag lasts, its moves and release are heard on the window: a flick's events land
+  // on whatever is under the pointer, not on the card (decision 0023).
+  const dragRef = useRef<Drag | null>(null);
+  const [drag, setDragState] = useState<Drag | null>(null);
+  const setDrag = (next: Drag | null) => {
+    dragRef.current = next;
+    setDragState(next);
+  };
   const [placed, setPlaced] = useState<Placed | null>(null);
   const [problem, setProblem] = useState<{ blockId: string; text: string } | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const justDragged = useRef(false);
+  const stopListening = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopListening.current?.(), []);
 
   useEffect(() => {
     if (problem === null) return;
@@ -91,7 +105,7 @@ export function WeekGrid({
   const height = (range.last - range.first) * 60 * PX_PER_MINUTE;
   const hours = Array.from({ length: range.last - range.first + 1 }, (_, i) => range.first + i);
 
-  function target(event: ReactPointerEvent, current: Drag): { date: string; minutes: number } {
+  function target(event: Pointer, current: Drag): { date: string; minutes: number } {
     const index = columns.current.findIndex((column) => {
       if (!column) return false;
       const rect = column.getBoundingClientRect();
@@ -121,24 +135,52 @@ export function WeekGrid({
       minutes: start.minutes,
       moved: false,
     });
+    stopListening.current?.();
+    const onMove = (e: PointerEvent) => onPointerMove(e);
+    const onUp = (e: PointerEvent) => {
+      if (e.pointerId !== event.pointerId) return;
+      stop();
+      void onPointerUp(e);
+    };
+    const onCancel = () => {
+      stop();
+      setDrag(null);
+    };
+    const stop = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+      stopListening.current = null;
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
+    stopListening.current = stop;
   }
 
-  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    if (drag === null || event.pointerId !== drag.pointerId) return;
+  /** Past the threshold (or already dragging), the drag at this event's position. */
+  function dragAt(event: Pointer, current: Drag): Drag | null {
     const far =
-      Math.abs(event.clientX - drag.x0) > DRAG_THRESHOLD_PX ||
-      Math.abs(event.clientY - drag.y0) > DRAG_THRESHOLD_PX;
-    if (!drag.moved && !far) return;
-    // Capture only once it's a drag: a plain click must still reach the card's popover.
-    if (!drag.moved) event.currentTarget.setPointerCapture?.(event.pointerId);
-    setDrag({ ...drag, ...target(event, drag), moved: true });
+      Math.abs(event.clientX - current.x0) > DRAG_THRESHOLD_PX ||
+      Math.abs(event.clientY - current.y0) > DRAG_THRESHOLD_PX;
+    if (!current.moved && !far) return null;
+    return { ...current, ...target(event, current), moved: true };
   }
 
-  async function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
-    if (drag === null || event.pointerId !== drag.pointerId) return;
-    const done = drag;
+  function onPointerMove(event: PointerEvent) {
+    const current = dragRef.current;
+    if (current === null || event.pointerId !== current.pointerId) return;
+    const next = dragAt(event, current);
+    if (next !== null) setDrag(next);
+  }
+
+  async function onPointerUp(event: PointerEvent) {
+    const current = dragRef.current;
+    if (current === null || event.pointerId !== current.pointerId) return;
+    // The drop is where the pointer is released, not where the last render put the ghost.
+    const done = dragAt(event, current);
     setDrag(null);
-    if (!done.moved) return;
+    if (done === null) return;
     justDragged.current = true;
     window.setTimeout(() => (justDragged.current = false), 0);
     const from = zoned(done.block.start, timeZone);
@@ -164,8 +206,13 @@ export function WeekGrid({
     : placed;
 
   return (
-    <div className="surface-card overflow-hidden rounded-xl" data-testid="week-grid">
-      <div className="border-line grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] border-b">
+    // overflow-clip, not hidden: a hidden overflow would be the sticky header's scroll box.
+    <div className="surface-card overflow-clip rounded-xl" data-testid="week-grid">
+      {/* The day headers stay under the floating nav while a long grid scrolls. */}
+      <div
+        data-testid="week-grid-header"
+        className="border-line bg-surface sticky top-[4.5rem] z-20 grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] rounded-t-xl border-b"
+      >
         <div />
         {week.map((date) => {
           const off = unavailable.has(date);
@@ -183,12 +230,15 @@ export function WeekGrid({
                 </p>
                 {off && <p className="text-muted text-xs">Unavailable</p>}
               </div>
-              <DayMenu date={date} unavailable={off} exception={exceptions[date]} />
+              {/* A past day can't be changed (decision 0023); today still can. */}
+              {date >= today && (
+                <DayMenu date={date} unavailable={off} exception={exceptions[date]} />
+              )}
             </div>
           );
         })}
       </div>
-      <div className="grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] pb-3">
+      <div className="grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] pt-3 pb-3">
         <div className="relative" style={{ height }} aria-hidden>
           {hours.map((hour) => (
             <span
@@ -242,15 +292,12 @@ export function WeekGrid({
                   <div
                     key={block.id}
                     className={cn(
-                      "absolute inset-x-1 touch-none",
+                      "absolute inset-x-1 touch-none select-none",
                       block.actions.move && "cursor-grab active:cursor-grabbing",
                       dragging && ghost && "opacity-40",
                     )}
                     style={style}
                     onPointerDown={(e) => onPointerDown(e, block)}
-                    onPointerMove={onPointerMove}
-                    onPointerUp={(e) => void onPointerUp(e)}
-                    onPointerCancel={() => setDrag(null)}
                   >
                     <BlockPopover
                       block={block}

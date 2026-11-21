@@ -156,3 +156,69 @@ async def test_move_a_block(alice_api: AsyncClient, planned: Rows) -> None:
                 return
             assert moved.status_code == 422
     raise AssertionError("no free slot accepted")
+
+
+async def test_a_block_done_early_shows_at_its_measured_time(
+    alice_api: AsyncClient, planned: Rows
+) -> None:
+    """Decision 0023: started from Next up hours before its slot and ended, a done block is
+    shown when it was studied, with the plan's times as planned_start and planned_end, and
+    its old slot (which the finish re-plan may use again) holds at most one block."""
+    await alice_api.get("/plan")
+    block = (await alice_api.get("/plan/next")).json()
+    assert block["planned_start"] == block["start"] and block["planned_end"] == block["end"]
+    began = datetime.now(UTC).replace(microsecond=0) - timedelta(minutes=50)
+    ended = began + timedelta(minutes=48)
+    study = (
+        await alice_api.post(
+            "/sessions",
+            json={
+                "module_id": str(planned.module.id),
+                "topic_id": str(planned.topic.id),
+                "plan_block_id": block["id"],
+                "start": {"id": str(uuid.uuid4()), "occurred_at": began.isoformat()},
+            },
+        )
+    ).json()
+    end = {"id": str(uuid.uuid4()), "type": "end", "occurred_at": ended.isoformat()}
+    assert (
+        await alice_api.post(f"/sessions/{study['id']}/events", json={"events": [end]})
+    ).status_code == 200
+    await alice_api.post("/plan/replan")  # the finish re-plan, inline
+
+    tz = ZoneInfo("Africa/Johannesburg")
+    first = min(began.astimezone(tz).date(), datetime.fromisoformat(block["start"]).date())
+    last = first + timedelta(days=8)
+    blocks = (
+        await alice_api.get("/plan", params={"from": first.isoformat(), "to": last.isoformat()})
+    ).json()["blocks"]
+    done = next(b for b in blocks if b["id"] == block["id"])
+    assert done["status"] == "done"
+    assert datetime.fromisoformat(done["start"]) == began
+    assert datetime.fromisoformat(done["end"]) == ended
+    assert done["minutes"] == 48
+    assert (done["planned_start"], done["planned_end"]) == (block["start"], block["end"])
+    # Its old slot: never the done block and a planned one on top of each other.
+    slot = (datetime.fromisoformat(block["start"]), datetime.fromisoformat(block["end"]))
+    in_slot = [
+        b
+        for b in blocks
+        if datetime.fromisoformat(b["start"]) < slot[1]
+        and datetime.fromisoformat(b["end"]) > slot[0]
+    ]
+    assert done not in in_slot
+    assert len(in_slot) <= 1
+
+    # A range holding only the session's day still returns it; one holding only the old
+    # slot's day doesn't.
+    day = began.astimezone(tz).date().isoformat()
+    on_day = (await alice_api.get("/plan", params={"from": day, "to": day})).json()["blocks"]
+    assert block["id"] in {b["id"] for b in on_day}
+    slot_day = slot[0].astimezone(tz).date()
+    if slot_day != began.astimezone(tz).date():
+        there = (
+            await alice_api.get(
+                "/plan", params={"from": slot_day.isoformat(), "to": slot_day.isoformat()}
+            )
+        ).json()["blocks"]
+        assert block["id"] not in {b["id"] for b in there}

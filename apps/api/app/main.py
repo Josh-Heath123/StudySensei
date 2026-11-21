@@ -9,10 +9,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import (
     ai,
     assessments,
+    calendar,
     health,
     materials,
     modules,
     planning,
+    push,
     search,
     sessions,
     tasks,
@@ -65,6 +67,8 @@ def create_app() -> FastAPI:
     app.include_router(search.router)
     app.include_router(tutor.router)
     app.include_router(planning.router)
+    app.include_router(push.router)
+    app.include_router(calendar.router)
     app.include_router(ai.router)
     return app
 

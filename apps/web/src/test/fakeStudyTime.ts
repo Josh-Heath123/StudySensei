@@ -32,7 +32,11 @@ function datesFrom(from: string, to: string): string[] {
 export function fakeStudyTime({
   rules = [] as Omit<Rule, "id">[],
   exceptions = [] as Omit<Exception, "id">[],
-  settings = { timezone: "Africa/Johannesburg", daily_study_cap_minutes: 180 } as Settings,
+  settings = {
+    timezone: "Africa/Johannesburg",
+    daily_study_cap_minutes: 180,
+    reminder_minutes: 10,
+  } as Settings,
 } = {}) {
   let next = 0;
   const id = () => `id-${++next}`;

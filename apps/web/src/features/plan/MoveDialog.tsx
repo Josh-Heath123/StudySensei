@@ -38,7 +38,10 @@ export function MoveDialog({ block, timeZone, week, freeByDate, onClose }: Props
     () => startsWithin(freeByDate[day] ?? [], length),
     [freeByDate, day, length],
   );
-  const [time, setTime] = useState<number | null>(null);
+  // It opens on the block's own day and time (decision 0023), not that day's first free time.
+  const [time, setTime] = useState<number | null>(
+    days.includes(current.date) ? current.minutes : null,
+  );
   const chosen = time !== null && times.includes(time) ? time : (times[0] ?? null);
   const [error, setError] = useState<string | null>(null);
 
