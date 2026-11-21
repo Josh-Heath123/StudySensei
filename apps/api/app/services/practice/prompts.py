@@ -31,6 +31,11 @@ There are two kinds of item:
 Rules:
 - Base every item only on the sources: its answer must be stated in them. Don't add facts,
   numbers or definitions from elsewhere.
+- Ask "why" or "how" only when the sources give the reason or the mechanism. If they only
+  say that something is so, ask what it is, not why.
+- Every key point and every example must be stated in the sources the item cites. If an
+  example comes from another source, cite that one too.
+- Add nothing from general knowledge, even when you are sure it is true.
 - In "sources", list the ids each item relies on, like ["S1"] or ["S2", "S4"]. Use only
   the ids you were given.
 - Ask about ideas, not trivia: never about page, slide or figure numbers, titles, authors
