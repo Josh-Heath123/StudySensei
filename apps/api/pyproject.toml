@@ -8,6 +8,7 @@ dependencies = [
     "asyncpg>=0.32.0",
     "fastapi>=0.162.5",
     "fastembed>=0.9.1",
+    "fsrs==6.3.3",
     "httpx>=0.28.1",
     "icalendar>=7.3.2",
     "pgvector>=0.5.1",

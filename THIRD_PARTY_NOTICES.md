@@ -18,7 +18,7 @@ Self-hosted from npm (no requests to Google Fonts).
 
 - **Inter** (`@fontsource-variable/inter`): SIL Open Font License 1.1 (OFL-1.1). Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter).
 
-## Python packages (75)
+## Python packages (76)
 
 | Package | Version | Licence |
 | --- | --- | --- |
@@ -42,6 +42,7 @@ Self-hosted from npm (no requests to Google Fonts).
 | filelock | 4.2.10 | MIT |
 | flatbuffers | 25.12.19 | Apache 2.0 |
 | frozenlist | 1.8.0 | Apache-2.0 |
+| fsrs | 6.3.3 | MIT License |
 | fsspec | 2026.9.0 | BSD-3-Clause |
 | greenlet | 3.5.6 | MIT AND PSF-2.0 |
 | h11 | 0.16.0 | MIT |
