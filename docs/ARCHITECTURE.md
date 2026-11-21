@@ -795,7 +795,7 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
     the nightly check. For each user with `reminder_minutes` and a subscription: the current version's planned blocks
     starting in (now, now + lead] with no linked session, whose slot isn't in `reminders_sent`. Each gets a
     `reminders_sent` row (ON CONFLICT DO NOTHING) and a one-attempt `push_reminder` job in one transaction; the job
-    (`jobs/tasks/push_reminder.py`) sends to every device of the user, with a TTL of the time left until the block.
+    (`jobs/tasks/push_reminder.py`) sends to every device of the user, with a TTL of the time left until the block, worked out when sending; a job whose block has already started is dropped without sending.
   - **The browser:** `public/sw.js` (push and notificationclick only: shows the notification with its tag; a click
     focuses an open StudySensei tab and navigates it, else opens one). `src/lib/push.ts` registers it only when the
     student turns reminders on, asks permission inside that click, subscribes with the public key and saves the

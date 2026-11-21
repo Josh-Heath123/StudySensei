@@ -109,13 +109,12 @@ async def _queue_for(
             timezone=tz,
             tag=key,
         )
-        # A reminder that arrives after its block has started is no use: it lives as long as
-        # the lead time (at least a minute).
-        ttl = max(60, int((block.start_at - now).total_seconds()))
+        # The job works out the TTL when it sends, from the block's start (a reminder that
+        # arrives after its block has started is no use).
         enqueue(
             session,
             PUSH_REMINDER,
-            {"payload": payload, "slot_key": key, "ttl": ttl},
+            {"payload": payload, "slot_key": key, "start_at": block.start_at.isoformat()},
             user_id=user_id,
             max_attempts=1,
         )

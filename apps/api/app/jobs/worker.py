@@ -82,7 +82,7 @@ async def run_once(
 
     handler = handlers.get(job.kind)
     async with sessions() as session:
-        ctx = JobContext(session, job, storage)
+        ctx = JobContext(session, job, storage, now)
         try:
             if handler is None:
                 raise JobError(f"Unknown job kind {job.kind!r}")

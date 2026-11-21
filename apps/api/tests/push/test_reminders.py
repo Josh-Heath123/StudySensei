@@ -3,7 +3,7 @@ re-plans, a moved block reminded again, and the job sending to every device."""
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import UTC, timedelta
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, select
@@ -70,7 +70,8 @@ async def test_the_window_is_after_now_up_to_the_lead_time(
         "url": "/",
         "tag": job.payload["slot_key"],
     }
-    assert job.payload["ttl"] == 600
+    assert job.payload["start_at"] == first.start_at.isoformat()
+    assert "ttl" not in job.payload  # worked out when sending
     # Once only, a minute later; and at its start it's no longer ahead.
     assert await queue_reminders(session, first.start_at - timedelta(minutes=9)) == 0
     assert await queue_reminders(session, first.start_at) == 0
@@ -203,3 +204,37 @@ async def test_the_job_sends_to_every_device(
     [job] = await reminder_jobs(session, user_a)
     await session.refresh(job)
     assert job.status == "succeeded"
+
+
+async def run_reminder_at(session: AsyncSession, at: datetime) -> bool:
+    @asynccontextmanager
+    async def sessions() -> AsyncIterator[AsyncSession]:
+        yield session
+
+    storage: Storage = None  # type: ignore[assignment]  # a reminder never touches files
+    return await run_once(sessions, storage, now=lambda: at)
+
+
+async def test_the_ttl_is_worked_out_when_sending(
+    session: AsyncSession, user_a: User, push_on: FakePushSender
+) -> None:
+    """Post-merge review of #47: queued 10 minutes ahead but sent 4 minutes before the block,
+    the reminder lives 4 minutes, not 10."""
+    _, blocks = await planned(session, user_a)
+    first = blocks[0]
+    await queue_reminders(session, first.start_at - LEAD)
+    assert await run_reminder_at(session, first.start_at - timedelta(minutes=4))
+    assert [ttl for _, _, ttl in push_on.sent] == [240]
+
+
+async def test_a_reminder_for_a_started_block_is_dropped_without_sending(
+    session: AsyncSession, user_a: User, push_on: FakePushSender
+) -> None:
+    _, blocks = await planned(session, user_a)
+    first = blocks[0]
+    await queue_reminders(session, first.start_at - LEAD)
+    assert await run_reminder_at(session, first.start_at + timedelta(seconds=1))
+    assert push_on.sent == []
+    [job] = await reminder_jobs(session, user_a)
+    await session.refresh(job)
+    assert job.status == "succeeded"  # dropped, not failed: nothing to retry
