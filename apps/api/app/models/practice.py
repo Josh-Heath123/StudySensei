@@ -23,10 +23,12 @@ module deletes its items and generations; deleting a topic leaves its items with
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
+    Double,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -49,6 +51,7 @@ ITEM_STATUSES = ("active", "suspended", "rejected")
 REJECT_REASONS = ("wrong", "unclear", "not_in_source", "duplicate", "other")
 GENERATION_STATUSES = ("queued", "running", "succeeded", "failed")
 REVIEW_MARKERS = ("self", "ai")
+MEMORY_STATES = ("learning", "review", "relearning")
 
 PROMPT_MAX = 500
 ANSWER_MAX = 1500
@@ -223,3 +226,42 @@ class Review(TimestampedBase):
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     # What the student typed, if anything. Never sent to the AI in this task.
     answer_text: Mapped[str | None] = mapped_column(Text)
+    # FSRS (migration 0026, decision 0026); null on reviews from before it. The item's state
+    # before and after (``scheduling.MemoryState.snapshot``; before is null for a new item),
+    # the whole days until due, the retention used and the library that computed it.
+    state_before: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
+    state_after: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
+    scheduled_days: Mapped[int | None] = mapped_column(Integer)
+    desired_retention: Mapped[float | None] = mapped_column(Double)
+    fsrs_version: Mapped[str | None] = mapped_column(String(20))
+
+
+class PracticeItemState(Base):
+    """An item's FSRS state after its latest review (decision 0026). No row: a new item."""
+
+    __tablename__ = "practice_item_states"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["item_id", "user_id"],
+            ["practice_items.id", "practice_items.user_id"],
+            ondelete="CASCADE",
+        ),
+        CheckConstraint(_in("state", MEMORY_STATES), name="ck_practice_item_states_state"),
+        CheckConstraint("step IS NULL OR step >= 0", name="ck_practice_item_states_step"),
+        CheckConstraint("stability > 0", name="ck_practice_item_states_stability"),
+        CheckConstraint("difficulty BETWEEN 1 AND 10", name="ck_practice_item_states_difficulty"),
+        CheckConstraint("reps >= 1 AND lapses >= 0", name="ck_practice_item_states_counts"),
+        CheckConstraint("due > last_review_at", name="ck_practice_item_states_due"),
+        Index("ix_practice_item_states_user_due", "user_id", "due"),
+    )
+
+    item_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    user_id: Mapped[uuid.UUID]
+    state: Mapped[str] = mapped_column(String(10))
+    step: Mapped[int | None] = mapped_column(SmallInteger)
+    stability: Mapped[float] = mapped_column(Double)
+    difficulty: Mapped[float] = mapped_column(Double)
+    due: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_review_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    reps: Mapped[int] = mapped_column(Integer)
+    lapses: Mapped[int] = mapped_column(Integer)

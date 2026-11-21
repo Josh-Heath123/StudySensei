@@ -1,0 +1,18 @@
+{
+  "sheet": "spotcheck-2026-11-21-0740",
+  "items": 48,
+  "returned": 48,
+  "grounded_pct": 100.0,
+  "dropped": {},
+  "marked": 48,
+  "answerable_pct": 97.9,
+  "answerable_pct_by_kind": {
+    "flashcard": 100.0,
+    "short_answer": 94.4
+  },
+  "target": {
+    "answerable_pct": 90.0,
+    "marked": 30
+  },
+  "passed": true
+}

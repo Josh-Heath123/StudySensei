@@ -201,7 +201,12 @@ async def test_reviews_are_append_only(
     ).json()
     first = await api.post(f"/practice/items/{item['id']}/reviews", json={"grade": 1})
     assert first.status_code == 201
-    assert (first.json()["marked_by"], first.json()["grade"]) == ("self", 1)
+    review = first.json()["review"]
+    assert (review["marked_by"], review["grade"], review["fsrs_version"]) == (
+        "self",
+        1,
+        "fsrs 6.3.3",
+    )
     second = await api.post(
         f"/practice/items/{item['id']}/reviews",
         json={"grade": 3, "duration_ms": 4200, "answer_text": "Checks rules per packet."},
@@ -224,7 +229,9 @@ async def test_reviews_are_append_only(
     assert await session.scalar(select(Review.id).limit(1)) is None
 
 
-async def test_a_rejected_item_cant_be_reviewed(api: AsyncClient, practice: Practice) -> None:
+async def test_a_rejected_or_suspended_item_cant_be_reviewed(
+    api: AsyncClient, practice: Practice
+) -> None:
     item = (
         await api.post(
             "/practice/items",
@@ -240,7 +247,18 @@ async def test_a_rejected_item_cant_be_reviewed(api: AsyncClient, practice: Prac
         f"/practice/items/{item['id']}", json={"status": "rejected", "reject_reason": "wrong"}
     )
     refused = await api.post(f"/practice/items/{item['id']}/reviews", json={"grade": 3})
-    assert refused.status_code == 422
+    assert refused.status_code == 409
+    assert refused.json()["detail"] == "Restore it before reviewing."
+    await api.patch(f"/practice/items/{item['id']}", json={"status": "suspended"})
+    suspended = await api.post(f"/practice/items/{item['id']}/reviews", json={"grade": 3})
+    assert (suspended.status_code, suspended.json()["detail"]) == (
+        409,
+        "Restore it before reviewing.",
+    )
+    await api.patch(f"/practice/items/{item['id']}", json={"status": "active"})
+    assert (
+        await api.post(f"/practice/items/{item['id']}/reviews", json={"grade": 3})
+    ).status_code == 201
 
 
 async def own(api: AsyncClient, practice: Practice, topic: uuid.UUID, prompt: str) -> str:
@@ -332,3 +350,47 @@ async def test_deleting_the_material_leaves_sources_missing(
 async def test_an_omitted_body_generates_eight(api: AsyncClient, practice: Practice) -> None:
     response = await api.post(f"/topics/{practice.chapter}/practice/generate")
     assert response.json()["requested"] == 8
+
+
+async def test_two_passages_of_one_page_are_one_page(
+    api: AsyncClient, session: AsyncSession, practice: Practice
+) -> None:
+    """Post-merge review of #48: an item citing two chunks of p1 showed "p1; p1"."""
+    from app.models import Chunk, PracticeItemSource
+
+    second = Chunk(
+        id=uuid.uuid4(),
+        user_id=practice.user_id,
+        module_id=practice.module_id,
+        material_id=practice.materials["slides"],
+        page_number=1,
+        position=1,
+        text="More on state tables.",
+        token_count=4,
+        embedding=[1.0] + [0.0] * 383,
+    )
+    session.add(second)
+    await session.commit()
+    item_id = await own(api, practice, practice.chapter, "What does a state table hold?")
+    session.add_all(
+        PracticeItemSource(
+            item_id=uuid.UUID(item_id), chunk_id=chunk, user_id=practice.user_id, label=label
+        )
+        for label, chunk in (
+            ("S1", practice.chunks["FIREWALL"]),
+            ("S2", practice.chunks["FILTER"]),
+            ("S3", second.id),
+        )
+    )
+    await session.commit()
+    [item] = (await api.get("/practice/items")).json()["items"]
+    assert [(s["label"], s["page_number"]) for s in item["sources"]] == [
+        ("S1", 1),
+        ("S2", 2),
+        ("S3", 1),
+    ]
+    slides = str(practice.materials["slides"])
+    assert item["pages"] == [
+        {"material_id": slides, "material_title": "CH09 Firewalls", "page_number": 1},
+        {"material_id": slides, "material_title": "CH09 Firewalls", "page_number": 2},
+    ]

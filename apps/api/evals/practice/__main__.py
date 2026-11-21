@@ -109,9 +109,12 @@ async def generate(name: str, out: TextIO = sys.stdout) -> int:
                     filtered = keep(reply.items, prepared, set(prepared.existing_keys))
                     by_label = {s.label: s for s in prepared.sources.sources}
                     for item in filtered.kept:
+                        # Distinct pages, in label order (two passages of p7 are one p7).
                         cited = "; ".join(
-                            f"{by_label[label].material_title} p{by_label[label].page_number}"
-                            for label in dict.fromkeys(item.sources)
+                            dict.fromkeys(
+                                f"{by_label[label].material_title} p{by_label[label].page_number}"
+                                for label in item.sources
+                            )
                         )
                         rows.append(
                             {

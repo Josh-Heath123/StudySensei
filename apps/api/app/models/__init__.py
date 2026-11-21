@@ -7,7 +7,13 @@ from app.models.jobs import Job
 from app.models.materials import Chunk, Material, MaterialPage
 from app.models.planning import AvailabilityException, AvailabilityRule
 from app.models.plans import PlanBlock, PlanVersion
-from app.models.practice import PracticeGeneration, PracticeItem, PracticeItemSource, Review
+from app.models.practice import (
+    PracticeGeneration,
+    PracticeItem,
+    PracticeItemSource,
+    PracticeItemState,
+    Review,
+)
 from app.models.reminders import CalendarFeed, PushSubscription, ReminderSent
 from app.models.sessions import SessionEvent, SessionTopicRating, StudySession
 from app.models.topic_maps import ChunkTopic, TopicPage, TopicProposal, TopicReview, TopicUnlink
@@ -36,6 +42,7 @@ __all__ = [
     "PracticeGeneration",
     "PracticeItem",
     "PracticeItemSource",
+    "PracticeItemState",
     "PushSubscription",
     "ReminderSent",
     "Review",
