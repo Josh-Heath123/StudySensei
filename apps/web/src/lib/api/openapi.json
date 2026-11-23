@@ -4102,7 +4102,7 @@
           "practice"
         ],
         "summary": "List Items",
-        "description": "Your items, newest first, each with its sources (label, material, page).",
+        "description": "Your items, newest first, each with its sources (label, material, page). With\n``subtopics``, ``topic_id`` covers the topic's subtopics too, as mastery does.",
         "operationId": "list_items_practice_items_get",
         "parameters": [
           {
@@ -4198,6 +4198,16 @@
                 }
               ],
               "title": "Kind"
+            }
+          },
+          {
+            "name": "subtopics",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Subtopics"
             }
           },
           {

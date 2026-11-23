@@ -56,6 +56,8 @@ class ItemFilters:
     status: str | None = None
     origin: str | None = None
     kind: str | None = None
+    # With topic_id: its subtopics' items too (decision 0019: a topic covers its subtree).
+    subtopics: bool = False
 
 
 async def get_item(
@@ -206,11 +208,26 @@ async def items_out(
     return [item_out(item, sources.get(item.id, []), states.get(item.id), at) for item in items]
 
 
+def _subtree_ids(topic_id: uuid.UUID, user_id: uuid.UUID) -> Select[Any]:
+    """The topic and every topic under it, as a recursive query (the user's only)."""
+    tree = (
+        select(Topic.id)
+        .where(Topic.id == topic_id, Topic.user_id == user_id)
+        .cte("subtree", recursive=True)
+    )
+    tree = tree.union(
+        select(Topic.id).where(Topic.parent_id == tree.c.id, Topic.user_id == user_id)
+    )
+    return select(tree.c.id)
+
+
 def _filtered(query: Select[Any], user_id: uuid.UUID, filters: ItemFilters) -> Select[Any]:
     query = query.where(PracticeItem.user_id == user_id)
     if filters.module_id is not None:
         query = query.where(PracticeItem.module_id == filters.module_id)
-    if filters.topic_id is not None:
+    if filters.topic_id is not None and filters.subtopics:
+        query = query.where(PracticeItem.topic_id.in_(_subtree_ids(filters.topic_id, user_id)))
+    elif filters.topic_id is not None:
         query = query.where(PracticeItem.topic_id == filters.topic_id)
     if filters.status is not None:
         query = query.where(PracticeItem.status == filters.status)

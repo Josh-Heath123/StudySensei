@@ -71,14 +71,21 @@ async def list_items(
     status: ItemStatus | None = None,
     origin: ItemOrigin | None = None,
     kind: ItemKind | None = None,
+    subtopics: bool = False,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ItemPage:
-    """Your items, newest first, each with its sources (label, material, page)."""
+    """Your items, newest first, each with its sources (label, material, page). With
+    ``subtopics``, ``topic_id`` covers the topic's subtopics too, as mastery does."""
     found, total = await items.list_items(
         session,
         items.ItemFilters(
-            module_id=module_id, topic_id=topic_id, status=status, origin=origin, kind=kind
+            module_id=module_id,
+            topic_id=topic_id,
+            status=status,
+            origin=origin,
+            kind=kind,
+            subtopics=subtopics,
         ),
         user_id=user.id,
         limit=limit,

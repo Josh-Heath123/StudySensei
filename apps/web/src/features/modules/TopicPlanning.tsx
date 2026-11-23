@@ -117,9 +117,7 @@ function MasteryLine({ moduleId, topicId }: { moduleId: string; topicId: string 
       aria-label="Mastery"
       className="text-muted flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs"
     >
-      {data.band && (
-        <Badge variant={BAND_VARIANTS[data.band]}>{BAND_LABELS[data.band]}</Badge>
-      )}
+      {data.band && <Badge variant={BAND_VARIANTS[data.band]}>{BAND_LABELS[data.band]}</Badge>}
       <span>{data.basis}</span>
     </p>
   );

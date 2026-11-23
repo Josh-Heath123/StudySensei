@@ -10,6 +10,7 @@ import { LoadingRows } from "./LoadingRows";
 import { PagesDialog } from "./materials/PagesDialog";
 import { findTopic } from "./planningText";
 import { TopicPlanning } from "./TopicPlanning";
+import { TopicPractice } from "@/features/practice/TopicPractice";
 
 /**
  * The pages linked to a topic, by material (decision 0009): how each was linked, a way
@@ -49,6 +50,7 @@ export function TopicPagesDialog({
           </DialogDescription>
         </DialogHeader>
         {node && <TopicPlanning moduleId={moduleId} topic={node} />}
+        {node && <TopicPractice moduleId={moduleId} topic={node} />}
         <h3 className="type-h3 mt-1">Pages</h3>
         {pages.isPending && <LoadingRows label="Loading pages…" rows={3} rowClassName="h-11" />}
         {pages.isError && (

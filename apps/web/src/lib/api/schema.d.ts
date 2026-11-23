@@ -1454,7 +1454,8 @@ export interface paths {
     };
     /**
      * List Items
-     * @description Your items, newest first, each with its sources (label, material, page).
+     * @description Your items, newest first, each with its sources (label, material, page). With
+     *     ``subtopics``, ``topic_id`` covers the topic's subtopics too, as mastery does.
      */
     get: operations["list_items_practice_items_get"];
     put?: never;
@@ -6954,6 +6955,7 @@ export interface operations {
         status?: ("active" | "suspended" | "rejected") | null;
         origin?: ("ai" | "user") | null;
         kind?: ("flashcard" | "short_answer") | null;
+        subtopics?: boolean;
         limit?: number;
         offset?: number;
       };

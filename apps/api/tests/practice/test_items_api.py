@@ -416,3 +416,28 @@ async def test_items_can_be_listed_by_kind(api: AsyncClient, practice: Practice)
         listed = (await api.get("/practice/items", params={"kind": kind})).json()
         assert [i["kind"] for i in listed["items"]] == [kind] and listed["total"] == 1
     assert (await api.get("/practice/items", params={"kind": "essay"})).status_code == 422
+
+
+async def test_a_topics_items_can_include_its_subtopics(
+    api: AsyncClient, practice: Practice
+) -> None:
+    for topic, prompt in ((practice.chapter, "Chapter?"), (practice.sub, "Sub?")):
+        created = await api.post(
+            "/practice/items",
+            json={
+                "module_id": str(practice.module_id),
+                "topic_id": str(topic),
+                "kind": "flashcard",
+                "prompt": prompt,
+                "answer": "Yes.",
+            },
+        )
+        assert created.status_code == 201, created.text
+    chapter = {"topic_id": str(practice.chapter)}
+    only = (await api.get("/practice/items", params=chapter)).json()
+    both = (await api.get("/practice/items", params={**chapter, "subtopics": "true"})).json()
+    assert [i["prompt"] for i in only["items"]] == ["Chapter?"]
+    assert sorted(i["prompt"] for i in both["items"]) == ["Chapter?", "Sub?"]
+    assert both["total"] == 2
+    sub = {"topic_id": str(practice.sub), "subtopics": "true"}
+    assert (await api.get("/practice/items", params=sub)).json()["total"] == 1

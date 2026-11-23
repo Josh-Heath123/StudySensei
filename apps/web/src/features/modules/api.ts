@@ -67,9 +67,10 @@ export function useDeleteModule(moduleId: string) {
 
 // --- Topics ------------------------------------------------------------------------
 
-export function useTopicTree(moduleId: string) {
+export function useTopicTree(moduleId: string, enabled = true) {
   return useQuery({
     queryKey: keys.topics(moduleId),
+    enabled: enabled && moduleId !== "",
     queryFn: () =>
       unwrap(api.GET("/modules/{module_id}/topics", { params: { path: { module_id: moduleId } } })),
   });

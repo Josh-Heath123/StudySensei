@@ -253,3 +253,32 @@ describe("appearance", () => {
     expect(within(group).getByRole("radio", { name: "Light" })).toBeChecked();
   });
 });
+
+test("the Practice card saves new cards a day and the desired retention", async () => {
+  const user = userEvent.setup();
+  const { calls } = mockApi({
+    ...fakeStudyTime().routes,
+    "GET /ai/status": () => aStatus(),
+    "GET /practice/settings": () => ({ new_per_day: 20, desired_retention: 0.9 }),
+    "PATCH /practice/settings": ({ body }) => body,
+  });
+  renderApp("/settings");
+  const section = await screen.findByRole("region", { name: "Practice" });
+  const perDay = await within(section).findByRole("spinbutton", { name: "New cards a day" });
+  const retention = within(section).getByRole("spinbutton", { name: "Desired retention (%)" });
+  expect(retention).toHaveValue(90);
+  expect(within(section).getByText(/Higher means more reviews and better recall/)).toBeVisible();
+  await user.clear(perDay);
+  await user.type(perDay, "15");
+  await user.clear(retention);
+  await user.type(retention, "99");
+  expect(within(section).getByRole("button", { name: "Save" })).toBeDisabled();
+  await user.clear(retention);
+  await user.type(retention, "92");
+  await user.click(within(section).getByRole("button", { name: "Save" }));
+  expect(await within(section).findByText("Saved.")).toBeVisible();
+  expect(calls.find((c) => c.method === "PATCH" && c.path === "/practice/settings")?.body).toEqual({
+    new_per_day: 15,
+    desired_retention: 0.92,
+  });
+});
