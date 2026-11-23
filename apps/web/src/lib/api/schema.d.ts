@@ -3855,11 +3855,8 @@ export interface components {
        * @enum {string}
        */
       status: "not_enough" | "estimated";
-      /**
-       * Band
-       * @enum {string}
-       */
-      band: "weak" | "developing" | "strong";
+      /** Band */
+      band: ("weak" | "developing" | "strong") | null;
       components: components["schemas"]["MasteryComponentsOut"];
       samples: components["schemas"]["MasterySamplesOut"];
       /** Basis */

@@ -108,7 +108,7 @@ export function TopicPlanning({ moduleId, topic }: { moduleId: string; topic: To
   );
 }
 
-/** Read-only: the band and what it rests on, or why there isn't one yet (ADR 0027). */
+/** Read-only: the band and what it rests on, or why there isn't one yet (ADRs 0027, 0028). */
 function MasteryLine({ moduleId, topicId }: { moduleId: string; topicId: string }) {
   const { data } = useTopicMastery(moduleId, topicId);
   if (!data) return null;
@@ -117,7 +117,7 @@ function MasteryLine({ moduleId, topicId }: { moduleId: string; topicId: string 
       aria-label="Mastery"
       className="text-muted flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs"
     >
-      {data.status === "estimated" && (
+      {data.band && (
         <Badge variant={BAND_VARIANTS[data.band]}>{BAND_LABELS[data.band]}</Badge>
       )}
       <span>{data.basis}</span>

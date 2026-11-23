@@ -130,7 +130,7 @@ export function aMastery(overrides: Partial<TopicMastery> = {}): TopicMastery {
     value: 0.5,
     label: "estimated",
     status: "not_enough",
-    band: "developing",
+    band: null,
     components: { recall: null, accuracy: null, prior: 0.5, weight: 0, recall_weight: 0 },
     samples: {
       items_reviewed: 0,

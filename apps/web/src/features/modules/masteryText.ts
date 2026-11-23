@@ -1,6 +1,6 @@
 import type { TopicMastery } from "./api";
 
-type Band = TopicMastery["band"];
+type Band = NonNullable<TopicMastery["band"]>;
 
 /** The chip's words. The basis sentence beside it says it's an estimate (never an exam prediction). */
 export const BAND_LABELS: Record<Band, string> = {

@@ -220,7 +220,7 @@ async function openWithMastery(mastery: ReturnType<typeof aMastery>) {
 
 test("under the starting confidence: the mastery band and what it rests on", async () => {
   const basis =
-    "≈ 64 % (estimated) from recall of ≈ 78 % across 12 practised items, 9 of 14 recent " +
+    "≈ 64 % (estimated) from recall in a week ≈ 78 % across 12 practised items, 9 of 14 recent " +
     "answers right, and your latest session rating of 3 of 5.";
   const line = await openWithMastery(
     aMastery({ status: "estimated", band: "developing", value: 0.64, basis }),
@@ -232,7 +232,7 @@ test("under the starting confidence: the mastery band and what it rests on", asy
 test("with too little practice there's no band, only why", async () => {
   const basis =
     "Not enough practice yet: 2 of 3 attempts. Your latest session rating of 3 of 5 is used for now.";
-  const line = await openWithMastery(aMastery({ value: 0.55, band: "developing", basis }));
+  const line = await openWithMastery(aMastery({ value: 0.55, band: null, basis }));
   expect(line).toHaveTextContent(basis);
   expect(within(line).queryByText("Developing")).not.toBeInTheDocument();
 });

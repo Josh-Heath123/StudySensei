@@ -7,8 +7,10 @@ the constants (``constants.py``) and worked examples.
 For a topic's subtree (decision 0019: a topic covers its subtree, each item counted once), as of
 a time ``at``:
 
-- **Recall M:** the mean FSRS retrievability at ``at`` over the subtree's active items that have
-  a state (``scheduling.retrievability``, the one FSRS call site). None if none was reviewed.
+- **Recall M:** the mean FSRS retrievability one week after ``at`` (recall in a week, ADR 0028)
+  over the subtree's active items that have a state (``scheduling.retrievability``, the one FSRS
+  call site). None if none was reviewed. R at ``at`` itself would be 1.0 for a day after any
+  review, even an Again, since py-fsrs counts whole days.
 - **Accuracy A:** attempts are the first review of each item on each local day (Again 0,
   Hard 0.5, Good 1, Easy 1) and each answered Quiz me question (right 1, wrong 0). Later reviews
   of an item the same day are learning-step repeats, not attempts. A is the mean weighted by
@@ -18,7 +20,7 @@ a time ``at``:
 - **Value:** ``0.6·g·M + (1 - 0.6·g)·(w·A + (1 - w)·P)`` with ``w = n / (n + 3)`` and
   ``g = m / (m + 3)``, m the items reviewed (``_value`` says why).
 - **Status:** "not_enough" below 3 attempts, else "estimated".
-- **Band:** weak < 0.5 <= developing < 0.8 <= strong.
+- **Band:** weak < 0.5 <= developing < 0.8 <= strong; none while "not_enough".
 
 The result doesn't depend on the order of its inputs: items are de-duplicated by id and every
 sum is ``math.fsum``.
@@ -28,7 +30,7 @@ import math
 import uuid
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -40,6 +42,7 @@ from app.services.mastery.constants import (
     PRIOR_ATTEMPTS,
     RATING_MAX,
     RATING_MIN,
+    RECALL_AHEAD_DAYS,
     RECALL_SHARE,
     STRONG_FROM,
     UNRATED_PRIOR,
@@ -119,7 +122,7 @@ class ItemSummary:
 
 @dataclass(frozen=True)
 class Components:
-    recall: float | None  # M
+    recall: float | None  # M: recall in a week
     accuracy: float | None  # A
     prior: float  # P
     weight: float  # w = n / (n + k): the attempts' weight against the prior
@@ -145,7 +148,8 @@ class Samples:
 class Mastery:
     value: float
     status: Status
-    band: Band
+    # None while status is "not_enough".
+    band: Band | None
     components: Components
     samples: Samples
     # One sentence, every number labelled.
@@ -167,7 +171,8 @@ def _local_day(at: datetime, tz: ZoneInfo) -> date:
 
 
 def summarise_item(item: ItemLog, at: datetime, tz: ZoneInfo) -> ItemSummary:
-    """The item as of ``at``: reviews after it are ignored."""
+    """The item as of ``at``: reviews after it are ignored. Its recall is FSRS's R a week
+    after ``at``."""
     reviews = sorted((r for r in item.reviews if r.at <= at), key=lambda r: (r.at, r.grade))
     attempts: list[Attempt] = []
     days: set[date] = set()
@@ -179,7 +184,8 @@ def summarise_item(item: ItemLog, at: datetime, tz: ZoneInfo) -> ItemSummary:
             attempts.append(Attempt(review.at, day, GRADE_SCORES[review.grade], "review"))
         if review.state_after is not None:
             state = review.state_after
-    recall = retrievability(state, at) if item.active and state is not None else None
+    ahead = at + timedelta(days=RECALL_AHEAD_DAYS)
+    recall = retrievability(state, ahead) if item.active and state is not None else None
     return ItemSummary(item.item_id, item.active, recall, tuple(attempts), len(reviews))
 
 
@@ -292,7 +298,7 @@ def topic_mastery(
     return Mastery(
         value=value,
         status=status,
-        band=band(value),
+        band=None if status == "not_enough" else band(value),
         components=Components(m, a, p, found.weight, found.recall_weight),
         samples=samples,
         basis=basis(value, status, m, samples, right, hard, prior),
@@ -361,7 +367,7 @@ def basis(
     parts = []
     if recall is not None:
         parts.append(
-            f"recall of ≈ {percent(recall)} across "
+            f"recall in a week ≈ {percent(recall)} across "
             f"{_plural(samples.items_reviewed, 'practised item')}"
         )
     answers = f"{right} of {_plural(samples.attempts, 'recent answer')} right"
