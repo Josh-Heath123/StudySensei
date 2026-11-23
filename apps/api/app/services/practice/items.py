@@ -21,11 +21,29 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Chunk, Material, PracticeItem, PracticeItemSource, Review, Topic
-from app.schemas.practice import ItemCreate, ItemOut, ItemSourceOut, ItemUpdate, ReviewIn
+from app.core import clock
+from app.models import (
+    Chunk,
+    Material,
+    PracticeItem,
+    PracticeItemSource,
+    PracticeItemState,
+    Review,
+    Topic,
+)
+from app.schemas.practice import (
+    Estimate,
+    ItemCreate,
+    ItemOut,
+    ItemPageOut,
+    ItemSourceOut,
+    ItemUpdate,
+    MemoryOut,
+)
 from app.services.academics.modules import get_module
 from app.services.errors import Conflict, Invalid, NotFound
 from app.services.practice.filter import prompt_key
+from app.services.practice.scheduling import MemoryState, retrievability
 
 DUPLICATE = "This topic already has a card or question with that prompt."
 TEXT_FIELDS = ("prompt", "answer", "key_points")
@@ -84,7 +102,71 @@ async def sources_of(
     return found
 
 
-def item_out(item: PracticeItem, sources: list[ItemSourceOut]) -> ItemOut:
+def distinct_pages(sources: list[ItemSourceOut]) -> list[ItemPageOut]:
+    """Each (material, page) once, in label order."""
+    pages = dict.fromkeys((s.material_id, s.material_title, s.page_number) for s in sources)
+    return [ItemPageOut(material_id=m, material_title=t, page_number=n) for m, t, n in pages]
+
+
+def memory_out(row: PracticeItemState | None, now: datetime) -> MemoryOut:
+    """Where an item stands in FSRS now (decision 0026). No state row: a new item."""
+    if row is None:
+        return MemoryOut(
+            state="new",
+            due=None,
+            stability=None,
+            difficulty=None,
+            retrievability=None,
+            reps=0,
+            lapses=0,
+        )
+    state = memory_state(row)
+    chance = retrievability(state, now)
+    return MemoryOut(
+        state=state.state,
+        due=state.due,
+        stability=state.stability,
+        difficulty=state.difficulty,
+        retrievability=(
+            Estimate(value=round(chance, 4), sample_size=state.reps) if chance is not None else None
+        ),
+        reps=state.reps,
+        lapses=state.lapses,
+    )
+
+
+def memory_state(row: PracticeItemState) -> MemoryState:
+    return MemoryState(
+        state=row.state,  # type: ignore[arg-type]
+        step=row.step,
+        stability=row.stability,
+        difficulty=row.difficulty,
+        due=row.due,
+        last_review_at=row.last_review_at,
+        reps=row.reps,
+        lapses=row.lapses,
+    )
+
+
+async def states_of(
+    session: AsyncSession, item_ids: list[uuid.UUID], *, user_id: uuid.UUID
+) -> dict[uuid.UUID, PracticeItemState]:
+    if not item_ids:
+        return {}
+    rows = await session.scalars(
+        select(PracticeItemState).where(
+            PracticeItemState.user_id == user_id, PracticeItemState.item_id.in_(item_ids)
+        )
+    )
+    return {row.item_id: row for row in rows}
+
+
+def item_out(
+    item: PracticeItem,
+    sources: list[ItemSourceOut],
+    state: PracticeItemState | None = None,
+    now: datetime | None = None,
+) -> ItemOut:
     return ItemOut(
         id=item.id,
         module_id=item.module_id,
@@ -102,16 +184,25 @@ def item_out(item: PracticeItem, sources: list[ItemSourceOut]) -> ItemOut:
         created_at=item.created_at,
         updated_at=item.updated_at,
         sources=sources,
+        pages=distinct_pages(sources),
         # Written by the AI from passages that have all gone (their material was deleted).
         sources_missing=item.provider is not None and not sources,
+        memory=memory_out(state, now or clock.now()),
     )
 
 
 async def items_out(
-    session: AsyncSession, items: list[PracticeItem], *, user_id: uuid.UUID
+    session: AsyncSession,
+    items: list[PracticeItem],
+    *,
+    user_id: uuid.UUID,
+    now: datetime | None = None,
 ) -> list[ItemOut]:
-    sources = await sources_of(session, [i.id for i in items], user_id=user_id)
-    return [item_out(item, sources.get(item.id, [])) for item in items]
+    ids = [i.id for i in items]
+    sources = await sources_of(session, ids, user_id=user_id)
+    states = await states_of(session, ids, user_id=user_id)
+    at = now or clock.now()
+    return [item_out(item, sources.get(item.id, []), states.get(item.id), at) for item in items]
 
 
 def _filtered(query: Select[Any], user_id: uuid.UUID, filters: ItemFilters) -> Select[Any]:
@@ -236,35 +327,14 @@ async def update_item(
             item.reject_reason = None
     await session.commit()
     await session.refresh(item)
-    sources = await sources_of(session, [item.id], user_id=user_id)
-    return item_out(item, sources.get(item.id, []))
+    [out] = await items_out(session, [item], user_id=user_id)
+    return out
 
 
 async def delete_item(session: AsyncSession, item_id: uuid.UUID, *, user_id: uuid.UUID) -> None:
     item = await get_item(session, item_id, user_id=user_id)
     await session.delete(item)
     await session.commit()
-
-
-async def add_review(
-    session: AsyncSession, item_id: uuid.UUID, data: ReviewIn, *, user_id: uuid.UUID, now: datetime
-) -> Review:
-    item = await get_item(session, item_id, user_id=user_id)
-    if item.status == "rejected":
-        raise Invalid("A rejected item can't be reviewed")
-    review = Review(
-        user_id=user_id,
-        item_id=item.id,
-        reviewed_at=now,
-        grade=data.grade,
-        marked_by="self",
-        duration_ms=data.duration_ms,
-        answer_text=data.answer_text,
-    )
-    session.add(review)
-    await session.commit()
-    await session.refresh(review)
-    return review
 
 
 async def list_reviews(

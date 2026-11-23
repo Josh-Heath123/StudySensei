@@ -767,6 +767,7 @@ PRACTICE_ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("DELETE", "/practice/items/{item}", None),
     ("POST", "/practice/items/{item}/reviews", {"grade": 3}),
     ("GET", "/practice/items/{item}/reviews", None),
+    ("GET", "/practice/items/{item}/preview", None),
 ]
 
 
@@ -791,6 +792,8 @@ async def _practice_snapshot(api: AsyncClient, rows: Rows, item: str) -> tuple[A
         (await api.get("/practice/items")).json(),
         (await api.get(f"/practice/items/{item}/reviews")).json(),
         (await api.get(f"/topics/{rows.topic.id}/practice/generations")).json(),
+        (await api.get("/practice/queue")).json(),
+        (await api.get("/practice/settings")).json(),
         (await api.get(f"/modules/{rows.module.id}/topics")).json(),
     )
 
@@ -836,3 +839,22 @@ async def test_practice_lists_hold_only_your_own_items(
         listed = (await bob_api.get("/practice/items", params=params)).json()
         assert hers not in {i["id"] for i in listed["items"]}
     assert [i["id"] for i in (await bob_api.get("/practice/items")).json()["items"]] == [his]
+
+
+async def test_the_queue_and_settings_are_per_user(
+    alice_api: AsyncClient, bob_api: AsyncClient, alice: Rows, bob: Rows
+) -> None:
+    hers, his = await _card(alice_api, alice), await _card(bob_api, bob)
+    for params in ({}, {"module_id": str(alice.module.id)}, {"topic_id": str(alice.topic.id)}):
+        queue = (await bob_api.get("/practice/queue", params=params)).json()
+        assert hers not in {i["id"] for i in queue["items"]}
+    # His own card was reviewed by _card: learning, due in minutes; only his counts show it.
+    counts = (await bob_api.get("/practice/queue")).json()["counts"]
+    assert (counts["due_now"], counts["new_total"]) == (0, 0)
+    assert counts["next_due_at"] is not None
+    assert his != hers
+    await bob_api.patch("/practice/settings", json={"new_per_day": 3, "desired_retention": 0.8})
+    assert (await alice_api.get("/practice/settings")).json() == {
+        "new_per_day": 20,
+        "desired_retention": 0.9,
+    }

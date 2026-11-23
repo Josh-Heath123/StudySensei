@@ -59,6 +59,11 @@ Run them from the repo root with the Docker database up (`npm run db:up`; `npm r
   `evals/results/practice-cos330.json`: items, grounded % (of the items returned, those citing only their given
   sources), marked, answerable % overall and by kind, and whether the target was met (exit code 1 otherwise).
 - **What's committed:** the topic names and the results' numbers. Never the sheet.
+- **Result (21 Nov 2026, `results/practice-cos330.json`):** 48 items (6 topics x 8), all grounded; marked by hand, 47 of 48
+  answerable from their cited pages (97.9 %: flashcards 30 of 30, short answers 17 of 18) against the 90 % target, so
+  Phase 5's first Verify line is met. The one failure was a short answer asking *why* something holds where the
+  sources only say *that* it does; several answerable items added small facts not on their pages. The generation
+  prompt now forbids both (ADR 0026).
 
 `... python -m evals.topic_extraction cos330 --export` rewrites the reference from the dev database
 (after a deliberate review, not to make the eval pass).

@@ -4362,7 +4362,7 @@
           "practice"
         ],
         "summary": "Add Review",
-        "description": "Record a self-marked answer: grade 1 (again) to 4 (easy). Reviews are never changed.",
+        "description": "Record a self-marked answer, grade 1 (again) to 4 (easy), and schedule the item with\nFSRS. 409 for a suspended or rejected item. Returns the review, the new due time and\nthe queue's counts. Reviews are never changed.",
         "operationId": "add_review_practice_items__item_id__reviews_post",
         "parameters": [
           {
@@ -4392,7 +4392,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReviewOut"
+                  "$ref": "#/components/schemas/ReviewResultOut"
                 }
               }
             }
@@ -4439,6 +4439,191 @@
                     "$ref": "#/components/schemas/ReviewOut"
                   },
                   "title": "Response List Reviews Practice Items  Item Id  Reviews Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/practice/items/{item_id}/preview": {
+      "get": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Preview",
+        "description": "For each grade, when the item would be due if reviewed now, and as a short label.",
+        "operationId": "preview_practice_items__item_id__preview_get",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/practice/queue": {
+      "get": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Review Queue",
+        "description": "Due items (oldest due first), then new items up to today's allowance (oldest first),\nwith the counts.",
+        "operationId": "review_queue_practice_queue_get",
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Module Id"
+            }
+          },
+          {
+            "name": "topic_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Topic Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/practice/settings": {
+      "get": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Get Settings",
+        "operationId": "get_settings_practice_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeSettingsOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Update Settings",
+        "description": "New items a day (0-200) and desired retention (0.80-0.97). A new retention applies to\nlater reviews only.",
+        "operationId": "update_settings_practice_settings_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PracticeSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeSettingsOut"
                 }
               }
             }
@@ -5608,6 +5793,31 @@
         "title": "ErrorEvent",
         "description": "Last, when no full answer was given. Any text already streamed is kept as a\n``failed`` message."
       },
+      "Estimate": {
+        "properties": {
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "label": {
+            "type": "string",
+            "const": "estimated",
+            "title": "Label",
+            "default": "estimated"
+          },
+          "sample_size": {
+            "type": "integer",
+            "title": "Sample Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "sample_size"
+        ],
+        "title": "Estimate",
+        "description": "A number shown to the student: always estimated here, with its sample size."
+      },
       "EventBatch": {
         "properties": {
           "events": {
@@ -6329,9 +6539,19 @@
             "type": "array",
             "title": "Sources"
           },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/ItemPageOut"
+            },
+            "type": "array",
+            "title": "Pages"
+          },
           "sources_missing": {
             "type": "boolean",
             "title": "Sources Missing"
+          },
+          "memory": {
+            "$ref": "#/components/schemas/MemoryOut"
           }
         },
         "type": "object",
@@ -6352,7 +6572,9 @@
           "created_at",
           "updated_at",
           "sources",
-          "sources_missing"
+          "pages",
+          "sources_missing",
+          "memory"
         ],
         "title": "ItemOut"
       },
@@ -6376,6 +6598,31 @@
           "total"
         ],
         "title": "ItemPage"
+      },
+      "ItemPageOut": {
+        "properties": {
+          "material_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Material Id"
+          },
+          "material_title": {
+            "type": "string",
+            "title": "Material Title"
+          },
+          "page_number": {
+            "type": "integer",
+            "title": "Page Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "material_id",
+          "material_title",
+          "page_number"
+        ],
+        "title": "ItemPageOut",
+        "description": "A page an item cites, once however many of its passages are cited."
       },
       "ItemSourceOut": {
         "properties": {
@@ -6891,6 +7138,83 @@
         "additionalProperties": false,
         "type": "object",
         "title": "MaterialUpdate"
+      },
+      "MemoryOut": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "new",
+              "learning",
+              "review",
+              "relearning"
+            ],
+            "title": "State"
+          },
+          "due": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due"
+          },
+          "stability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stability"
+          },
+          "difficulty": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Difficulty"
+          },
+          "retrievability": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Estimate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reps": {
+            "type": "integer",
+            "title": "Reps"
+          },
+          "lapses": {
+            "type": "integer",
+            "title": "Lapses"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "due",
+          "stability",
+          "difficulty",
+          "retrievability",
+          "reps",
+          "lapses"
+        ],
+        "title": "MemoryOut"
       },
       "MergeInto": {
         "properties": {
@@ -7884,6 +8208,114 @@
         "type": "object",
         "title": "PlanningSettingsUpdate"
       },
+      "PracticeSettingsOut": {
+        "properties": {
+          "new_per_day": {
+            "type": "integer",
+            "title": "New Per Day"
+          },
+          "desired_retention": {
+            "type": "number",
+            "title": "Desired Retention"
+          }
+        },
+        "type": "object",
+        "required": [
+          "new_per_day",
+          "desired_retention"
+        ],
+        "title": "PracticeSettingsOut"
+      },
+      "PracticeSettingsUpdate": {
+        "properties": {
+          "new_per_day": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 200.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Per Day"
+          },
+          "desired_retention": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 0.97,
+                "minimum": 0.8
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Desired Retention"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PracticeSettingsUpdate"
+      },
+      "PreviewOption": {
+        "properties": {
+          "grade": {
+            "type": "integer",
+            "title": "Grade"
+          },
+          "name": {
+            "type": "string",
+            "enum": [
+              "again",
+              "hard",
+              "good",
+              "easy"
+            ],
+            "title": "Name"
+          },
+          "due": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Due"
+          },
+          "interval": {
+            "type": "string",
+            "title": "Interval"
+          }
+        },
+        "type": "object",
+        "required": [
+          "grade",
+          "name",
+          "due",
+          "interval"
+        ],
+        "title": "PreviewOption"
+      },
+      "PreviewOut": {
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/PreviewOption"
+            },
+            "type": "array",
+            "title": "Options"
+          }
+        },
+        "type": "object",
+        "required": [
+          "at",
+          "options"
+        ],
+        "title": "PreviewOut"
+      },
       "PushConfigOut": {
         "properties": {
           "enabled": {
@@ -8046,6 +8478,62 @@
           "devices"
         ],
         "title": "PushTestOut"
+      },
+      "QueueCounts": {
+        "properties": {
+          "due_now": {
+            "type": "integer",
+            "title": "Due Now"
+          },
+          "new_today_left": {
+            "type": "integer",
+            "title": "New Today Left"
+          },
+          "new_total": {
+            "type": "integer",
+            "title": "New Total"
+          },
+          "next_due_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Due At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "due_now",
+          "new_today_left",
+          "new_total",
+          "next_due_at"
+        ],
+        "title": "QueueCounts"
+      },
+      "QueueOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItemOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/QueueCounts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "counts"
+        ],
+        "title": "QueueOut"
       },
       "Quiz": {
         "properties": {
@@ -8274,6 +8762,28 @@
               }
             ],
             "title": "Answer Text"
+          },
+          "scheduled_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled Days"
+          },
+          "fsrs_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fsrs Version"
           }
         },
         "type": "object",
@@ -8284,9 +8794,31 @@
           "grade",
           "marked_by",
           "duration_ms",
-          "answer_text"
+          "answer_text",
+          "scheduled_days",
+          "fsrs_version"
         ],
         "title": "ReviewOut"
+      },
+      "ReviewResultOut": {
+        "properties": {
+          "review": {
+            "$ref": "#/components/schemas/ReviewOut"
+          },
+          "scheduled": {
+            "$ref": "#/components/schemas/ScheduledOut"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/QueueCounts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "review",
+          "scheduled",
+          "counts"
+        ],
+        "title": "ReviewResultOut"
       },
       "RuleCreate": {
         "properties": {
@@ -8387,6 +8919,36 @@
         "type": "object",
         "title": "RuleUpdate",
         "description": "Any of the three; the window is checked again once merged with what's stored."
+      },
+      "ScheduledOut": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "new",
+              "learning",
+              "review",
+              "relearning"
+            ],
+            "title": "State"
+          },
+          "due": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Due"
+          },
+          "scheduled_days": {
+            "type": "integer",
+            "title": "Scheduled Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "due",
+          "scheduled_days"
+        ],
+        "title": "ScheduledOut"
       },
       "SearchOut": {
         "properties": {
