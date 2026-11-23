@@ -5,7 +5,7 @@ import { mockApi } from "@/test/mockApi";
 import { renderApp } from "@/test/render";
 
 import type { TopicNode } from "./api";
-import { aModule, anAiStatus, aTopic, aTopicMap, roots } from "./fixtures";
+import { aMastery, aModule, anAiStatus, aTopic, aTopicMap, roots } from "./fixtures";
 import {
   confidenceText,
   exactDuration,
@@ -49,6 +49,7 @@ function serve() {
     "GET /modules/:id/topic-map": () => aTopicMap(),
     "GET /ai/status": () => anAiStatus(),
     "GET /topics/:id/pages": () => [],
+    "GET /topics/:id/mastery": () => aMastery(),
     "PATCH /topics/:id/planning": ({ body }) => {
       const change = body as { confidence?: number | null; estimated_minutes?: number | null };
       if ("confidence" in change) topic = { ...topic, confidence: change.confidence ?? null };
@@ -156,6 +157,7 @@ test("a chapter shows its workload with its subtopics, as the planner counts it"
     "GET /modules/:id/topic-map": () => aTopicMap(),
     "GET /ai/status": () => anAiStatus(),
     "GET /topics/:id/pages": () => [],
+    "GET /topics/:id/mastery": () => aMastery(),
   });
   renderApp("/modules/m1?tab=topics");
   const user = userEvent.setup();
@@ -199,4 +201,37 @@ test("chapter workload text", () => {
     "No estimate with its 1 subtopic yet: no slides or notes are linked to any of them.",
   );
   expect(planDuration(65)).toBe("1 h 05");
+});
+
+async function openWithMastery(mastery: ReturnType<typeof aMastery>) {
+  mockApi({
+    "GET /modules/:id": () => aModule(),
+    "GET /modules/:id/topics": () => roots(aTopic("q", "Queues", [], { workload: ESTIMATED })),
+    "GET /modules/:id/topic-map": () => aTopicMap(),
+    "GET /ai/status": () => anAiStatus(),
+    "GET /topics/:id/pages": () => [],
+    "GET /topics/:id/mastery": () => mastery,
+  });
+  renderApp("/modules/m1?tab=topics");
+  const dialog = await openTopic(userEvent.setup());
+  const planning = within(dialog).getByRole("region", { name: "Planning" });
+  return within(planning).findByLabelText("Mastery");
+}
+
+test("under the starting confidence: the mastery band and what it rests on", async () => {
+  const basis =
+    "≈ 64 % (estimated) from recall of ≈ 78 % across 12 practised items, 9 of 14 recent " +
+    "answers right, and your rating of 3 of 5.";
+  const line = await openWithMastery(
+    aMastery({ status: "estimated", band: "developing", value: 0.64, basis }),
+  );
+  expect(within(line).getByText("Developing")).toBeVisible();
+  expect(within(line).getByText(basis)).toBeVisible();
+});
+
+test("with too little practice there's no band, only why", async () => {
+  const basis = "Not enough practice yet: 2 of 3 attempts. Your rating of 3 of 5 is used for now.";
+  const line = await openWithMastery(aMastery({ value: 0.55, band: "developing", basis }));
+  expect(line).toHaveTextContent(basis);
+  expect(within(line).queryByText("Developing")).not.toBeInTheDocument();
 });

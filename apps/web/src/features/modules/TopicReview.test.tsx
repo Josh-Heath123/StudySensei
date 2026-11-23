@@ -5,7 +5,7 @@ import { json, mockApi, noContent, type Handler } from "@/test/mockApi";
 import { renderApp } from "@/test/render";
 
 import type { LinkedMaterial, ReviewStats, TopicNode } from "./api";
-import { aModule, aTopic, aTopicMap, anAiStatus, roots } from "./fixtures";
+import { aMastery, aModule, aTopic, aTopicMap, anAiStatus, roots } from "./fixtures";
 
 const ai = { source: "ai" as const };
 // Security (mine)
@@ -26,6 +26,7 @@ function renderReview(tree: TopicNode[] = TREE, extra: Record<string, Handler> =
     "GET /modules/:id/topics": () => tree,
     "GET /modules/:id/topic-map": () => aTopicMap({ review: STATS }),
     "GET /ai/status": () => anAiStatus(),
+    "GET /topics/:id/mastery": () => aMastery(),
     "POST /topics/:id/keep": ({ params }) => aTopic(params.id!, "x"),
     "POST /topics/:id/dismiss": () => ({ dismissed: 1 }),
     "POST /topics/:id/merge-into": ({ body }) =>
