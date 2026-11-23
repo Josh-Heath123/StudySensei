@@ -188,9 +188,31 @@ any content uses `glass-strong`; `tokens.test.ts` checks each against its worst 
 - **Materials:** a refined upload area and status, skeleton loaders, a prominent search box, and the viewer's chrome
   in glass with the page canvas on a solid surface.
 - **Settings:** Appearance first, then Study time (a one-line summary of the week, the weekly editor beside Limits
-  and Exceptions cards), then Reminders and calendar (the two cards side by side from 1024 px), then AI providers in
+  and Exceptions cards), then Practice (new cards a day, desired retention), then Reminders and calendar (the two cards side by side from 1024 px), then AI providers in
   solid cards with violet usage meters (labels kept).
-- **Placeholders** (Practice, Insights): a designed empty state saying which phase each arrives in.
+- **Practice** (`/practice`): the page header with All items and Start review (the one primary action); three solid
+  tiles (Due now, New today with the allowance left and the new cards waiting, Next due); then the topics, weakest
+  first, as solid cards: the parent's name muted before the topic's, a band chip (Weak `warning`, Developing
+  `default`, Strong `success`) only when the estimate has enough practice behind it, the code-written basis sentence
+  muted, the item count as a link, and two quiet buttons (Generate practice, whose state follows it in muted text;
+  Add a card). The header says mastery is an estimate, never an exam prediction.
+- **The review card** (`/practice/review`): one centred column at most 768 px wide, and the card a **solid surface**
+  (`bg-surface`, a 1 px line, radius 16, no glass: it's reading material). Kind and origin as small chips, the prompt
+  in H2, then the answer box (short answers) or Show answer. The revealed answer sits on a `subtle` panel with its
+  source chips ("CH05 p14", violet on `accent-soft`, as the tutor's citations); the AI's check in a bordered panel
+  (the verdict in H3, a tick or cross per key point with "Covered"/"Missing" for screen readers, the feedback, "It
+  suggests Hard. You choose the grade."); the tick list as large checkbox rows. The four grades are equal outlined
+  buttons, two by two on phones and in a row from 640 px, each with its interval and (from 640 px) its key in a corner;
+  the suggested one has a violet border, an `accent-soft` fill, a 2 px ring and a "Suggested" line, which every
+  button reserves so their heights match. Focus moves to the question, then the revealed answer; the summary is a solid
+  card with a success icon, the count, the share right (measured, with its count) and the next due.
+- **Practice items** (`/practice/items`): filters as a row of native selects (two columns on tablets, one on phones);
+  each item a solid card with its prompt, kind, origin, a Suspended or Rejected chip when it applies, its memory state
+  ("Learning · due in 10 min") muted, its source chips, and a "…" menu (Edit, Suspend or Restore, Reject… for AI items,
+  Delete…). Reject asks for a reason in a dialog; Delete confirms.
+- **Today's Reviews card:** solid, under Next up: "4 due now · 12 new today" in H3 with Start review, or "Next review in
+  3 h." muted.
+- **Placeholders** (Insights): a designed empty state saying which phase it arrives in.
 
 ## Layout and responsive
 
