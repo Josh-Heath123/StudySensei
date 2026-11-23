@@ -7,7 +7,9 @@ then new active items (no state yet), oldest first, up to today's allowance:
 is one whose ``state_before`` is null with a ``state_after``: reviews from before scheduling
 (task 1) don't count.
 
-The counts: due now, new left today, new in all, and the next due time after now.
+The counts: due now, new items that can still be reviewed today (the allowance left, capped
+by the new items there are), the allowance left itself, new in all, and the next due time
+after now.
 """
 
 import uuid
@@ -118,6 +120,7 @@ async def queue_counts(
     return QueueCounts(
         due_now=int(due_now or 0),
         new_today_left=min(allowance, int(new_total or 0)),
+        new_allowance_left=allowance,
         new_total=int(new_total or 0),
         next_due_at=next_due,
     )

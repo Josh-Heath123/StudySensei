@@ -340,3 +340,23 @@ async def test_listed_reviews_carry_their_schedule_and_the_state_after(
         None,
     )
 
+
+async def test_new_today_left_is_capped_by_the_new_items_and_the_allowance_is_its_own(
+    session: AsyncSession, practice: Practice, user_a: User
+) -> None:
+    user_a.practice_new_per_day = 20
+    await session.commit()
+    reviewed = [await card(session, practice, f"Reviewed today {n}?") for n in range(3)]
+    for item_id in reviewed:
+        await review(session, practice, item_id, 3, T0)
+    counts = await queue_counts(session, user_id=practice.user_id, now=T0)
+    # No new items left: none can be reviewed, though 17 of the 20 are still allowed.
+    assert (counts.new_total, counts.new_today_left, counts.new_allowance_left) == (0, 0, 17)
+    await card(session, practice, "A fresh card?")
+    counts = await queue_counts(session, user_id=practice.user_id, now=T0)
+    assert (counts.new_today_left, counts.new_allowance_left) == (1, 17)
+    # Never below 0 when the setting drops under what's been done.
+    user_a.practice_new_per_day = 1
+    await session.commit()
+    counts = await queue_counts(session, user_id=practice.user_id, now=T0)
+    assert (counts.new_today_left, counts.new_allowance_left) == (0, 0)

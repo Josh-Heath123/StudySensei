@@ -252,8 +252,12 @@ class ScheduledOut(BaseModel):
 class QueueCounts(BaseModel):
     # Active items due now.
     due_now: int
-    # New items still allowed today (the daily allowance less new items first reviewed today).
+    # New items that can still be reviewed today: the allowance left, but no more than the new
+    # items there are (0 with no new items, however much allowance is left).
     new_today_left: int
+    # The allowance left: practice_new_per_day less the new items first reviewed today
+    # (local day), never below 0.
+    new_allowance_left: int
     # Active items never reviewed.
     new_total: int
     # The earliest due time after now, for "next review in 3 h".
