@@ -379,42 +379,27 @@ const REMINDER_STATES = {
   denied: `Object.defineProperty(Notification, "permission", { get: () => "denied" });`,
 };
 
-/** Synthetic cards on a topic, each reviewed Good at the API's fixed clock. QA only. */
-async function practiseTopic(moduleId, name, count) {
-  const api = `http://localhost:${API_PORT}`;
-  const json = { "Content-Type": "application/json" };
-  const tree = await (await fetch(`${api}/modules/${moduleId}/topics`)).json();
-  const find = (nodes) => {
-    for (const node of nodes) {
-      if (node.name === name) return node;
-      const found = find(node.children);
-      if (found) return found;
-    }
-    return null;
-  };
-  const topic = find(tree);
-  if (!topic) throw new Error(`No topic named ${name}`);
-  for (let n = 1; n <= count; n++) {
-    const item = await (
-      await fetch(`${api}/practice/items`, {
-        method: "POST",
-        headers: json,
-        body: JSON.stringify({
-          module_id: moduleId,
-          topic_id: topic.id,
-          kind: "flashcard",
-          prompt: `QA card ${n}: what does ssthresh mark?`,
-          answer: "Where slow start gives way to congestion avoidance.",
-        }),
-      })
-    ).json();
-    await fetch(`${api}/practice/items/${item.id}/reviews`, {
-      method: "POST",
-      headers: json,
-      body: JSON.stringify({ grade: 3 }),
-    });
-  }
-}
+/** The AI's check of the demo's short answer, for the QA screenshots (no AI in the demo). */
+const QA_MARKING = {
+  coverage: [
+    {
+      index: 1,
+      key_point: "ssthresh marks a window size that was safe",
+      covered: false,
+    },
+    { index: 2, key_point: "Past it, growth becomes additive", covered: true },
+    {
+      index: 3,
+      key_point: "This avoids overflowing router queues",
+      covered: false,
+    },
+  ],
+  verdict: "incorrect",
+  suggested_grade: 1,
+  feedback:
+    "You describe the additive growth past ssthresh; say what ssthresh marks and why growth slows there.",
+  model: "groq/openai/gpt-oss-120b",
+};
 
 /** Every screen and the main dialogs, in both themes, at three widths (full page, scale 1). */
 async function review(browser, dir, moduleId, fixed) {
@@ -430,9 +415,6 @@ async function review(browser, dir, moduleId, fixed) {
       label: "Chrome on Android",
     }),
   });
-  // Three cards answered Good on the dialog's topic, so its mastery line shows a band (ADR
-  // 0027) rather than "Not enough practice yet".
-  await practiseTopic(moduleId, "Slow start and ssthresh", 3);
   const tabs = ["assessments", "tasks", "sessions", "topics", "materials"];
   const screens = [
     ["today", "/"],
@@ -440,6 +422,7 @@ async function review(browser, dir, moduleId, fixed) {
     ...tabs.map((tab) => [`module-${tab}`, `/modules/${moduleId}?tab=${tab}`]),
     ["plan", "/plan"],
     ["practice", "/practice"],
+    ["practice-items", "/practice/items"],
     ["insights", "/insights"],
     ["settings", "/settings"],
     ["session", "/session"],
@@ -460,6 +443,37 @@ async function review(browser, dir, moduleId, fixed) {
         await page.waitForLoadState("networkidle");
         await settle(page, 700);
         await shoot(name);
+      }
+      // The review session, both kinds, without grading anything (so every theme and
+      // width sees the same queue): the queue filtered to one kind, and the AI's check
+      // answered here (the demo has no AI provider).
+      for (const kind of ["flashcard", "short_answer"]) {
+        await page.route("**/api/practice/queue*", async (route) => {
+          const body = await (await route.fetch()).json();
+          body.items = body.items.filter((item) => item.kind === kind);
+          await route.fulfill({ json: body });
+        });
+        await page.route("**/api/practice/items/*/mark", (route) =>
+          route.fulfill({ json: QA_MARKING }),
+        );
+        await page.goto("/practice/review");
+        await page.getByRole("heading", { level: 2 }).first().waitFor();
+        await settle(page, 400);
+        await shoot(`review-${kind}`);
+        if (kind === "flashcard") {
+          await page.getByRole("button", { name: "Show answer" }).click();
+        } else {
+          await page
+            .getByRole("textbox", { name: "Your answer" })
+            .fill(
+              "Past ssthresh the window grows by one segment a round trip.",
+            );
+          await page.getByRole("button", { name: "Check with AI" }).click();
+          await page.getByRole("region", { name: "The AI's check" }).waitFor();
+        }
+        await settle(page, 400);
+        await shoot(`review-${kind}-answered`);
+        await page.unrouteAll({ behavior: "ignoreErrors" });
       }
       // The plan: earlier days (folded in the agenda) and the block popover, a sheet on
       // phones, for the block in progress and the done one.

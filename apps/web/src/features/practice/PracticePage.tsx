@@ -187,12 +187,10 @@ function QueueTiles({ counts, error }: { counts: QueueCounts | undefined; error?
       label: "Next due",
       value: !counts
         ? "…"
-        : counts.due_now > 0
-          ? "Now"
-          : counts.next_due_at
-            ? fromNow(counts.next_due_at, now)
-            : "Nothing scheduled",
-      note: "After the ones due now",
+        : counts.next_due_at
+          ? fromNow(counts.next_due_at, now)
+          : "Nothing scheduled",
+      note: counts?.due_now ? "After the ones due now" : "Your next review",
     },
   ];
   return (
@@ -221,21 +219,17 @@ function TopicRow({
   const itemsLink = `/practice/items?module=${row.module.id}&topic=${row.topic_id}`;
   return (
     <li className="surface-card grid gap-3 rounded-lg p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-        <div className="grid min-w-0 gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            {showModule && <ModuleBadge module={row.module} />}
-            <h3 className="type-h3 [overflow-wrap:anywhere]">
-              {row.parentName && (
-                <span className="text-muted font-normal">{row.parentName} › </span>
-              )}
-              {row.name}
-            </h3>
-            {row.band && <Badge variant={BAND_VARIANTS[row.band]}>{BAND_LABELS[row.band]}</Badge>}
-          </div>
-          <p className="text-muted text-sm">{row.basis}</p>
+      <div className="grid min-w-0 gap-1">
+        <div className="flex flex-wrap items-center gap-2">
+          {showModule && <ModuleBadge module={row.module} />}
+          <h3 className="type-h3 [overflow-wrap:anywhere]">
+            {row.parentName && <span className="text-muted font-normal">{row.parentName} › </span>}
+            {row.name}
+          </h3>
+          {row.band && <Badge variant={BAND_VARIANTS[row.band]}>{BAND_LABELS[row.band]}</Badge>}
         </div>
-        <Link to={itemsLink} className="text-link text-sm whitespace-nowrap hover:underline">
+        <p className="text-muted text-sm">{row.basis}</p>
+        <Link to={itemsLink} className="text-link justify-self-start text-sm hover:underline">
           {plural(s.items_active, "active item")}
           {s.items_reviewed > 0 && `, ${s.items_reviewed} reviewed`}
         </Link>

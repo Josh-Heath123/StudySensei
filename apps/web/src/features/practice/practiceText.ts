@@ -61,15 +61,11 @@ export function memoryText(memory: PracticeItem["memory"], now: Date): string {
   return `${name} · due ${fromNow(memory.due, now)}`;
 }
 
-/** A source chip: "CH05 p14". A title that starts with a code (CH05, L3, W12) is shortened
- * to it; any other is cut at 16 characters. */
+/** A source chip: "CH05 p14". A title that starts with a code ("CH05", "Week 6") is
+ * shortened to it; any other is cut at 16 characters. */
 export function sourceChip(title: string, page: number): string {
   const code = /^([A-Za-z]{1,4}\s?\d{1,3})\b/.exec(title.trim());
-  const short = code
-    ? code[1]!.replace(/\s/, "")
-    : title.length > 16
-      ? `${title.slice(0, 15).trimEnd()}…`
-      : title;
+  const short = code ? code[1]! : title.length > 16 ? `${title.slice(0, 15).trimEnd()}…` : title;
   return `${short} p${page}`;
 }
 

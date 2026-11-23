@@ -143,7 +143,9 @@ export function ReviewPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-muted text-sm">
             {grades.length > 0 ? `${plural(grades.length, "card")} reviewed so far. ` : ""}
-            Keys: Space or Enter shows a flashcard&apos;s answer; 1 to 4 grade it.
+            <span className="hidden sm:inline">
+              Keys: Space or Enter shows a flashcard&apos;s answer; 1 to 4 grade it.
+            </span>
           </p>
           {grades.length > 0 && (
             <Button variant="quiet" onClick={() => setFinished(true)}>

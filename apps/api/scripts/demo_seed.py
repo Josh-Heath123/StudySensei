@@ -18,6 +18,10 @@ progress.
 It also opens a study session 18 minutes before ``now``, with one tutor exchange about it: a
 question and a stored answer written for the demo (no AI call), citing the demo's own pages,
 then a "Quiz me" on it, so the session and quiz screenshots show the tutor panel.
+
+Practice: synthetic cards on general TCP facts (``PRACTICE``), reviewed through the real
+scheduler at past times, so one topic reads strong, one developing and one weak, with cards
+due now, one in a learning step and new ones; one AI-written short answer cites a slide.
 """
 
 import argparse
@@ -27,7 +31,7 @@ import uuid
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,6 +42,7 @@ from app.jobs.worker import run_once
 from app.models import (
     AvailabilityException,
     AvailabilityRule,
+    Chunk,
     Conversation,
     Job,
     Material,
@@ -45,17 +50,23 @@ from app.models import (
     Message,
     MessageSource,
     PlanBlock,
+    PracticeItem,
+    PracticeItemSource,
     Topic,
     TopicPage,
     User,
 )
 from app.schemas.academics import AssessmentCreate, ModuleCreate, TaskCreate, TopicCreate
 from app.schemas.materials import MaterialKind
+from app.schemas.practice import ItemCreate, ReviewIn
 from app.schemas.sessions import EventBatch, ReflectionIn, SessionStart
 from app.schemas.tutor import Quiz
 from app.services.academics import assessments, modules, tasks, topics
+from app.services.mastery.load import module_mastery
 from app.services.materials import upload_material
 from app.services.planning.replan import current_version, replan, skip_block
+from app.services.practice import items
+from app.services.practice.reviewing import review_item
 from app.services.search.embedding import get_embedder
 from app.services.sessions import sessions
 from app.services.topic_maps.linking import link_module
@@ -296,6 +307,196 @@ TREE = [
         ],
     ),
 ]
+
+
+# Practice (Phase 5 task 4): synthetic cards on general TCP facts, written for the demo. Each
+# card's reviews are (days before ``now``, grade); grade -1 is an Again 5 minutes before
+# ``now`` (a learning step). Topics are chosen so one reads strong, one developing and one
+# weak, with cards due now, one in its learning step and new ones. The AI-written short
+# answer cites the demo's own slides (origin "ai"), so its source chip opens the page.
+Card = tuple[str, str, list[str] | None, list[tuple[float, int]]]
+PRACTICE: list[tuple[str, list[Card]]] = [
+    (
+        "Three-way handshake",
+        [
+            (
+                "Which segment opens a TCP connection?",
+                "A SYN from the client.",
+                None,
+                [(9, 3), (5, 3), (1, 4)],
+            ),
+            (
+                "What does the server send back to a SYN?",
+                "A SYN-ACK: its own SYN, acknowledging the client's.",
+                None,
+                [(9, 3), (5, 3), (1, 3)],
+            ),
+            (
+                "What completes the three-way handshake?",
+                "The client's ACK of the server's SYN.",
+                None,
+                [(9, 3), (5, 4), (1, 3)],
+            ),
+            (
+                "Why does each side choose an initial sequence number?",
+                "So both ends agree where their byte stream starts.",
+                None,
+                [(9, 3), (5, 3), (1, 3)],
+            ),
+        ],
+    ),
+    (
+        "Slow start and ssthresh",
+        [
+            (
+                "How does the congestion window grow during slow start?",
+                "It doubles every round trip.",
+                None,
+                [(6, 3), (3, 2)],
+            ),
+            (
+                "What happens when the congestion window reaches ssthresh?",
+                "Slow start ends and congestion avoidance begins.",
+                None,
+                [(6, 3), (2, 3)],
+            ),
+            (
+                "Why does slow start stop doubling at ssthresh?",
+                "ssthresh marks the window size that was safe last time, so past it the sender "
+                "grows by one segment per round trip instead, to avoid overflowing router queues.",
+                [
+                    "ssthresh marks a window size that was safe",
+                    "Past it, growth becomes additive",
+                    "This avoids overflowing router queues",
+                ],
+                [(6, 2), (3, 1)],
+            ),
+        ],
+    ),
+    (
+        "Fast retransmit and fast recovery",
+        [
+            (
+                "What triggers a fast retransmit?",
+                "Three duplicate ACKs for the same segment.",
+                None,
+                [(4, 1), (2, 1)],
+            ),
+            (
+                "What does fast recovery set the congestion window to?",
+                "About half its old value (the new ssthresh), not one segment.",
+                None,
+                [(4, 1), (2, 2)],
+            ),
+            (
+                "Why retransmit before the timeout fires?",
+                "Duplicate ACKs show later segments arrived, so only one was lost and waiting "
+                "for the timeout would waste time.",
+                [
+                    "Duplicate ACKs show later segments arrived",
+                    "So only one segment was lost",
+                    "Waiting for the timeout wastes time",
+                ],
+                [(4, 1), (2, 1), (0, -1)],
+            ),
+        ],
+    ),
+    (
+        "Retransmission timeout",
+        [
+            (
+                "What does TCP do when the retransmission timer expires?",
+                "It resends the oldest unacknowledged segment.",
+                None,
+                [],
+            ),
+            (
+                "Why does the timeout double after each expiry?",
+                "Backing off avoids flooding a network that may be congested.",
+                None,
+                [],
+            ),
+        ],
+    ),
+    (
+        "Flow control",
+        [
+            (
+                "Who sets the advertised window?",
+                "The receiver, from its free buffer space.",
+                None,
+                [],
+            ),
+        ],
+    ),
+]
+# The short answer citing the slides is written by the AI; its source is this slide.
+PRACTICE_AI = {"Why does slow start stop doubling at ssthresh?": ("Week 6 slides", 3)}
+
+
+async def practice(
+    db: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    module_id: uuid.UUID,
+    topic_ids: dict[str, uuid.UUID],
+    materials: dict[str, uuid.UUID],
+    now: datetime,
+) -> str:
+    """The practice items and their reviews (``PRACTICE``), through the real services, each
+    review at its own past time. Returns the practised topics' bands, for the log."""
+    for topic, cards in PRACTICE:
+        for prompt, answer, key_points, plan in cards:
+            created = await items.create_item(
+                db,
+                ItemCreate(
+                    module_id=module_id,
+                    topic_id=topic_ids[topic],
+                    kind="short_answer" if key_points else "flashcard",
+                    prompt=prompt,
+                    answer=answer,
+                    key_points=key_points,
+                ),
+                user_id=user_id,
+            )
+            if prompt in PRACTICE_AI:
+                title, page = PRACTICE_AI[prompt]
+                chunk = await db.scalar(
+                    select(Chunk.id)
+                    .where(
+                        Chunk.user_id == user_id,
+                        Chunk.material_id == materials[title],
+                        Chunk.page_number == page,
+                    )
+                    .order_by(Chunk.position)
+                    .limit(1)
+                )
+                assert chunk is not None
+                await db.execute(
+                    update(PracticeItem)
+                    .where(PracticeItem.id == created.id)
+                    .values(origin="ai", provider="groq", model="openai/gpt-oss-120b")
+                )
+                db.add(
+                    PracticeItemSource(
+                        item_id=created.id, user_id=user_id, chunk_id=chunk, label="S1"
+                    )
+                )
+                await db.commit()
+            for days, grade in plan:
+                at = now - timedelta(minutes=5) if grade == -1 else now - timedelta(days=days)
+                await review_item(
+                    db,
+                    created.id,
+                    ReviewIn(grade=1 if grade == -1 else grade),
+                    user_id=user_id,
+                    now=at,
+                )
+    found = await module_mastery(db, module_id, user_id=user_id, at=now)
+    practised = {name for name, cards in PRACTICE if any(plan for *_, plan in cards)}
+    return ", ".join(
+        f"{t.name} {t.mastery.band} ({t.mastery.value:.2f})" for t in found if t.name in practised
+    )
 
 
 async def make_session(
@@ -606,6 +807,15 @@ async def seed(now: datetime) -> None:
         )
         await db.commit()
 
+        bands = await practice(
+            db,
+            user_id=uid,
+            module_id=module_id,
+            topic_ids=topic_ids,
+            materials=materials,
+            now=now,
+        )
+
         # The session the screenshot shows, 18 minutes in, and its tutor conversation.
         study, _ = await sessions.start_session(
             db,
@@ -726,7 +936,7 @@ async def seed(now: datetime) -> None:
     print(
         f"Demo seeded: NET201, {len(files)} materials ({ran} jobs), {len(week)} sessions "
         f"and one open, {len(topic_ids)} topics, {links} chunk links, "
-        "one tutor exchange and a quiz."
+        f"one tutor exchange and a quiz; practice: {bands}."
     )
     await get_engine().dispose()
 

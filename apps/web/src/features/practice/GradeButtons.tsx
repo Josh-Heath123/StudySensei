@@ -50,12 +50,23 @@ export function GradeButtons({
               )}
             >
               <span className="text-base font-semibold">{label}</span>
-              <span className="text-muted text-xs tabular-nums">
-                {interval ?? "…"} <kbd className="text-muted ml-1 font-sans">{grade}</kbd>
+              <span className="text-muted text-xs tabular-nums">{interval ?? "…"}</span>
+              {/* Always there, so the four buttons stay the same height. */}
+              <span
+                aria-hidden
+                className={cn(
+                  "text-link text-[11px] font-semibold uppercase",
+                  !isSuggested && "invisible",
+                )}
+              >
+                Suggested
               </span>
-              {isSuggested && (
-                <span className="text-link text-[11px] font-semibold uppercase">Suggested</span>
-              )}
+              <kbd
+                aria-hidden
+                className="border-line text-muted absolute top-1.5 right-1.5 hidden rounded-sm border px-1 font-sans text-[10px] leading-4 sm:block"
+              >
+                {grade}
+              </kbd>
             </button>
           );
         })}

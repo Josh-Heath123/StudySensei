@@ -62,7 +62,7 @@ test("an item's memory: its state and when it's due", () => {
 
 test("a source chip is the material's code and the page", () => {
   expect(sourceChip("CH05 Network Security", 14)).toBe("CH05 p14");
-  expect(sourceChip("L 3 Sorting", 2)).toBe("L3 p2");
+  expect(sourceChip("Week 6 slides", 3)).toBe("Week 6 p3");
   expect(sourceChip("Lecture notes on hashing", 7)).toBe("Lecture notes o… p7");
   expect(sourceChip("Notes", 1)).toBe("Notes p1");
 });

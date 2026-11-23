@@ -200,7 +200,7 @@ test("Practice: the counts, Start review, and topics weakest first with a band o
   expect(
     within(reviews).getByText("17 of today's new allowance left · 12 new cards waiting"),
   ).toBeVisible();
-  expect(within(reviews).getByText("Now")).toBeVisible();
+  expect(within(reviews).getByText("Nothing scheduled")).toBeVisible();
   expect(screen.getByRole("link", { name: "Start review" })).toHaveAttribute(
     "href",
     "/practice/review",
