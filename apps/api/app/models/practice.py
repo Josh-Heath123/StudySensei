@@ -235,6 +235,13 @@ class Review(TimestampedBase):
     desired_retention: Mapped[float | None] = mapped_column(Double)
     fsrs_version: Mapped[str | None] = mapped_column(String(20))
 
+    @property
+    def after(self) -> dict[str, Any] | None:
+        """The state and due this review led to (from ``state_after``), for ``ReviewOut``."""
+        if self.state_after is None:
+            return None
+        return {"state": self.state_after["state"], "due": self.state_after["due"]}
+
 
 class PracticeItemState(Base):
     """An item's FSRS state after its latest review (decision 0026). No row: a new item."""

@@ -310,3 +310,53 @@ async def test_preview_labels_and_the_review_response(api: AsyncClient, practice
 def test_schedule_and_the_service_agree_on_a_first_review() -> None:
     state, days = schedule(None, 3, T0, SchedulingSettings())
     assert (state.state, days, state.due - T0) == ("learning", 0, timedelta(minutes=10))
+
+
+async def test_listed_reviews_carry_their_schedule_and_the_state_after(
+    api: AsyncClient, session: AsyncSession, practice: Practice
+) -> None:
+    """For the practice screen's "next due": each review's days, retention and the state and
+    due it led to; null for a review from before scheduling (task 1)."""
+    item_id = await card(session, practice, "What does a state table hold?")
+    session.add(
+        Review(
+            user_id=practice.user_id,
+            item_id=item_id,
+            reviewed_at=T0 - timedelta(days=1),
+            grade=2,
+            marked_by="self",
+        )
+    )
+    await session.commit()
+    await review(session, practice, item_id, 3, T0)
+    newest, oldest = (await api.get(f"/practice/items/{item_id}/reviews")).json()
+    assert newest["scheduled_days"] == 0
+    assert newest["desired_retention"] == 0.9
+    assert newest["after"]["state"] == "learning"
+    assert datetime.fromisoformat(newest["after"]["due"]) == T0 + timedelta(minutes=10)
+    assert (oldest["scheduled_days"], oldest["desired_retention"], oldest["after"]) == (
+        None,
+        None,
+        None,
+    )
+
+
+async def test_new_today_left_is_capped_by_the_new_items_and_the_allowance_is_its_own(
+    session: AsyncSession, practice: Practice, user_a: User
+) -> None:
+    user_a.practice_new_per_day = 20
+    await session.commit()
+    reviewed = [await card(session, practice, f"Reviewed today {n}?") for n in range(3)]
+    for item_id in reviewed:
+        await review(session, practice, item_id, 3, T0)
+    counts = await queue_counts(session, user_id=practice.user_id, now=T0)
+    # No new items left: none can be reviewed, though 17 of the 20 are still allowed.
+    assert (counts.new_total, counts.new_today_left, counts.new_allowance_left) == (0, 0, 17)
+    await card(session, practice, "A fresh card?")
+    counts = await queue_counts(session, user_id=practice.user_id, now=T0)
+    assert (counts.new_today_left, counts.new_allowance_left) == (1, 17)
+    # Never below 0 when the setting drops under what's been done.
+    user_a.practice_new_per_day = 1
+    await session.commit()
+    counts = await queue_counts(session, user_id=practice.user_id, now=T0)
+    assert (counts.new_today_left, counts.new_allowance_left) == (0, 0)

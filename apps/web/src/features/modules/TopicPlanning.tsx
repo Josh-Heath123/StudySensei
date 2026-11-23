@@ -1,9 +1,11 @@
 import { useId, useState, type FormEvent } from "react";
 
+import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 
-import { useTopicPlanning, type TopicNode } from "./api";
+import { useTopicMastery, useTopicPlanning, type TopicNode } from "./api";
+import { BAND_LABELS, BAND_VARIANTS } from "./masteryText";
 import { CONFIDENCE_LABELS, subtreeWorkloadText, workloadText } from "./planningText";
 
 const RATINGS = [null, 1, 2, 3, 4, 5] as const;
@@ -50,6 +52,7 @@ export function TopicPlanning({ moduleId, topic }: { moduleId: string; topic: To
             ? `${confidence}/5: ${CONFIDENCE_LABELS[confidence]}. Your own rating.`
             : "Not rated. 1 is new to you, 5 is you could teach it."}
         </p>
+        <MasteryLine moduleId={moduleId} topicId={topic.id} />
       </fieldset>
 
       <div className="grid gap-2">
@@ -102,6 +105,23 @@ export function TopicPlanning({ moduleId, topic }: { moduleId: string; topic: To
         </p>
       )}
     </section>
+  );
+}
+
+/** Read-only: the band and what it rests on, or why there isn't one yet (ADR 0027). */
+function MasteryLine({ moduleId, topicId }: { moduleId: string; topicId: string }) {
+  const { data } = useTopicMastery(moduleId, topicId);
+  if (!data) return null;
+  return (
+    <p
+      aria-label="Mastery"
+      className="text-muted flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs"
+    >
+      {data.status === "estimated" && (
+        <Badge variant={BAND_VARIANTS[data.band]}>{BAND_LABELS[data.band]}</Badge>
+      )}
+      <span>{data.basis}</span>
+    </p>
   );
 }
 

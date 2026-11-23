@@ -119,6 +119,18 @@ export function useTopicPlanning(moduleId: string, topicId: string) {
   );
 }
 
+export type TopicMastery = components["schemas"]["TopicMasteryOut"];
+
+/** A topic's mastery now (ADR 0027): read-only, computed by the server from practice and
+ * ratings. Under the module's topic key, so a rating change refreshes it. */
+export function useTopicMastery(moduleId: string, topicId: string) {
+  return useQuery({
+    queryKey: [...keys.topics(moduleId), "mastery", topicId],
+    queryFn: () =>
+      unwrap(api.GET("/topics/{topic_id}/mastery", { params: { path: { topic_id: topicId } } })),
+  });
+}
+
 export function useMoveTopic(moduleId: string) {
   return useTopicMutation(moduleId, (args: { topicId: string } & TopicMove) =>
     unwrap(

@@ -1,6 +1,6 @@
 import { toIso } from "@/lib/dates";
 
-import type { AiStatus, Module, TopicMapStatus, TopicNode } from "./api";
+import type { AiStatus, Module, TopicMapStatus, TopicMastery, TopicNode } from "./api";
 import type { Assessment } from "./assessments/api";
 import type { SessionRow } from "./sessions/api";
 import type { Task } from "./tasks/api";
@@ -119,4 +119,29 @@ export function aTopicMap(overrides: Partial<TopicMapStatus> = {}): TopicMapStat
 /** /ai/status with or without a provider configured (only what the UI reads). */
 export function anAiStatus(available = true): AiStatus {
   return { available, providers: [], roles: {}, models: [] };
+}
+
+/** A topic with too little practice for a band: the "not enough" sentence. */
+export function aMastery(overrides: Partial<TopicMastery> = {}): TopicMastery {
+  return {
+    topic_id: "q",
+    parent_id: null,
+    name: "Queues",
+    value: 0.5,
+    label: "estimated",
+    status: "not_enough",
+    band: "developing",
+    components: { recall: null, accuracy: null, prior: 0.5, weight: 0, recall_weight: 0 },
+    samples: {
+      items_reviewed: 0,
+      items_active: 0,
+      attempts: 0,
+      quiz_answers: 0,
+      reviews: 0,
+      days_spanned: 0,
+      rating_source: "none",
+    },
+    basis: "Not enough practice yet: 0 of 3 attempts. With no rating yet, 50 % is assumed for now.",
+    ...overrides,
+  };
 }

@@ -1580,6 +1580,47 @@ export interface paths {
     patch: operations["update_settings_practice_settings_patch"];
     trace?: never;
   };
+  "/modules/{module_id}/mastery": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Module Mastery
+     * @description Every topic in tree order with its mastery now: an estimate of how well you know it, from
+     *     your reviews, Quiz me answers and ratings. Never an exam prediction.
+     */
+    get: operations["get_module_mastery_modules__module_id__mastery_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/topics/{topic_id}/mastery": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Topic Mastery
+     * @description One topic's mastery now (its subtree's practice; see the module endpoint).
+     */
+    get: operations["get_topic_mastery_topics__topic_id__mastery_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/ai/status": {
     parameters: {
       query?: never;
@@ -2469,6 +2510,39 @@ export interface components {
       /** Score */
       score: number | null;
     };
+    /** MasteryComponentsOut */
+    MasteryComponentsOut: {
+      /** Recall */
+      recall: number | null;
+      /** Accuracy */
+      accuracy: number | null;
+      /** Prior */
+      prior: number;
+      /** Weight */
+      weight: number;
+      /** Recall Weight */
+      recall_weight: number;
+    };
+    /** MasterySamplesOut */
+    MasterySamplesOut: {
+      /** Items Reviewed */
+      items_reviewed: number;
+      /** Items Active */
+      items_active: number;
+      /** Attempts */
+      attempts: number;
+      /** Quiz Answers */
+      quiz_answers: number;
+      /** Reviews */
+      reviews: number;
+      /** Days Spanned */
+      days_spanned: number;
+      /**
+       * Rating Source
+       * @enum {string}
+       */
+      rating_source: "session" | "starting" | "subtopics" | "none";
+    };
     /** MaterialOut */
     MaterialOut: {
       /**
@@ -2697,6 +2771,21 @@ export interface components {
       colour: string;
       /** Semester */
       semester?: string | null;
+    };
+    /** ModuleMasteryOut */
+    ModuleMasteryOut: {
+      /**
+       * Module Id
+       * Format: uuid
+       */
+      module_id: string;
+      /**
+       * At
+       * Format: date-time
+       */
+      at: string;
+      /** Topics */
+      topics: components["schemas"]["TopicMasteryOut"][];
     };
     /** ModuleOut */
     ModuleOut: {
@@ -3110,6 +3199,8 @@ export interface components {
       due_now: number;
       /** New Today Left */
       new_today_left: number;
+      /** New Allowance Left */
+      new_allowance_left: number;
       /** New Total */
       new_total: number;
       /** Next Due At */
@@ -3162,6 +3253,19 @@ export interface components {
       /** Topic Ratings */
       topic_ratings?: components["schemas"]["TopicRatingIn"][];
     };
+    /** ReviewAfterOut */
+    ReviewAfterOut: {
+      /**
+       * State
+       * @enum {string}
+       */
+      state: "learning" | "review" | "relearning";
+      /**
+       * Due
+       * Format: date-time
+       */
+      due: string;
+    };
     /** ReviewIn */
     ReviewIn: {
       /**
@@ -3204,8 +3308,11 @@ export interface components {
       answer_text: string | null;
       /** Scheduled Days */
       scheduled_days: number | null;
+      /** Desired Retention */
+      desired_retention: number | null;
       /** Fsrs Version */
       fsrs_version: string | null;
+      after: components["schemas"]["ReviewAfterOut"] | null;
     };
     /** ReviewResultOut */
     ReviewResultOut: {
@@ -3723,6 +3830,40 @@ export interface components {
       /** Merged At */
       merged_at: string | null;
       review: components["schemas"]["TopicReviewStats"];
+    };
+    /** TopicMasteryOut */
+    TopicMasteryOut: {
+      /**
+       * Topic Id
+       * Format: uuid
+       */
+      topic_id: string;
+      /** Parent Id */
+      parent_id: string | null;
+      /** Name */
+      name: string;
+      /** Value */
+      value: number;
+      /**
+       * Label
+       * @default estimated
+       * @constant
+       */
+      label: "estimated";
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "not_enough" | "estimated";
+      /**
+       * Band
+       * @enum {string}
+       */
+      band: "weak" | "developing" | "strong";
+      components: components["schemas"]["MasteryComponentsOut"];
+      samples: components["schemas"]["MasterySamplesOut"];
+      /** Basis */
+      basis: string;
     };
     /**
      * TopicMove
@@ -7038,6 +7179,68 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["PracticeSettingsOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_module_mastery_modules__module_id__mastery_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModuleMasteryOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_topic_mastery_topics__topic_id__mastery_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        topic_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TopicMasteryOut"];
         };
       };
       /** @description Validation Error */

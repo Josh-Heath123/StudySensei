@@ -131,7 +131,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 
 - [x] `practice_items` + `reviews`, and the generation job (flashcards and questions linked to source chunks)
 - [x] FSRS integration (`py-fsrs` / `ts-fsrs`) and the review queue
-- [ ] Mastery formula with unit tests, documented in `services/mastery/README.md`
+- [x] Mastery formula with unit tests, documented in `services/mastery/README.md`
 - [ ] Practice UI: own cards, short-answer AI marking against a reference, self-marking
 - [ ] Connect mastery to "Quiz me" and planner priority
 

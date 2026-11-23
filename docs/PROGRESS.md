@@ -2,6 +2,18 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-23: Phase 5, task 3 (topic mastery v1)
+
+- **From #49's review:** listed reviews carry `desired_retention` and `after {state, due}`; queue counts add
+  `new_allowance_left` beside `new_today_left` (capped by the new items there are).
+- **Mastery (ADR 0027):** pure `services/mastery/formula.py` with its constants in one module; recall (FSRS R),
+  recency-weighted accuracy (first review per local day, Quiz me answers) and the rating. Properties first: the
+  monotonicity one failed first on the task's `w·E + (1 − w)·P` (a wrong quiz answer raised it), so recall now carries
+  its share by its own sample. Worked examples: 25 % (new, rated 2), 91 % (ten Good cards), 78 % (30 days on).
+- **On read, nothing stored:** `GET /modules/{id}/mastery`, `GET /topics/{id}/mastery` with cross-user cases; 60 topics
+  and 600 items in about 33 ms. The topic dialog shows the band and its basis under Starting confidence.
+- **Next:** task 4, the practice UI.
+
 ## 2026-11-22: Phase 5, task 2 (FSRS scheduling and the review queue)
 
 - **From #48's review:** the spot check is committed (`evals/results/practice-cos330.json`): 47 of 48 answerable,

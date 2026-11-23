@@ -4641,6 +4641,94 @@
         }
       }
     },
+    "/modules/{module_id}/mastery": {
+      "get": {
+        "tags": [
+          "mastery"
+        ],
+        "summary": "Get Module Mastery",
+        "description": "Every topic in tree order with its mastery now: an estimate of how well you know it, from\nyour reviews, Quiz me answers and ratings. Never an exam prediction.",
+        "operationId": "get_module_mastery_modules__module_id__mastery_get",
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleMasteryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/topics/{topic_id}/mastery": {
+      "get": {
+        "tags": [
+          "mastery"
+        ],
+        "summary": "Get Topic Mastery",
+        "description": "One topic's mastery now (its subtree's practice; see the module endpoint).",
+        "operationId": "get_topic_mastery_topics__topic_id__mastery_get",
+        "parameters": [
+          {
+            "name": "topic_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Topic Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicMasteryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ai/status": {
       "get": {
         "tags": [
@@ -6900,6 +6988,102 @@
         ],
         "title": "LinkedPageOut"
       },
+      "MasteryComponentsOut": {
+        "properties": {
+          "recall": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recall"
+          },
+          "accuracy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accuracy"
+          },
+          "prior": {
+            "type": "number",
+            "title": "Prior"
+          },
+          "weight": {
+            "type": "number",
+            "title": "Weight"
+          },
+          "recall_weight": {
+            "type": "number",
+            "title": "Recall Weight"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recall",
+          "accuracy",
+          "prior",
+          "weight",
+          "recall_weight"
+        ],
+        "title": "MasteryComponentsOut"
+      },
+      "MasterySamplesOut": {
+        "properties": {
+          "items_reviewed": {
+            "type": "integer",
+            "title": "Items Reviewed"
+          },
+          "items_active": {
+            "type": "integer",
+            "title": "Items Active"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "quiz_answers": {
+            "type": "integer",
+            "title": "Quiz Answers"
+          },
+          "reviews": {
+            "type": "integer",
+            "title": "Reviews"
+          },
+          "days_spanned": {
+            "type": "integer",
+            "title": "Days Spanned"
+          },
+          "rating_source": {
+            "type": "string",
+            "enum": [
+              "session",
+              "starting",
+              "subtopics",
+              "none"
+            ],
+            "title": "Rating Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items_reviewed",
+          "items_active",
+          "attempts",
+          "quiz_answers",
+          "reviews",
+          "days_spanned",
+          "rating_source"
+        ],
+        "title": "MasterySamplesOut"
+      },
       "MaterialOut": {
         "properties": {
           "id": {
@@ -7520,6 +7704,34 @@
           "name"
         ],
         "title": "ModuleCreate"
+      },
+      "ModuleMasteryOut": {
+        "properties": {
+          "module_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Module Id"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/TopicMasteryOut"
+            },
+            "type": "array",
+            "title": "Topics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "module_id",
+          "at",
+          "topics"
+        ],
+        "title": "ModuleMasteryOut"
       },
       "ModuleOut": {
         "properties": {
@@ -8489,6 +8701,10 @@
             "type": "integer",
             "title": "New Today Left"
           },
+          "new_allowance_left": {
+            "type": "integer",
+            "title": "New Allowance Left"
+          },
           "new_total": {
             "type": "integer",
             "title": "New Total"
@@ -8510,6 +8726,7 @@
         "required": [
           "due_now",
           "new_today_left",
+          "new_allowance_left",
           "new_total",
           "next_due_at"
         ],
@@ -8670,6 +8887,30 @@
         ],
         "title": "ReflectionIn"
       },
+      "ReviewAfterOut": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "learning",
+              "review",
+              "relearning"
+            ],
+            "title": "State"
+          },
+          "due": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Due"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "due"
+        ],
+        "title": "ReviewAfterOut"
+      },
       "ReviewIn": {
         "properties": {
           "grade": {
@@ -8774,6 +9015,17 @@
             ],
             "title": "Scheduled Days"
           },
+          "desired_retention": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Desired Retention"
+          },
           "fsrs_version": {
             "anyOf": [
               {
@@ -8784,6 +9036,16 @@
               }
             ],
             "title": "Fsrs Version"
+          },
+          "after": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewAfterOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -8796,7 +9058,9 @@
           "duration_ms",
           "answer_text",
           "scheduled_days",
-          "fsrs_version"
+          "desired_retention",
+          "fsrs_version",
+          "after"
         ],
         "title": "ReviewOut"
       },
@@ -10187,6 +10451,81 @@
           "review"
         ],
         "title": "TopicMapStatus"
+      },
+      "TopicMasteryOut": {
+        "properties": {
+          "topic_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Topic Id"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "label": {
+            "type": "string",
+            "const": "estimated",
+            "title": "Label",
+            "default": "estimated"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_enough",
+              "estimated"
+            ],
+            "title": "Status"
+          },
+          "band": {
+            "type": "string",
+            "enum": [
+              "weak",
+              "developing",
+              "strong"
+            ],
+            "title": "Band"
+          },
+          "components": {
+            "$ref": "#/components/schemas/MasteryComponentsOut"
+          },
+          "samples": {
+            "$ref": "#/components/schemas/MasterySamplesOut"
+          },
+          "basis": {
+            "type": "string",
+            "title": "Basis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "topic_id",
+          "parent_id",
+          "name",
+          "value",
+          "status",
+          "band",
+          "components",
+          "samples",
+          "basis"
+        ],
+        "title": "TopicMasteryOut"
       },
       "TopicMove": {
         "properties": {
