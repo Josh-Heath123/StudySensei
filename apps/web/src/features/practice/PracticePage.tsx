@@ -221,7 +221,7 @@ function TopicRow({
     <li className="surface-card grid gap-3 rounded-lg p-4 sm:p-5">
       <div className="grid min-w-0 gap-1">
         <div className="flex flex-wrap items-center gap-2">
-          {showModule && <ModuleBadge module={row.module} />}
+          {showModule && <ModuleBadge colour={row.module.colour}>{row.module.code}</ModuleBadge>}
           <h3 className="type-h3 [overflow-wrap:anywhere]">
             {row.parentName && <span className="text-muted font-normal">{row.parentName} › </span>}
             {row.name}

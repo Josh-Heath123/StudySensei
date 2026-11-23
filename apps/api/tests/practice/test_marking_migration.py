@@ -7,6 +7,7 @@ from pathlib import Path
 import asyncpg
 from alembic import command
 from alembic.config import Config
+from sqlalchemy import CheckConstraint
 from sqlalchemy.engine import make_url
 
 from app.core.config import get_settings
@@ -59,5 +60,9 @@ def test_0027_goes_down_and_up(migrated_db: None) -> None:
 
 def test_marked_by_ai_needs_a_marking_in_the_database_too() -> None:
     table = {t.name: t for t in Base.metadata.sorted_tables}["reviews"]
-    checks = {c.name: str(c.sqltext) for c in table.constraints if c.name}
+    checks = {
+        c.name: str(c.sqltext)
+        for c in table.constraints
+        if isinstance(c, CheckConstraint) and isinstance(c.name, str)
+    }
     assert checks["ck_reviews_ai_marking"] == "marked_by <> 'ai' OR ai_marking IS NOT NULL"
