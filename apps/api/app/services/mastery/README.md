@@ -45,7 +45,8 @@ As of a time `at`:
    attempts. `n` is the number of attempts (unweighted).
 3. **Accuracy A**: the mean score weighted by `0.5^(age / 30 days)`, the age measured from the newest attempt. Because
    the weights are relative, A doesn't change while no new attempts arrive.
-4. **Prior P**: the latest session rating, else the starting confidence; a topic rated neither way uses the mean of its
+4. **Prior P**: the latest session rating, else the starting confidence (the sentence names which: "your latest
+   session rating", "your starting rating", "your subtopics' mean rating"); a topic rated neither way uses the mean of its
    rated subtopics (each rated the same way), rounded half up, as the planner's `subtree_confidence` does. P =
    (c − 1) / 4. Unrated: P = 0.5, and the sentence says "no rating yet (50 % assumed)".
 5. **Weights**: `w = n / (n + 3)` (attempts against the prior) and `g = m / (m + 3)` (recall's own sample).
@@ -98,16 +99,16 @@ reflection; seen on Tuesday at 20:00 (FSRS counts whole days since a review: one
 - A' = 0.769·1 + 0.231·0.5 = 0.885
 - value = 0.6·0.769·0.947 + (1 − 0.462)·0.885 = 0.437 + 0.476 = **0.913** (strong)
 
-> ≈ 91 % (estimated) from recall of ≈ 95 % across 10 practised items, 10 of 10 recent answers right, and your rating
-> of 3 of 5.
+> ≈ 91 % (estimated) from recall of ≈ 95 % across 10 practised items, 10 of 10 recent answers right, and your latest
+> session rating of 3 of 5.
 
 **3. The same topic, untouched for 30 days.** Seen 31 days after the reviews instead: R = 0.664 each, so M = **0.664**.
 A, n, w, g and P don't move (no new attempts).
 
 - value = 0.462·0.664 + 0.538·0.885 = 0.307 + 0.476 = **0.783** (developing)
 
-> ≈ 78 % (estimated) from recall of ≈ 66 % across 10 practised items, 10 of 10 recent answers right, and your rating
-> of 3 of 5.
+> ≈ 78 % (estimated) from recall of ≈ 66 % across 10 practised items, 10 of 10 recent answers right, and your latest
+> session rating of 3 of 5.
 
 Tests: `tests/mastery/test_formula.py` (`test_worked_example_*`).
 

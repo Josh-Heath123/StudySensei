@@ -222,7 +222,7 @@ def test_worked_example_ten_good_reviews() -> None:
     assert (result.status, result.band) == ("estimated", "strong")
     assert result.basis == (
         "≈ 91 % (estimated) from recall of ≈ 95 % across 10 practised items, 10 of 10 recent "
-        "answers right, and your rating of 3 of 5."
+        "answers right, and your latest session rating of 3 of 5."
     )
 
 

@@ -38,8 +38,10 @@ For a topic's subtree (decision 0019, each item once), as of `at`:
   developing < 0.8 ≤ strong.
 - **Output:** value, status, band, components {recall, accuracy, prior, weight, recall_weight}, samples
   {items_reviewed, items_active, attempts, quiz_answers, reviews, days_spanned, rating_source}, and `basis`, e.g.
-  "≈ 91 % (estimated) from recall of ≈ 95 % across 10 practised items, 10 of 10 recent answers right, and your rating
-  of 3 of 5." or "Not enough practice yet: 2 of 3 attempts. Your rating of 3 of 5 is used for now."
+  "≈ 91 % (estimated) from recall of ≈ 95 % across 10 practised items, 10 of 10 recent answers right, and your latest
+  session rating of 3 of 5." or "Not enough practice yet: 2 of 3 attempts. Your starting rating of 3 of 5 is used for
+  now." The rating's source is named ("latest session", "starting", "subtopics' mean"), so it can't be mistaken for the
+  Starting confidence shown just above it.
 
 ### The deviation from the task's formula, and why
 

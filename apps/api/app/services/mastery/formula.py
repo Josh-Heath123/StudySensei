@@ -328,7 +328,7 @@ def _plural(count: int, word: str) -> str:
 def _rating(prior: Prior) -> str:
     c = prior.confidence
     return {
-        "session": f"your rating of {c} of 5",
+        "session": f"your latest session rating of {c} of 5",
         "starting": f"your starting rating of {c} of 5",
         "subtopics": f"your subtopics' mean rating of {c} of 5",
         "none": f"no rating yet ({percent(UNRATED_PRIOR)} assumed)",
