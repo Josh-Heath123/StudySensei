@@ -200,7 +200,11 @@ class ReviewOut(BaseModel):
     answer_text: str | None
     # Null on reviews from before scheduling (task 1).
     scheduled_days: int | None
+    desired_retention: float | None
     fsrs_version: str | None
+    # The state and due this review led to: the practice screen's "next due" (null for
+    # reviews from before scheduling).
+    after: "ReviewAfterOut | None"
 
 
 # --- FSRS scheduling and the queue (decision 0026) ------------------------------------
@@ -229,6 +233,14 @@ class MemoryOut(BaseModel):
 
 
 ItemOut.model_rebuild()
+
+
+class ReviewAfterOut(BaseModel):
+    state: Literal["learning", "review", "relearning"]
+    due: datetime
+
+
+ReviewOut.model_rebuild()
 
 
 class ScheduledOut(BaseModel):
