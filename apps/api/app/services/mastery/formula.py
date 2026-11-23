@@ -26,7 +26,7 @@ sum is ``math.fsum``.
 
 import math
 import uuid
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Literal
@@ -44,6 +44,7 @@ from app.services.mastery.constants import (
     STRONG_FROM,
     UNRATED_PRIOR,
 )
+from app.services.planning.subtree import Tree, descendants, subtree_confidence
 from app.services.practice.scheduling import MemoryState, retrievability
 
 Status = Literal["not_enough", "estimated"]
@@ -187,6 +188,26 @@ def quiz_attempt(answer: QuizAnswer, tz: ZoneInfo) -> Attempt:
 
 
 # --- The topic ------------------------------------------------------------------------
+
+
+def resolve_prior(
+    tree: Tree,
+    topic_id: uuid.UUID,
+    latest_session: Mapping[uuid.UUID, int],
+    starting: Mapping[uuid.UUID, int | None],
+) -> Prior:
+    """The topic's latest session reflection rating, else its starting confidence; for a topic
+    rated neither way, the mean of its rated descendants (each rated the same way), rounded
+    half up as ``subtree_confidence`` does for the planner; else unrated."""
+    if (found := latest_session.get(topic_id)) is not None:
+        return Prior(found, "session")
+    if (found := starting.get(topic_id)) is not None:
+        return Prior(found, "starting")
+    effective: dict[uuid.UUID, int | None] = {
+        t: latest_session.get(t, starting.get(t)) for t in descendants(tree, topic_id)
+    }
+    value, source = subtree_confidence(tree, topic_id, effective)
+    return Prior(value, "subtopics") if source == "subtopics" else Prior(None, "none")
 
 
 def prior_value(prior: Prior) -> float:

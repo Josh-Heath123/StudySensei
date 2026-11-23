@@ -21,9 +21,11 @@ from app.services.mastery.formula import (
     accuracy,
     band,
     mastery,
+    resolve_prior,
     summarise_item,
     topic_mastery,
 )
+from app.services.planning.subtree import make_tree
 from app.services.practice.scheduling import MemoryState, SchedulingSettings, schedule
 
 BASE = datetime(2026, 9, 1, 8, 0, tzinfo=UTC)
@@ -313,3 +315,15 @@ def test_events_after_at_are_ignored() -> None:
 def test_topic_mastery_takes_summaries() -> None:
     summary = summarise_item(logged(uuid.uuid4(), [(EVENING, 4)]), EVENING, ZoneInfo("UTC"))
     assert topic_mastery([summary], [], Prior(3, "starting"), EVENING).samples.attempts == 1
+
+
+def test_the_prior_prefers_a_session_rating_then_the_starting_one_then_the_subtopics() -> None:
+    chapter, sub_a, sub_b, leaf = (uuid.UUID(int=k) for k in range(1, 5))
+    tree = make_tree([(chapter, None), (sub_a, chapter), (sub_b, chapter), (leaf, sub_b)])
+    assert resolve_prior(tree, chapter, {chapter: 4}, {chapter: 2}) == Prior(4, "session")
+    assert resolve_prior(tree, chapter, {}, {chapter: 2}) == Prior(2, "starting")
+    # Unrated chapter: its subtopics' ratings, a session rating beating a starting one:
+    # sub_a 2 (session, over its starting 5), leaf 5 (starting): mean 3.5 → 4.
+    assert resolve_prior(tree, chapter, {sub_a: 2}, {sub_a: 5, leaf: 5}) == Prior(4, "subtopics")
+    assert resolve_prior(tree, chapter, {}, {}) == Prior(None, "none")
+    assert resolve_prior(tree, leaf, {}, {chapter: 5}) == Prior(None, "none")

@@ -768,17 +768,20 @@ PRACTICE_ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/practice/items/{item}/reviews", {"grade": 3}),
     ("GET", "/practice/items/{item}/reviews", None),
     ("GET", "/practice/items/{item}/preview", None),
+    # Mastery (ADR 0027).
+    ("GET", "/modules/{module}/mastery", None),
+    ("GET", "/topics/{topic}/mastery", None),
 ]
 
 
-async def _card(api: AsyncClient, rows: Rows) -> str:
+async def _card(api: AsyncClient, rows: Rows, prompt: str = "What is a microservice?") -> str:
     response = await api.post(
         "/practice/items",
         json={
             "module_id": str(rows.module.id),
             "topic_id": str(rows.topic.id),
             "kind": "flashcard",
-            "prompt": "What is a microservice?",
+            "prompt": prompt,
             "answer": "A small service.",
         },
     )
@@ -829,6 +832,19 @@ async def test_bob_cant_reach_alices_practice(
     assert attempt.status_code == 404
     assert (attempt.status_code, attempt.json()) == (baseline.status_code, baseline.json())
     assert await snapshots() == before
+
+
+async def test_mastery_counts_only_your_own_practice(
+    alice_api: AsyncClient, bob_api: AsyncClient, alice: Rows, bob: Rows
+) -> None:
+    await _card(alice_api, alice)
+    await _card(alice_api, alice, "What is a service mesh?")
+    await _card(bob_api, bob)
+    his = (await bob_api.get(f"/modules/{bob.module.id}/mastery")).json()
+    assert [t["topic_id"] for t in his["topics"]] == [str(bob.topic.id)]
+    assert his["topics"][0]["samples"]["reviews"] == 1
+    hers = (await alice_api.get(f"/topics/{alice.topic.id}/mastery")).json()
+    assert hers["samples"]["reviews"] == 2
 
 
 async def test_practice_lists_hold_only_your_own_items(
