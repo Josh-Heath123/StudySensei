@@ -379,6 +379,43 @@ const REMINDER_STATES = {
   denied: `Object.defineProperty(Notification, "permission", { get: () => "denied" });`,
 };
 
+/** Synthetic cards on a topic, each reviewed Good at the API's fixed clock. QA only. */
+async function practiseTopic(moduleId, name, count) {
+  const api = `http://localhost:${API_PORT}`;
+  const json = { "Content-Type": "application/json" };
+  const tree = await (await fetch(`${api}/modules/${moduleId}/topics`)).json();
+  const find = (nodes) => {
+    for (const node of nodes) {
+      if (node.name === name) return node;
+      const found = find(node.children);
+      if (found) return found;
+    }
+    return null;
+  };
+  const topic = find(tree);
+  if (!topic) throw new Error(`No topic named ${name}`);
+  for (let n = 1; n <= count; n++) {
+    const item = await (
+      await fetch(`${api}/practice/items`, {
+        method: "POST",
+        headers: json,
+        body: JSON.stringify({
+          module_id: moduleId,
+          topic_id: topic.id,
+          kind: "flashcard",
+          prompt: `QA card ${n}: what does ssthresh mark?`,
+          answer: "Where slow start gives way to congestion avoidance.",
+        }),
+      })
+    ).json();
+    await fetch(`${api}/practice/items/${item.id}/reviews`, {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify({ grade: 3 }),
+    });
+  }
+}
+
 /** Every screen and the main dialogs, in both themes, at three widths (full page, scale 1). */
 async function review(browser, dir, moduleId, fixed) {
   if (!dir) throw new Error("--qa needs a folder");
@@ -393,6 +430,9 @@ async function review(browser, dir, moduleId, fixed) {
       label: "Chrome on Android",
     }),
   });
+  // Three cards answered Good on the dialog's topic, so its mastery line shows a band (ADR
+  // 0027) rather than "Not enough practice yet".
+  await practiseTopic(moduleId, "Slow start and ssthresh", 3);
   const tabs = ["assessments", "tasks", "sessions", "topics", "materials"];
   const screens = [
     ["today", "/"],
