@@ -182,10 +182,122 @@ class ItemPage(BaseModel):
     total: int
 
 
+# --- AI marking of a short answer (ADR 0029) ---------------------------------------------
+
+Verdict = Literal["correct", "partly", "incorrect"]
+FEEDBACK_MAX = 300
+# A share of key points covered from which the answer is "partly" right (below it: incorrect).
+PARTLY_FROM = 0.5
+StudentAnswer = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=REVIEW_ANSWER_MAX)
+]
+Feedback = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=FEEDBACK_MAX)
+]
+
+
+def verdict_for(covered: int, total: int) -> tuple[Verdict, Literal[1, 2, 3]]:
+    """The verdict and the grade it suggests, from the key points covered. Code decides, never
+    the model: all covered is correct (Good, 3); at least half is partly (Hard, 2); fewer is
+    incorrect (Again, 1). Nothing suggests Easy."""
+    if total < 1 or not 0 <= covered <= total:
+        raise ValueError("covered must be between 0 and the number of key points")
+    if covered == total:
+        return "correct", 3
+    if covered / total >= PARTLY_FROM:
+        return "partly", 2
+    return "incorrect", 1
+
+
+class KeyPointVerdict(BaseModel):
+    """The model's judgement on one numbered key point."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    index: int = Field(ge=1, le=KEY_POINTS_MAX)
+    covered: bool
+
+
+class MarkingReply(BaseModel):
+    """What the AI must return for a marking: one verdict per key point and a short note.
+    ``marking_reply(n)`` adds the check that there's exactly one per key point 1..n."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    key_points: list[KeyPointVerdict] = Field(min_length=1, max_length=KEY_POINTS_MAX)
+    feedback: Feedback
+
+    expected: ClassVar[int] = 0
+
+    @model_validator(mode="after")
+    def _one_per_key_point(self) -> Self:
+        if self.expected:
+            found = sorted(k.index for k in self.key_points)
+            if found != list(range(1, self.expected + 1)):
+                raise ValueError(
+                    f"key_points must have exactly one entry for each index 1 to {self.expected}"
+                )
+        return self
+
+
+def marking_reply(count: int) -> type[MarkingReply]:
+    """The reply schema for an item with ``count`` key points."""
+    if not 1 <= count <= KEY_POINTS_MAX:
+        raise ValueError("A short answer has 1 to 5 key points")
+    return type(f"MarkingReply{count}", (MarkingReply,), {"expected": count})
+
+
+class MarkIn(_Input):
+    answer_text: StudentAnswer
+
+
+class KeyPointCoverage(BaseModel):
+    index: int = Field(ge=1, le=KEY_POINTS_MAX)
+    key_point: KeyPoint
+    covered: bool
+
+
+class AIMarking(BaseModel):
+    """A marking (``POST /practice/items/{id}/mark``), and the same object sent back with the
+    review it led to. The verdict and the suggested grade must be what code derives from the
+    coverage, so a client can't record one the AI didn't give."""
+
+    coverage: list[KeyPointCoverage] = Field(min_length=1, max_length=KEY_POINTS_MAX)
+    verdict: Verdict
+    suggested_grade: Literal[1, 2, 3]
+    feedback: Feedback
+    # "provider/model" that judged it.
+    model: Annotated[str, StringConstraints(min_length=1, max_length=100)]
+
+    @model_validator(mode="after")
+    def _derived_by_code(self) -> Self:
+        if [c.index for c in self.coverage] != list(range(1, len(self.coverage) + 1)):
+            raise ValueError("coverage must list key points 1 to n in order")
+        covered = sum(1 for c in self.coverage if c.covered)
+        if (self.verdict, self.suggested_grade) != verdict_for(covered, len(self.coverage)):
+            raise ValueError("verdict and suggested_grade must follow from the coverage")
+        return self
+
+
 class ReviewIn(_Input):
     grade: int = Field(ge=1, le=4, description="1 again, 2 hard, 3 good, 4 easy")
     duration_ms: int | None = Field(default=None, ge=0, le=86_400_000)
     answer_text: Annotated[str, StringConstraints(max_length=REVIEW_ANSWER_MAX)] | None = None
+    # "ai" only when the student pressed the grade the AI suggested; the student always
+    # submits the grade.
+    marked_by: Literal["self", "ai"] = "self"
+    # The marking the student saw, if they asked for one (kept even when they chose another
+    # grade, as "self").
+    ai_marking: AIMarking | None = None
+
+    @model_validator(mode="after")
+    def _ai_needs_its_marking(self) -> Self:
+        if self.marked_by == "ai":
+            if self.ai_marking is None:
+                raise ValueError('marked_by "ai" needs the ai_marking it came from')
+            if self.ai_marking.suggested_grade != self.grade:
+                raise ValueError('marked_by "ai" is only for the grade the AI suggested')
+        return self
 
 
 class ReviewOut(BaseModel):
@@ -202,6 +314,8 @@ class ReviewOut(BaseModel):
     scheduled_days: int | None
     desired_retention: float | None
     fsrs_version: str | None
+    # The AI marking the student saw before grading (ADR 0029), if any.
+    ai_marking: AIMarking | None
     # The state and due this review led to: the practice screen's "next due" (null for
     # reviews from before scheduling).
     after: "ReviewAfterOut | None"

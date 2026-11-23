@@ -55,6 +55,7 @@ class ItemFilters:
     topic_id: uuid.UUID | None = None
     status: str | None = None
     origin: str | None = None
+    kind: str | None = None
 
 
 async def get_item(
@@ -215,6 +216,8 @@ def _filtered(query: Select[Any], user_id: uuid.UUID, filters: ItemFilters) -> S
         query = query.where(PracticeItem.status == filters.status)
     if filters.origin is not None:
         query = query.where(PracticeItem.origin == filters.origin)
+    if filters.kind is not None:
+        query = query.where(PracticeItem.kind == filters.kind)
     return query
 
 

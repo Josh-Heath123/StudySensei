@@ -5,19 +5,23 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, status
 
+from app.ai.client import get_llm_client
 from app.api.deps import CurrentUser
 from app.core import clock
 from app.core.db import SessionDep
 from app.models import PracticeGeneration, Review
 from app.schemas.practice import (
+    AIMarking,
     GenerateIn,
     GenerationOut,
     ItemCreate,
+    ItemKind,
     ItemOrigin,
     ItemOut,
     ItemPage,
     ItemStatus,
     ItemUpdate,
+    MarkIn,
     PracticeSettingsOut,
     PracticeSettingsUpdate,
     PreviewOut,
@@ -27,7 +31,7 @@ from app.schemas.practice import (
     ReviewResultOut,
     ScheduledOut,
 )
-from app.services.practice import generation, items, queue, reviewing
+from app.services.practice import generation, items, marking, queue, reviewing
 
 router = APIRouter(tags=["practice"])
 
@@ -66,13 +70,16 @@ async def list_items(
     topic_id: uuid.UUID | None = None,
     status: ItemStatus | None = None,
     origin: ItemOrigin | None = None,
+    kind: ItemKind | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ItemPage:
     """Your items, newest first, each with its sources (label, material, page)."""
     found, total = await items.list_items(
         session,
-        items.ItemFilters(module_id=module_id, topic_id=topic_id, status=status, origin=origin),
+        items.ItemFilters(
+            module_id=module_id, topic_id=topic_id, status=status, origin=origin, kind=kind
+        ),
         user_id=user.id,
         limit=limit,
         offset=offset,
@@ -108,9 +115,11 @@ async def delete_item(item_id: uuid.UUID, session: SessionDep, user: CurrentUser
 async def add_review(
     item_id: uuid.UUID, data: ReviewIn, session: SessionDep, user: CurrentUser
 ) -> ReviewResultOut:
-    """Record a self-marked answer, grade 1 (again) to 4 (easy), and schedule the item with
-    FSRS. 409 for a suspended or rejected item. Returns the review, the new due time and
-    the queue's counts. Reviews are never changed."""
+    """Record an answer's grade, 1 (again) to 4 (easy), and schedule the item with FSRS. The
+    student always chooses the grade: ``marked_by`` is "ai" only when it's the grade an AI
+    marking suggested, sent back as ``ai_marking`` (422 otherwise, or when the marking doesn't
+    fit the item). 409 for a suspended or rejected item. Returns the review, the new due time
+    and the queue's counts. Reviews are never changed."""
     now = clock.now()
     done = await reviewing.review_item(session, item_id, data, user_id=user.id, now=now)
     review = ReviewOut.model_validate(done.review)
@@ -121,6 +130,28 @@ async def add_review(
             state=done.state.state, due=done.state.due, scheduled_days=done.scheduled_days
         ),
         counts=counts,
+    )
+
+
+@router.post(
+    "/practice/items/{item_id}/mark",
+    response_model=AIMarking,
+    responses={
+        502: {"description": "The AI's marking couldn't be used; mark it yourself"},
+        503: {"description": "No AI model can take it now; Retry-After says when to try again"},
+    },
+)
+async def mark(
+    item_id: uuid.UUID, data: MarkIn, session: SessionDep, user: CurrentUser
+) -> AIMarking:
+    """Ask the AI whether a short answer covers each of the item's key points (ADR 0029).
+
+    Sends the question, the reference answer, its key points and your answer: nothing else
+    about you. Code derives the verdict and the suggested grade (all covered: Good; at least
+    half: Hard; fewer: Again); the AI never grades. Stores nothing. 422 for a flashcard; 409
+    for a suspended or rejected item; 503 (with Retry-After) when every model is busy."""
+    return await marking.mark_item(
+        session, item_id, data.answer_text, user_id=user.id, client=get_llm_client()
     )
 
 

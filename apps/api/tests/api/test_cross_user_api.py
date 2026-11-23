@@ -768,6 +768,23 @@ PRACTICE_ATTEMPTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/practice/items/{item}/reviews", {"grade": 3}),
     ("GET", "/practice/items/{item}/reviews", None),
     ("GET", "/practice/items/{item}/preview", None),
+    # AI marking (ADR 0029): checking her answer, and a review carrying a marking.
+    ("POST", "/practice/items/{item}/mark", {"answer_text": "A small service."}),
+    (
+        "POST",
+        "/practice/items/{item}/reviews",
+        {
+            "grade": 3,
+            "marked_by": "ai",
+            "ai_marking": {
+                "coverage": [{"index": 1, "key_point": "Small", "covered": True}],
+                "verdict": "correct",
+                "suggested_grade": 3,
+                "feedback": "Yes.",
+                "model": "gemini/flash",
+            },
+        },
+    ),
     # Mastery (ADR 0027).
     ("GET", "/modules/{module}/mastery", None),
     ("GET", "/topics/{topic}/mastery", None),

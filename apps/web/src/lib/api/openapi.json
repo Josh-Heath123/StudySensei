@@ -4181,6 +4181,26 @@
             }
           },
           {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "flashcard",
+                    "short_answer"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -4362,7 +4382,7 @@
           "practice"
         ],
         "summary": "Add Review",
-        "description": "Record a self-marked answer, grade 1 (again) to 4 (easy), and schedule the item with\nFSRS. 409 for a suspended or rejected item. Returns the review, the new due time and\nthe queue's counts. Reviews are never changed.",
+        "description": "Record an answer's grade, 1 (again) to 4 (easy), and schedule the item with FSRS. The\nstudent always chooses the grade: ``marked_by`` is \"ai\" only when it's the grade an AI\nmarking suggested, sent back as ``ai_marking`` (422 otherwise, or when the marking doesn't\nfit the item). 409 for a suspended or rejected item. Returns the review, the new due time\nand the queue's counts. Reviews are never changed.",
         "operationId": "add_review_practice_items__item_id__reviews_post",
         "parameters": [
           {
@@ -4442,6 +4462,66 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/practice/items/{item_id}/mark": {
+      "post": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Mark",
+        "description": "Ask the AI whether a short answer covers each of the item's key points (ADR 0029).\n\nSends the question, the reference answer, its key points and your answer: nothing else\nabout you. Code derives the verdict and the suggested grade (all covered: Good; at least\nhalf: Hard; fewer: Again); the AI never grades. Stores nothing. 422 for a flashcard; 409\nfor a suspended or rejected item; 503 (with Retry-After) when every model is busy.",
+        "operationId": "mark_practice_items__item_id__mark_post",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIMarking"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The AI's marking couldn't be used; mark it yourself"
+          },
+          "503": {
+            "description": "No AI model can take it now; Retry-After says when to try again"
           },
           "422": {
             "description": "Validation Error",
@@ -4776,6 +4856,59 @@
   },
   "components": {
     "schemas": {
+      "AIMarking": {
+        "properties": {
+          "coverage": {
+            "items": {
+              "$ref": "#/components/schemas/KeyPointCoverage"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Coverage"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "correct",
+              "partly",
+              "incorrect"
+            ],
+            "title": "Verdict"
+          },
+          "suggested_grade": {
+            "type": "integer",
+            "enum": [
+              1,
+              2,
+              3
+            ],
+            "title": "Suggested Grade"
+          },
+          "feedback": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Feedback"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Model"
+          }
+        },
+        "type": "object",
+        "required": [
+          "coverage",
+          "verdict",
+          "suggested_grade",
+          "feedback",
+          "model"
+        ],
+        "title": "AIMarking",
+        "description": "A marking (``POST /practice/items/{id}/mark``), and the same object sent back with the\nreview it led to. The verdict and the suggested grade must be what code derives from the\ncoverage, so a client can't record one the AI didn't give."
+      },
       "AIModelStatus": {
         "properties": {
           "provider": {
@@ -6851,6 +6984,33 @@
         ],
         "title": "KeptCount"
       },
+      "KeyPointCoverage": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Index"
+          },
+          "key_point": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Key Point"
+          },
+          "covered": {
+            "type": "boolean",
+            "title": "Covered"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "key_point",
+          "covered"
+        ],
+        "title": "KeyPointCoverage"
+      },
       "LaterAssessmentOut": {
         "properties": {
           "assessment_id": {
@@ -6987,6 +7147,22 @@
           "score"
         ],
         "title": "LinkedPageOut"
+      },
+      "MarkIn": {
+        "properties": {
+          "answer_text": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Answer Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "answer_text"
+        ],
+        "title": "MarkIn"
       },
       "MasteryComponentsOut": {
         "properties": {
@@ -8944,6 +9120,25 @@
               }
             ],
             "title": "Answer Text"
+          },
+          "marked_by": {
+            "type": "string",
+            "enum": [
+              "self",
+              "ai"
+            ],
+            "title": "Marked By",
+            "default": "self"
+          },
+          "ai_marking": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AIMarking"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -9037,6 +9232,16 @@
             ],
             "title": "Fsrs Version"
           },
+          "ai_marking": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AIMarking"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "after": {
             "anyOf": [
               {
@@ -9060,6 +9265,7 @@
           "scheduled_days",
           "desired_retention",
           "fsrs_version",
+          "ai_marking",
           "after"
         ],
         "title": "ReviewOut"
