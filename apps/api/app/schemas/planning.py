@@ -216,7 +216,13 @@ class PlanBlockOut(BaseModel):
     topic_name: str | None
     kind: Literal["study", "review"]
     reason: Literal[
-        "final_review", "spacing", "no_estimate", "low_confidence", "urgency", "workload"
+        "final_review",
+        "spacing",
+        "no_estimate",
+        "low_confidence",
+        "low_mastery",
+        "urgency",
+        "workload",
     ]
     method: Literal["mixed_review", "first_pass", "active_recall", "practice"]
     # Written by code from the block's facts (decision 0018), never by AI.
@@ -340,7 +346,13 @@ class StoredBlockOut(BaseModel):
     topic_name: str | None
     kind: Literal["study", "review"]
     reason: Literal[
-        "final_review", "spacing", "no_estimate", "low_confidence", "urgency", "workload"
+        "final_review",
+        "spacing",
+        "no_estimate",
+        "low_confidence",
+        "low_mastery",
+        "urgency",
+        "workload",
     ]
     method: Literal["mixed_review", "first_pass", "active_recall", "practice"]
     # As generated for this block's version (code-written, no AI).
@@ -373,6 +385,7 @@ class PlanVersionOut(BaseModel):
         "nightly",
         "manual",
         "move",
+        "practice",
     ]
     # Why this version exists, in one code-written sentence.
     summary: str

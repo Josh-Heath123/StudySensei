@@ -10,16 +10,21 @@ version) and upserts the item's state. FSRS is ordinary code: no AI touches a sc
 Only active items are reviewed; a suspended or rejected one is a ``Conflict``. The student
 always chooses the grade. An AI marking they saw (ADR 0029) is stored with the review, after
 checking it's for the item's key points as they are now.
+
+Each review also queues a re-plan (trigger "practice", ADR 0031) 15 minutes later, in the same
+transaction: mastery moves the plan, and the queue keeps one job at its earliest time, so a
+sitting of reviews yields one re-plan after it.
 """
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.jobs.queue import enqueue_replan
 from app.models import PracticeItem, PracticeItemState, Review, User
 from app.schemas.practice import PreviewOption, PreviewOut, ReviewIn
 from app.services.errors import Conflict, Invalid, NotFound
@@ -35,6 +40,8 @@ from app.services.practice.scheduling import (
 RESTORE = "Restore it before reviewing."
 MARKING_MISMATCH = "That AI marking isn't for this question as it is now. Check it again."
 GRADE_NAMES = {1: "again", 2: "hard", 3: "good", 4: "easy"}
+# A review's re-plan waits this long, so a sitting of reviews leads to one re-plan.
+REPLAN_AFTER = timedelta(minutes=15)
 
 
 @dataclass(frozen=True)
@@ -119,6 +126,7 @@ async def review_item(
         .values(item_id=item.id, user_id=user_id, **values)
         .on_conflict_do_update(index_elements=["item_id"], set_=values)
     )
+    await enqueue_replan(session, user_id=user_id, trigger="practice", run_after=now + REPLAN_AFTER)
     await session.commit()
     await session.refresh(review)
     return Reviewed(review, after, days)

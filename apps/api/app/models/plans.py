@@ -49,9 +49,18 @@ TRIGGERS = (
     "nightly",
     "manual",
     "move",
+    "practice",
 )
 BLOCK_KINDS = ("study", "review")
-BLOCK_REASONS = ("final_review", "spacing", "no_estimate", "low_confidence", "urgency", "workload")
+BLOCK_REASONS = (
+    "final_review",
+    "spacing",
+    "no_estimate",
+    "low_confidence",
+    "low_mastery",
+    "urgency",
+    "workload",
+)
 BLOCK_METHODS = ("mixed_review", "first_pass", "active_recall", "practice")
 BLOCK_STATUSES = ("planned", "done", "skipped", "missed")
 
