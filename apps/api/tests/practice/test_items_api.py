@@ -21,7 +21,7 @@ from app.models import Material, Review, User
 from app.storage.local import LocalStorage
 from tests.api.conftest import ClientFactory
 from tests.fakes import FakeLLM, ok
-from tests.practice.conftest import Practice, card, generated, question
+from tests.practice.conftest import Practice, card, checked, generated, question
 
 LATER = datetime.now(UTC) + timedelta(hours=1)
 
@@ -58,6 +58,7 @@ async def generate(
                 ),
             )
         ),
+        ok(checked([True, True])),
     )
     response = await api.post(f"/topics/{topic}/practice/generate", json={"count": 4})
     assert response.status_code == 202, response.text

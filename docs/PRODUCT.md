@@ -31,6 +31,11 @@ reflects them. Camera and voice support the study session. They are not the prod
    - rare, evidence-based nudges
    - ends with a 20-second reflection: focus 1–5, what was covered, confidence per topic
 5. **Practice and review:** spaced-repetition reviews, past-paper questions by topic, and a timed paper mode in the final week.
+   **The plan uses mastery:** once a topic has 3 practice answers, its estimated mastery replaces the self-rating in
+   the plan. Weaker topics get more time (up to 50 % more) and come first; strong ones get less (down to 30 % less);
+   the block says so, for example "Your mastery is ≈ 34 % (estimated from 9 answers), so it gets 16 % more time." A
+   practice sitting re-plans once, 15 minutes after it starts. "Quiz me" asks mostly recall on a weak topic and mostly
+   application on a strong one. Mastery is how well you know a topic now, never a prediction of a mark.
 6. **Weekly review:** hours planned vs studied, mastery trends, and what changes next week. Every insight is labelled
    _measured_ or _estimated_, with its evidence.
 
@@ -40,7 +45,7 @@ reflects them. Camera and voice support the study session. They are not the prod
 | -------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------ |
 | Topic map (per module)                             | Document processing + your edits        | Tutor search scope, question generation, plan units, mastery |
 | Past-paper profile                                 | Past-paper analysis                     | Plan priority, study method, practice style, tutor emphasis  |
-| Topic mastery                                      | Practice results, reviews, self-ratings | Plan time allocation, review scheduling, struggle detection  |
+| Topic mastery                                      | Practice results, reviews, self-ratings | Plan time allocation and priority, Quiz me question mix, review scheduling, struggle detection |
 | Session log + reflections                          | Study sessions                          | Student profile, realistic plan capacity                     |
 | Camera signals (opt-in, per-minute summaries only) | In-browser vision                       | Break timing, posture nudges, "estimated" profile items      |
 | Assessments + availability                         | You                                     | Hard limits on the plan                                      |

@@ -8,7 +8,7 @@ import { useNow } from "@/lib/useNow";
 import { Button } from "@/ui/button";
 
 import { useQueue, useReview, type Queue, type QueueCounts } from "./api";
-import { fromNow, GRADE_LABELS, plural, shareRight, type Grade } from "./practiceText";
+import { GRADE_LABELS, nextDueText, plural, shareRight, type Grade } from "./practiceText";
 import { ReviewCard, type Graded } from "./ReviewCard";
 
 /** A learning step due within this long keeps the session open, waiting for it. */
@@ -94,7 +94,7 @@ export function ReviewPage() {
           }
         >
           {counts?.next_due_at
-            ? `Your next review is ${fromNow(counts.next_due_at, now)}.`
+            ? `Your next review is ${nextDueText(counts.next_due_at, now)}.`
             : "Add a card or generate practice for a topic, and it will show up here."}
         </EmptyState>
       ) : (
@@ -107,7 +107,7 @@ export function ReviewPage() {
         className="bg-surface border-line grid justify-items-start gap-4 rounded-xl border p-6 sm:p-8"
       >
         <h2 id="waiting-heading" className="type-h2">
-          A card you&apos;re learning comes back {fromNow(counts!.next_due_at!, now)}
+          A card you&apos;re learning comes back {nextDueText(counts!.next_due_at!, now)}
         </h2>
         <p className="text-muted">
           Learning steps are short on purpose. Wait for it here, or finish for now: it will be due
@@ -211,7 +211,7 @@ function Summary({
             {counts?.due_now
               ? `${counts.due_now} due now`
               : counts?.next_due_at
-                ? fromNow(counts.next_due_at, now)
+                ? nextDueText(counts.next_due_at, now)
                 : "Nothing scheduled"}
           </dd>
         </div>

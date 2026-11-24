@@ -106,7 +106,7 @@ async def generate(name: str, out: TextIO = sys.stdout) -> int:
                         totals["topics"].append({"requested": count, "failed": True})
                         totals["requested"] += count
                         continue
-                    filtered = keep(reply.items, prepared, set(prepared.existing_keys))
+                    filtered = keep(reply, prepared, set(prepared.existing_keys))
                     by_label = {s.label: s for s in prepared.sources.sources}
                     for item in filtered.kept:
                         # Distinct pages, in label order (two passages of p7 are one p7).

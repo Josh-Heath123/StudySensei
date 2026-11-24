@@ -3005,7 +3005,13 @@ export interface components {
        * @enum {string}
        */
       reason:
-        "final_review" | "spacing" | "no_estimate" | "low_confidence" | "urgency" | "workload";
+        | "final_review"
+        | "spacing"
+        | "no_estimate"
+        | "low_confidence"
+        | "low_mastery"
+        | "urgency"
+        | "workload";
       /**
        * Method
        * @enum {string}
@@ -3034,7 +3040,8 @@ export interface components {
         | "material"
         | "nightly"
         | "manual"
-        | "move";
+        | "move"
+        | "practice";
       /** Summary */
       summary: string;
       /**
@@ -3112,7 +3119,8 @@ export interface components {
         | "material"
         | "nightly"
         | "manual"
-        | "move";
+        | "move"
+        | "practice";
       /** Summary */
       summary: string;
       /**
@@ -3742,7 +3750,13 @@ export interface components {
        * @enum {string}
        */
       reason:
-        "final_review" | "spacing" | "no_estimate" | "low_confidence" | "urgency" | "workload";
+        | "final_review"
+        | "spacing"
+        | "no_estimate"
+        | "low_confidence"
+        | "low_mastery"
+        | "urgency"
+        | "workload";
       /**
        * Method
        * @enum {string}

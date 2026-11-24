@@ -202,3 +202,21 @@ def question(prompt: str, answer: str, key_points: list[str], sources: list[str]
         "key_points": key_points,
         "sources": sources,
     }
+
+
+def checked(*items: list[bool]) -> str:
+    """The consistency check's reply (ADR 0030): per short answer, in order, whether its
+    reference answer states each key point."""
+    return json.dumps(
+        {
+            "items": [
+                {
+                    "item": n,
+                    "key_points": [
+                        {"index": k, "covered": covered} for k, covered in enumerate(points, 1)
+                    ],
+                }
+                for n, points in enumerate(items, 1)
+            ]
+        }
+    )

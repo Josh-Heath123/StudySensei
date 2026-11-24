@@ -3,7 +3,8 @@
 - ``enqueue`` adds a job in the caller's transaction, so a job exists exactly
   when the change that needs it is committed.
 - ``enqueue_replan`` does the same for a re-plan, but coalesces: at most one is queued per
-  user (a partial unique index), and the first trigger is kept (decision 0021).
+  user (a partial unique index), the first trigger is kept (decision 0021) and so is the
+  earliest time (ADR 0031).
 - ``claim_next`` takes the next due job with ``FOR UPDATE SKIP LOCKED``, so
   workers never take the same job, and puts back jobs whose worker died.
 - ``fail`` schedules a retry with exponential backoff, or gives up.
@@ -13,7 +14,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import or_, select, text, update
+from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -62,23 +63,27 @@ async def enqueue_replan(
     user_id: uuid.UUID,
     trigger: str,
     detail: dict[str, Any] | None = None,
+    run_after: datetime | None = None,
 ) -> None:
-    """Queue a re-plan for the user in the caller's transaction, unless one is already queued
-    (then this one is folded into it, and the queued job keeps its first trigger). A re-plan
-    that's running doesn't count: a change during it queues the next one."""
+    """Queue a re-plan for the user in the caller's transaction, to run at ``run_after``
+    (default now), unless one is already queued: then this one is folded into it, and the
+    queued job keeps its first trigger and the earlier of the two times. So a practice sitting
+    (each review asks for a re-plan 15 minutes out, ADR 0031) yields one re-plan after it, and
+    a change that needs one now still gets it now. A re-plan that's running doesn't count: a
+    change during it queues the next one."""
+    statement = insert(Job).values(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        kind=REPLAN,
+        payload={"trigger": trigger, "detail": detail or {}},
+        max_attempts=3,
+        run_after=run_after or clock.now(),
+    )
     await session.execute(
-        insert(Job)
-        .values(
-            id=uuid.uuid4(),
-            user_id=user_id,
-            kind=REPLAN,
-            payload={"trigger": trigger, "detail": detail or {}},
-            max_attempts=3,
-            run_after=clock.now(),
-        )
-        .on_conflict_do_nothing(
+        statement.on_conflict_do_update(
             index_elements=["user_id"],
             index_where=text("kind = 'replan' AND status = 'queued'"),
+            set_={"run_after": func.least(Job.run_after, statement.excluded.run_after)},
         )
     )
 

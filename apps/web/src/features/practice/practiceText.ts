@@ -39,6 +39,15 @@ export function fromNow(iso: string, now: Date): string {
   return days === 1 ? "in 1 day" : `in ${days} days`;
 }
 
+/**
+ * When the next review is (``next_due_at``): "in under a minute" when it's less than 60 s
+ * away or already past (the queue's "Due now" count was taken a moment earlier, so it can
+ * still say 0), else as ``fromNow``.
+ */
+export function nextDueText(iso: string, now: Date): string {
+  return new Date(iso).getTime() - now.getTime() < 60_000 ? "in under a minute" : fromNow(iso, now);
+}
+
 /** "4 due now · 12 new today", leaving out a zero; "" when there's nothing. */
 export function countsLine(counts: Pick<QueueCounts, "due_now" | "new_today_left">): string {
   const parts = [];

@@ -82,7 +82,7 @@ class ItemLog:
 
 @dataclass(frozen=True)
 class QuizAnswer:
-    """One answered Quiz me question, graded by code (``tutor.quiz.grade``)."""
+    """One answered Quiz me question, graded by code (``tutor.grading.grade``)."""
 
     at: datetime
     correct: bool

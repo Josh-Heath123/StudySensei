@@ -82,7 +82,8 @@ def roomy_intervals(draw: st.DrawFn, tz: ZoneInfo, horizon_days: int) -> tuple[I
 
 
 @st.composite
-def plan_inputs(draw: st.DrawFn, roomy: bool = False) -> PlanInput:
+def plan_inputs(draw: st.DrawFn, roomy: bool = False, mastery: bool = False) -> PlanInput:
+    """``mastery``: also give each topic a random estimated mastery, or none (ADR 0031)."""
     tz = ZoneInfo(draw(st.sampled_from(TIMEZONES)))
     horizon_days = draw(st.integers(4 if roomy else 1, 21))
     now = BASE + timedelta(minutes=draw(st.integers(0, 2 * 1440)), seconds=draw(st.integers(0, 59)))
@@ -101,6 +102,7 @@ def plan_inputs(draw: st.DrawFn, roomy: bool = False) -> PlanInput:
             workload_minutes=draw(st.none() | st.integers(0, 600)),
             confidence=draw(st.none() | st.integers(1, 5)),
             order=draw(st.integers(0, 20)),
+            mastery=draw(st.none() | st.floats(0, 1)) if mastery else None,
         )
         for i in range(draw(st.integers(1, 5 if roomy else 8)))
     )
@@ -191,6 +193,42 @@ def test_the_same_input_gives_the_same_plan_in_any_order(request: PlanInput, rng
         studied_on=dict(request.studied_on),
     )
     assert plan(reordered) == first
+
+
+WITH_MASTERY = st.one_of(plan_inputs(mastery=True), plan_inputs(roomy=True, mastery=True))
+
+
+@PROPERTY_SETTINGS
+@given(WITH_MASTERY)
+def test_every_property_holds_with_mastery(request: PlanInput) -> None:
+    """ADR 0031: random estimated mastery changes time and order, never the properties."""
+    result = plan(request)
+    check_plan(request, result)
+    # low_mastery only for mastery below 0.5; low_confidence only where there's no mastery.
+    by_id = {t.id: t for t in request.topics}
+    for block in result.blocks:
+        found = by_id.get(block.topic_id) if block.topic_id else None
+        if block.reason == "low_mastery":
+            assert found is not None and found.mastery is not None and found.mastery < 0.5
+        if block.reason == "low_confidence" and block not in request.fixed:
+            assert found is not None and found.mastery is None
+    if any(t.mastery is not None for t in request.topics):
+        event("has mastery")
+    if any(b.reason == "low_mastery" for b in result.blocks):
+        event("has a low_mastery block")
+
+
+@PROPERTY_SETTINGS
+@given(WITH_MASTERY, st.randoms(use_true_random=False))
+def test_with_mastery_the_same_input_gives_the_same_plan_in_any_order(
+    request: PlanInput, rng: Random
+) -> None:
+    first = plan(request)
+    topics = list(request.topics)
+    rng.shuffle(topics)
+    assessments = list(request.assessments)
+    rng.shuffle(assessments)
+    assert plan(replace(request, topics=tuple(topics), assessments=tuple(assessments))) == first
 
 
 def test_dates_in_the_strategy_cover_a_dst_change() -> None:

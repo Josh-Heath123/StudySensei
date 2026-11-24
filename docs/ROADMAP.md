@@ -133,7 +133,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 - [x] FSRS integration (`py-fsrs` / `ts-fsrs`) and the review queue
 - [x] Mastery formula with unit tests, documented in `services/mastery/README.md`
 - [x] Practice UI: own cards, short-answer AI marking against a reference, self-marking
-- [ ] Connect mastery to "Quiz me" and planner priority
+- [x] Connect mastery to "Quiz me" and planner priority
 
 **Verify:**
 - 30 generated questions are spot-checked, and at least 90 % can be answered from their source

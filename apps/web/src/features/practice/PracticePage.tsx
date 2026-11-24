@@ -16,7 +16,7 @@ import { NativeSelect } from "@/ui/native-select";
 import { useModulesMastery, useQueue, type QueueCounts } from "./api";
 import { GenerateButton } from "./GenerateButton";
 import { ItemDialog } from "./ItemDialog";
-import { fromNow, plural, weakestFirst } from "./practiceText";
+import { nextDueText, plural, weakestFirst } from "./practiceText";
 
 type Row = TopicMastery & { module: Module; parentName: string | null };
 
@@ -188,7 +188,7 @@ function QueueTiles({ counts, error }: { counts: QueueCounts | undefined; error?
       value: !counts
         ? "…"
         : counts.next_due_at
-          ? fromNow(counts.next_due_at, now)
+          ? nextDueText(counts.next_due_at, now)
           : "Nothing scheduled",
       note: counts?.due_now ? "After the ones due now" : "Your next review",
     },

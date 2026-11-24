@@ -77,9 +77,13 @@ Run them from the repo root with the Docker database up (`npm run db:up`; `npm r
   derives the verdict. Paced like the tutor eval.
 - **Output:** numbers only: cases, agreement % overall and per expected verdict, the full confusion counts, the models
   that marked, calls, tokens and time. No item or answer text, here or in the terminal.
-- **Result (23 Nov 2026, `results/practice-marking-cos330.json`):** 27 of 30 (**90.0 %**): correct 7 of 10 (2 judged
-  partly, 1 incorrect), partly 10 of 10, incorrect 10 of 10, none failed; all marked by Groq's gpt-oss-120b (36 calls,
-  about 11 minutes with pacing). Every miss was strict, never lenient (ADR 0029).
+- **Generation counts:** items asked for, returned and kept, short answers, key points the consistency check removed,
+  and drops by reason (ADR 0030). A marking turned away as busy waits until its `retry_at` (at most 90 s, 4 tries).
+- **Result (24 Nov 2026, `results/practice-marking-cos330.json`):** 30 of 30 (**100 %**): correct, partly and
+  incorrect 10 of 10 each, none failed; all marked by Groq's gpt-oss-120b (42 calls, about 11 minutes). Generation:
+  36 asked, 36 kept, 12 short answers; the check removed no key point and dropped no item.
+- **Before** (23 Nov, ADR 0029): 27 of 30 (90.0 %), correct 7 of 10. The misses were key points their own reference
+  answer never stated (ADR 0030).
 
 `... python -m evals.topic_extraction cos330 --export` rewrites the reference from the dev database
 (after a deliberate review, not to make the eval pass).

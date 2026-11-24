@@ -21,6 +21,7 @@ from app.models import Assessment, AssessmentTopic, Module, StudySession, Topic
 from app.schemas.planning import MAX_RANGE_DAYS
 from app.services.academics.topics import list_topics
 from app.services.errors import Invalid
+from app.services.mastery.load import mastery_by_topic
 from app.services.planning import store
 from app.services.planning.availability import MINUTES_PER_DAY, local_to_utc
 from app.services.planning.planner import AssessmentInput, PlanInput, TopicInput
@@ -70,6 +71,10 @@ class TopicFacts:
     subtopics: int = 0
     # "yours" (its own rating), "subtopics" (their mean) or "none".
     confidence_source: ConfidenceSource = "none"
+    # Estimated mastery over the unit's subtree (ADR 0031), only when its status is
+    # "estimated", with the attempts it rests on; else None and 0.
+    mastery: float | None = None
+    mastery_attempts: int = 0
 
 
 @dataclass(frozen=True)
@@ -94,7 +99,12 @@ class PlanData:
 
 
 async def load_plan_data(
-    session: AsyncSession, *, user_id: uuid.UUID, now: datetime, days: int = DEFAULT_DAYS
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    now: datetime,
+    days: int = DEFAULT_DAYS,
+    use_mastery: bool = True,
 ) -> PlanData:
     """Everything ``plan()`` needs for the ``days`` local dates from today (1 to 62, like
     ``GET /availability``), and the facts behind it.
@@ -110,6 +120,9 @@ async def load_plan_data(
       unit or any topic under it, floored to whole minutes.
     - **Studied today** (decision 0021): the active minutes of every session that started
       since local midnight, which count against today's cap.
+    - **Mastery** (ADR 0031): each unit's mastery over its subtree at ``now``, from one
+      ``mastery_by_topic`` call, used only when its status is "estimated". ``use_mastery``
+      False ignores it (dev only: the preview's ``--no-mastery``).
     """
     if not 1 <= days <= MAX_RANGE_DAYS:
         raise Invalid(f"Plan between 1 and {MAX_RANGE_DAYS} days.")
@@ -188,6 +201,12 @@ async def load_plan_data(
         unit_links[a.id] = tuple(found_units)
         taken |= set(found_units)
 
+    masteries = (
+        await mastery_by_topic(session, trees, user_id=user_id, at=now)
+        if use_mastery and taken
+        else {}
+    )
+
     topic_facts: dict[uuid.UUID, TopicFacts] = {}
     topic_inputs: list[TopicInput] = []
     for unit in sorted(taken, key=str):
@@ -199,6 +218,8 @@ async def load_plan_data(
             tree, unit, {t: by_id[t].confidence for t in members}
         )
         seconds = sum(measured.get(t, (0.0, 0))[0] for t in members)
+        found_mastery = masteries.get(unit)
+        estimated = found_mastery if found_mastery and found_mastery.status == "estimated" else None
         topic_facts[unit] = TopicFacts(
             name=topic.name,
             confidence=confidence,
@@ -210,9 +231,18 @@ async def load_plan_data(
             sessions=sum(measured.get(t, (0.0, 0))[1] for t in members),
             subtopics=load.subtopics,
             confidence_source=confidence_source,
+            mastery=estimated.value if estimated else None,
+            mastery_attempts=estimated.samples.attempts if estimated else 0,
         )
         topic_inputs.append(
-            TopicInput(unit, topic.module_id, load.workload.minutes, confidence, tree.order[unit])
+            TopicInput(
+                unit,
+                topic.module_id,
+                load.workload.minutes,
+                confidence,
+                tree.order[unit],
+                estimated.value if estimated else None,
+            )
         )
 
     module_ids = {a.module_id for a in found}

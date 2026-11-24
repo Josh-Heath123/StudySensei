@@ -9,6 +9,10 @@ it fails, so each is counted once:
 - ``missing_key_points``: a short-answer question with no key points;
 - ``duplicate``: the same ``prompt_key`` as an item the topic already has, or as one kept
   earlier in the batch.
+
+Before the filter, the consistency check (``generation.ask``, ADR 0030) drops a short answer
+none of whose key points its reference answer states, as ``key_points_not_in_answer``; it
+reaches the filter's counts through ``generation.keep``.
 """
 
 import hashlib

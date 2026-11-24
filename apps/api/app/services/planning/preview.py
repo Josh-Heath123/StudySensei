@@ -35,9 +35,16 @@ class Built:
 
 
 async def preview(
-    session: AsyncSession, *, user_id: uuid.UUID, now: datetime, days: int = DEFAULT_DAYS
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    now: datetime,
+    days: int = DEFAULT_DAYS,
+    use_mastery: bool = True,
 ) -> PlanPreviewOut:
-    data = await load_plan_data(session, user_id=user_id, now=now, days=days)
+    data = await load_plan_data(
+        session, user_id=user_id, now=now, days=days, use_mastery=use_mastery
+    )
     return build(data.input, data.facts, now=now, days=days).preview
 
 
@@ -49,9 +56,13 @@ def build(request: PlanInput, facts: PlanFacts, *, now: datetime, days: int) -> 
         found = facts.topics.get(topic_id)
         return found.confidence if found else None
 
+    def mastery(topic_id: uuid.UUID) -> float | None:
+        found = facts.topics.get(topic_id)
+        return found.mastery if found else None
+
     blocks: list[tuple[Block, PlanBlockOut]] = []
     for block, block_facts in zip(
-        result.blocks, methods.block_facts(result.blocks, confidence), strict=True
+        result.blocks, methods.block_facts(result.blocks, confidence, mastery), strict=True
     ):
         rule = methods.choose(block_facts)
         module = facts.modules[block.module_id]
