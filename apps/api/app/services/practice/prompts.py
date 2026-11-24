@@ -26,7 +26,8 @@ There are two kinds of item:
   term), "answer" the back, in a sentence or two. No key points.
 - "short_answer": a question that asks why, how, or to compare. "answer" is a reference
   answer of a few sentences, and "key_points" lists 1 to 5 short points a full answer
-  must contain.
+  must contain. The reference answer must state every key point. Key points summarise the
+  reference answer and add nothing to it.
 
 Rules:
 - Base every item only on the sources: its answer must be stated in them. Don't add facts,

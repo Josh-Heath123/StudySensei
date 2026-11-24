@@ -27,7 +27,13 @@ ItemStatus = Literal["active", "suspended", "rejected"]
 RejectReason = Literal["wrong", "unclear", "not_in_source", "duplicate", "other"]
 GenerationStatus = Literal["queued", "running", "succeeded", "failed"]
 DropReason = Literal[
-    "not_grounded", "duplicate", "too_short", "answer_repeats_prompt", "missing_key_points"
+    "not_grounded",
+    "duplicate",
+    "too_short",
+    "answer_repeats_prompt",
+    "missing_key_points",
+    # ADR 0030: none of its key points is stated in its own reference answer.
+    "key_points_not_in_answer",
 ]
 
 Prompt = Annotated[
@@ -245,6 +251,51 @@ def marking_reply(count: int) -> type[MarkingReply]:
     if not 1 <= count <= KEY_POINTS_MAX:
         raise ValueError("A short answer has 1 to 5 key points")
     return type(f"MarkingReply{count}", (MarkingReply,), {"expected": count})
+
+
+class ItemCoverage(BaseModel):
+    """The consistency check's judgement on one generated short answer (ADR 0030): whether
+    its own reference answer states each of its key points, one entry per key point."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    item: int = Field(ge=1, le=GENERATE_MAX)
+    key_points: list[KeyPointVerdict] = Field(min_length=1, max_length=KEY_POINTS_MAX)
+
+
+class ConsistencyReply(BaseModel):
+    """What the AI must return for a generation's consistency check: one entry per numbered
+    item, each with one verdict per key point. ``consistency_reply(counts)`` adds the check."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    items: list[ItemCoverage] = Field(min_length=1, max_length=GENERATE_MAX)
+
+    expected: ClassVar[tuple[int, ...]] = ()
+
+    @model_validator(mode="after")
+    def _one_per_item_and_key_point(self) -> Self:
+        if self.expected:
+            found = sorted(i.item for i in self.items)
+            if found != list(range(1, len(self.expected) + 1)):
+                raise ValueError(
+                    f"items must have exactly one entry for each item 1 to {len(self.expected)}"
+                )
+            for entry in self.items:
+                count = self.expected[entry.item - 1]
+                if sorted(k.index for k in entry.key_points) != list(range(1, count + 1)):
+                    raise ValueError(
+                        f"item {entry.item} must have exactly one entry for each key point "
+                        f"1 to {count}"
+                    )
+        return self
+
+
+def consistency_reply(counts: list[int]) -> type[ConsistencyReply]:
+    """The reply schema for items with these key point counts, in order."""
+    if not 1 <= len(counts) <= GENERATE_MAX or not all(1 <= c <= KEY_POINTS_MAX for c in counts):
+        raise ValueError("1 to 12 items, each with 1 to 5 key points")
+    return type("ConsistencyReplyN", (ConsistencyReply,), {"expected": tuple(counts)})
 
 
 class MarkIn(_Input):

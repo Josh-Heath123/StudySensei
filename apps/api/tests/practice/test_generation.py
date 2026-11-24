@@ -35,6 +35,7 @@ from tests.practice.conftest import (
     PROXY,
     Practice,
     card,
+    checked,
     generated,
     question,
 )
@@ -189,7 +190,7 @@ async def test_the_job_stores_items_sources_and_counts(
     tmp_path: Path,
 ) -> None:
     email, name = user_a.email, user_a.display_name
-    fake_llm.reply("flash", ok(REPLY))
+    fake_llm.reply("flash", ok(REPLY), ok(checked([True, True])))
     generation = await request_generation(session, practice.chapter, 8, user_id=practice.user_id)
     generation_id = generation.id
     assert await run_worker(session, tmp_path) == 1
@@ -239,7 +240,8 @@ async def test_the_job_stores_items_sources_and_counts(
         assert text in sent
     for text in (EXAM, PRIVATE, OUTLINE, CIPHER, email, name):
         assert text not in sent
-    assert len(fake_llm.requests) == 1
+    # The items, then the consistency check (ADR 0030).
+    assert len(fake_llm.requests) == 2
 
 
 async def test_existing_prompts_are_listed_and_a_repeat_is_a_duplicate(
@@ -260,7 +262,7 @@ async def test_existing_prompts_are_listed_and_a_repeat_is_a_duplicate(
         ),
         user_id=practice.user_id,
     )
-    fake_llm.reply("flash", ok(REPLY))
+    fake_llm.reply("flash", ok(REPLY), ok(checked([True, True])))
     generation = await request_generation(session, practice.chapter, 8, user_id=practice.user_id)
     generation_id = generation.id
     await run_worker(session, tmp_path)

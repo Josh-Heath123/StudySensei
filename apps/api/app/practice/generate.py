@@ -139,7 +139,7 @@ async def dry_run(
                 print(f"Failed: {exc}", file=out)
                 print_calls(usage.rows, out)
                 return 1
-            filtered = keep(reply.items, prepared, set(prepared.existing_keys))
+            filtered = keep(reply, prepared, set(prepared.existing_keys))
             print_items(filtered.kept, prepared, out)
             print_counts(
                 args.count,
