@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.ai.errors import AIUnavailable
 from app.core import clock
-from app.services.errors import Conflict, Invalid, NotFound, TooLarge, Unsupported
+from app.services.errors import AIFailed, Conflict, Invalid, NotFound, TooLarge, Unsupported
 
 STATUS_FOR: dict[type[Exception], int] = {
     NotFound: status.HTTP_404_NOT_FOUND,
@@ -15,6 +15,7 @@ STATUS_FOR: dict[type[Exception], int] = {
     Invalid: status.HTTP_422_UNPROCESSABLE_CONTENT,
     TooLarge: status.HTTP_413_CONTENT_TOO_LARGE,
     Unsupported: status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+    AIFailed: status.HTTP_502_BAD_GATEWAY,
 }
 
 

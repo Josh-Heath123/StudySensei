@@ -322,3 +322,13 @@ async def test_a_module_with_60_topics_and_600_items_computes_in_under_200_ms(
     assert len(found) == 60
     assert sum(t.mastery.samples.reviews for t in found if t.parent_id is None) >= 1800
     assert min(timings) < 0.200
+
+
+async def test_a_topic_without_enough_practice_has_no_band(
+    session: AsyncSession, practice: Practice, api: AsyncClient
+) -> None:
+    """No practice and no rating: the value is the assumed 0.5, which sits on the
+    weak/developing edge, so the API gives no band at all (ADR 0028)."""
+    body = (await api.get(f"/topics/{practice.other}/mastery")).json()
+    assert (body["value"], body["status"], body["band"]) == (0.5, "not_enough", None)
+    assert body["samples"]["rating_source"] == "none"

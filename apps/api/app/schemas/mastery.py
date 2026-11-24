@@ -12,7 +12,7 @@ from app.services.mastery.load import TopicMastery
 
 
 class MasteryComponentsOut(BaseModel):
-    # M: mean FSRS recall now over the active items reviewed (null if none).
+    # M: mean FSRS recall a week from now over the active items reviewed (null if none).
     recall: float | None
     # A: the recency-weighted share of attempts right (null with no attempts).
     accuracy: float | None
@@ -43,7 +43,8 @@ class TopicMasteryOut(BaseModel):
     value: float
     label: Literal["estimated"] = "estimated"
     status: Literal["not_enough", "estimated"]
-    band: Literal["weak", "developing", "strong"]
+    # Null while the status is "not_enough".
+    band: Literal["weak", "developing", "strong"] | None
     components: MasteryComponentsOut
     samples: MasterySamplesOut
     # One sentence, written by code, with every number labelled.

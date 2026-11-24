@@ -214,6 +214,9 @@ class Review(TimestampedBase):
             f"answer_text IS NULL OR char_length(answer_text) <= {REVIEW_ANSWER_MAX}",
             name="ck_reviews_answer_text",
         ),
+        CheckConstraint(
+            "marked_by <> 'ai' OR ai_marking IS NOT NULL", name="ck_reviews_ai_marking"
+        ),
         Index("ix_reviews_user_item_at", "user_id", "item_id", "reviewed_at"),
     )
 
@@ -224,7 +227,8 @@ class Review(TimestampedBase):
     grade: Mapped[int] = mapped_column(SmallInteger)
     marked_by: Mapped[str] = mapped_column(String(10))
     duration_ms: Mapped[int | None] = mapped_column(Integer)
-    # What the student typed, if anything. Never sent to the AI in this task.
+    # What the student typed, if anything. Sent to the AI only when they ask it to check
+    # their answer (POST /practice/items/{id}/mark, ADR 0029); stored only with the review.
     answer_text: Mapped[str | None] = mapped_column(Text)
     # FSRS (migration 0026, decision 0026); null on reviews from before it. The item's state
     # before and after (``scheduling.MemoryState.snapshot``; before is null for a new item),
@@ -234,6 +238,9 @@ class Review(TimestampedBase):
     scheduled_days: Mapped[int | None] = mapped_column(Integer)
     desired_retention: Mapped[float | None] = mapped_column(Double)
     fsrs_version: Mapped[str | None] = mapped_column(String(20))
+    # The AI marking the student saw (``schemas.practice.AIMarking``), migration 0027 (ADR
+    # 0029). Required when marked_by is "ai"; the student chose the grade either way.
+    ai_marking: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
 
     @property
     def after(self) -> dict[str, Any] | None:

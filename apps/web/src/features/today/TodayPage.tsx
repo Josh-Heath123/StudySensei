@@ -5,6 +5,7 @@ import { CountdownTiles } from "./CountdownTiles";
 import { DayTimeline } from "./DayTimeline";
 import { DeadlinesCard } from "./DeadlinesCard";
 import { NextUpCard } from "./NextUpCard";
+import { ReviewsCard } from "./ReviewsCard";
 import { SystemStatusCard } from "./SystemStatusCard";
 
 const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "long" });
@@ -26,8 +27,9 @@ export function TodayPage() {
         aside={<CountdownTiles now={now} />}
       />
       <div className="grid items-start gap-6 lg:grid-cols-[3fr_2fr] lg:grid-rows-[auto_1fr] lg:gap-8">
-        <div className="min-w-0 lg:col-start-2 lg:row-start-1">
+        <div className="grid min-w-0 gap-6 lg:col-start-2 lg:row-start-1 lg:gap-8">
           <NextUpCard />
+          <ReviewsCard />
         </div>
         <div className="grid min-w-0 gap-6 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:gap-8">
           <DayTimeline />

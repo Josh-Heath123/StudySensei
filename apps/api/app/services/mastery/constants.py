@@ -6,6 +6,9 @@ from typing import Final
 # Evidence E blends recall M (FSRS's R) and accuracy A (scored attempts).
 RECALL_SHARE: Final = 0.6
 ACCURACY_SHARE: Final = 0.4
+# Recall M is FSRS's R this many days after ``at`` (ADR 0028): R at ``at`` itself is 1.0 for
+# the first day after any review, even an Again, because py-fsrs counts whole days.
+RECALL_AHEAD_DAYS: Final = 7
 # k: the prior counts as this many attempts. w = n / (n + k).
 PRIOR_ATTEMPTS: Final = 3
 # An attempt's weight in A halves every this many days (relative to the newest attempt).

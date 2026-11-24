@@ -53,7 +53,7 @@ reflects them. Camera and voice support the study session. They are not the prod
 | Consistency                         | Days studied per week; planned blocks done vs skipped or missed (kept per plan version) | Measured             | 1 week                           |
 | Break habits                        | Break count and length vs plan                                               | Measured             | 5 sessions                       |
 | Most productive times               | Completion, self-rated focus and accuracy by time of day                     | Estimated            | 10 sessions across 3+ time bands |
-| Topic mastery                       | FSRS recall + practice and Quiz me accuracy + your ratings (how well you know it now, never an exam prediction) | Estimated            | 3 attempts per topic             |
+| Topic mastery                       | FSRS recall in a week + practice and Quiz me accuracy + your ratings (how well you know it now, never an exam prediction) | Estimated            | 3 attempts per topic (no band before) |
 | Methods that work for you           | Mastery gained per minute by method and topic type                           | Estimated            | ~5 sessions per method           |
 | Time away from desk                 | Face present or absent                                                       | Measured (camera on) | 3 camera sessions                |
 | Posture drift                       | Minutes lower, closer or more tilted than your baseline                      | Estimated            | 3 camera sessions                |
@@ -81,7 +81,7 @@ StudySensei uses general evidence-based defaults (such as 25–50 minute blocks)
 | Text extraction, chunking, search                                     | Ordinary code + local embeddings                                             |
 | Proposing topic maps; segmenting and classifying past-paper questions | AI, validated by schema, then reviewed by you                                |
 | Explaining, answering, generating practice                            | AI                                                                           |
-| Marking short answers                                                 | AI with the reference answer and source shown; self-marking always available |
+| Marking short answers                                                 | AI judges each key point against the reference; code turns that into a suggested grade, and the student always chooses the grade. Self-marking (a tick list of key points) always available |
 | Assessment-profile statistics                                         | Ordinary code (exact counts)                                                 |
 | Scheduling, re-planning, feasibility                                  | Ordinary code (a tested planner)                                             |
 | Study method per block                                                | Ordinary code: a rules table, and code-written text from computed facts (no AI in v1) |

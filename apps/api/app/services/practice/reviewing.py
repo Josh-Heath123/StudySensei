@@ -7,7 +7,9 @@ reads the state the first wrote. In one transaction it computes the new state wi
 review (with the state before and after, the days scheduled, the retention and the library
 version) and upserts the item's state. FSRS is ordinary code: no AI touches a schedule.
 
-Only active items are reviewed; a suspended or rejected one is a ``Conflict``.
+Only active items are reviewed; a suspended or rejected one is a ``Conflict``. The student
+always chooses the grade. An AI marking they saw (ADR 0029) is stored with the review, after
+checking it's for the item's key points as they are now.
 """
 
 import uuid
@@ -20,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import PracticeItem, PracticeItemState, Review, User
 from app.schemas.practice import PreviewOption, PreviewOut, ReviewIn
-from app.services.errors import Conflict, NotFound
+from app.services.errors import Conflict, Invalid, NotFound
 from app.services.practice.items import get_item, memory_state
 from app.services.practice.scheduling import (
     FSRS_VERSION,
@@ -31,6 +33,7 @@ from app.services.practice.scheduling import (
 )
 
 RESTORE = "Restore it before reviewing."
+MARKING_MISMATCH = "That AI marking isn't for this question as it is now. Check it again."
 GRADE_NAMES = {1: "again", 2: "hard", 3: "good", 4: "easy"}
 
 
@@ -77,6 +80,11 @@ async def review_item(
         raise NotFound("Practice item")
     if item.status != "active":
         raise Conflict(RESTORE)
+    if data.ai_marking is not None and [c.key_point for c in data.ai_marking.coverage] != list(
+        item.key_points or []
+    ):
+        # A flashcard, or key points edited since the marking.
+        raise Invalid(MARKING_MISMATCH)
     settings = await user_settings(session, user_id=user_id)
     before = await current_state(session, item.id, user_id=user_id, lock=True)
     after, days = schedule(before, data.grade, now, settings)
@@ -85,7 +93,8 @@ async def review_item(
         item_id=item.id,
         reviewed_at=after.last_review_at,
         grade=data.grade,
-        marked_by="self",
+        marked_by=data.marked_by,
+        ai_marking=data.ai_marking.model_dump(mode="json") if data.ai_marking else None,
         duration_ms=data.duration_ms,
         answer_text=data.answer_text,
         state_before=before.snapshot() if before is not None else None,

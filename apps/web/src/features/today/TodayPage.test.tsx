@@ -12,6 +12,8 @@ import { aModule, anAssessment, aTask } from "../modules/fixtures";
 import type { Task } from "../modules/tasks/api";
 import type { PlanBlock } from "../plan/api";
 import { aBlock, aPlan, UTC_SETTINGS } from "../plan/fixtures";
+import type { QueueCounts } from "../practice/api";
+import { aQueue } from "../practice/fixtures";
 
 // Friday 13 November 2026, 10:00 local time.
 const NOW = new Date(2026, 10, 13, 10, 0);
@@ -34,6 +36,7 @@ function renderToday(
     tasks?: Task[];
     next?: PlanBlock | null;
     day?: PlanBlock[];
+    queue?: Partial<QueueCounts>;
   },
   reply?: (call: ApiCall) => unknown,
 ) {
@@ -49,6 +52,7 @@ function renderToday(
     "GET /plan/next": () => data.next ?? null,
     "GET /plan": () => aPlan(data.day ?? []),
     "POST /plan/blocks/:id/skip": () => aPlan(),
+    "GET /practice/queue": () => aQueue([], data.queue ?? {}),
   });
   renderApp("/");
   return api;
@@ -188,6 +192,7 @@ test("a failed load is shown", async () => {
     "GET /modules": () => [aModule()],
     "GET /assessments": () => [],
     "GET /tasks": () => new Response(JSON.stringify({ detail: "Boom" }), { status: 500 }),
+    "GET /practice/queue": () => aQueue(),
   });
   renderApp("/");
 
@@ -319,4 +324,22 @@ test("Your day lists today's blocks with their status", async () => {
     "18:00–18:50Final review · COS330 ExamMixed review",
   ]);
   expect(within(day).getByRole("link", { name: "Week" })).toHaveAttribute("href", "/plan");
+});
+
+test("the Reviews card: what's due and Start review", async () => {
+  renderToday({ queue: { due_now: 4, new_today_left: 12, new_total: 30 } });
+  const card = (await screen.findByText("Reviews")).closest("[data-slot=card]") as HTMLElement;
+  expect(await within(card).findByText("4 due now · 12 new today")).toBeVisible();
+  expect(within(card).getByRole("link", { name: "Start review" })).toHaveAttribute(
+    "href",
+    "/practice/review",
+  );
+});
+
+test("with nothing due, the Reviews card says when the next review is", async () => {
+  // NOW is 10:00 local; three hours on.
+  const next = new Date(NOW.getTime() + 3 * 3_600_000).toISOString();
+  renderToday({ queue: { next_due_at: next } });
+  expect(await screen.findByText("Next review in 3 h.")).toBeVisible();
+  expect(screen.queryByRole("link", { name: "Start review" })).not.toBeInTheDocument();
 });

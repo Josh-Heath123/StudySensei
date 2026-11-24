@@ -13,6 +13,8 @@ import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card";
 
+import { PracticeSettingsCard } from "@/features/practice/PracticeSettingsCard";
+
 import { CalendarCard } from "./CalendarCard";
 import { RemindersCard } from "./RemindersCard";
 import { StudyTimeSection } from "./StudyTimeSection";
@@ -32,6 +34,7 @@ export function SettingsPage() {
       <PageHeader title="Settings" />
       <AppearanceSection />
       <StudyTimeSection />
+      <PracticeSection />
       <RemindersSection />
       <section aria-labelledby="ai-providers" className="mt-12 grid gap-6">
         <div>
@@ -63,6 +66,23 @@ export function SettingsPage() {
         )}
       </section>
     </>
+  );
+}
+
+/** New cards a day and desired retention (decision 0026). */
+function PracticeSection() {
+  return (
+    <section aria-labelledby="practice-settings" className="mt-12 grid gap-6">
+      <div>
+        <h2 id="practice-settings" className="type-h2">
+          Practice
+        </h2>
+        <p className="text-muted mt-2">How your reviews are scheduled.</p>
+      </div>
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <PracticeSettingsCard />
+      </div>
+    </section>
   );
 }
 

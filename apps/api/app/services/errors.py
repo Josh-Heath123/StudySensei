@@ -27,3 +27,8 @@ class TooLarge(Exception):
 
 class Unsupported(Exception):
     """An upload's type isn't allowed, or its content doesn't match its name. Maps to 415."""
+
+
+class AIFailed(Exception):
+    """The AI answered, but nothing usable came of it (a reply that didn't fit its schema
+    after a repair, or a refusal). The message is safe to show. Maps to 502."""

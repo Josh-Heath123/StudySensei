@@ -1454,7 +1454,8 @@ export interface paths {
     };
     /**
      * List Items
-     * @description Your items, newest first, each with its sources (label, material, page).
+     * @description Your items, newest first, each with its sources (label, material, page). With
+     *     ``subtopics``, ``topic_id`` covers the topic's subtopics too, as mastery does.
      */
     get: operations["list_items_practice_items_get"];
     put?: never;
@@ -1506,11 +1507,38 @@ export interface paths {
     put?: never;
     /**
      * Add Review
-     * @description Record a self-marked answer, grade 1 (again) to 4 (easy), and schedule the item with
-     *     FSRS. 409 for a suspended or rejected item. Returns the review, the new due time and
-     *     the queue's counts. Reviews are never changed.
+     * @description Record an answer's grade, 1 (again) to 4 (easy), and schedule the item with FSRS. The
+     *     student always chooses the grade: ``marked_by`` is "ai" only when it's the grade an AI
+     *     marking suggested, sent back as ``ai_marking`` (422 otherwise, or when the marking doesn't
+     *     fit the item). 409 for a suspended or rejected item. Returns the review, the new due time
+     *     and the queue's counts. Reviews are never changed.
      */
     post: operations["add_review_practice_items__item_id__reviews_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/practice/items/{item_id}/mark": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Mark
+     * @description Ask the AI whether a short answer covers each of the item's key points (ADR 0029).
+     *
+     *     Sends the question, the reference answer, its key points and your answer: nothing else
+     *     about you. Code derives the verdict and the suggested grade (all covered: Good; at least
+     *     half: Hard; fewer: Again); the AI never grades. Stores nothing. 422 for a flashcard; 409
+     *     for a suspended or rejected item; 503 (with Retry-After) when every model is busy.
+     */
+    post: operations["mark_practice_items__item_id__mark_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1670,6 +1698,30 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /**
+     * AIMarking
+     * @description A marking (``POST /practice/items/{id}/mark``), and the same object sent back with the
+     *     review it led to. The verdict and the suggested grade must be what code derives from the
+     *     coverage, so a client can't record one the AI didn't give.
+     */
+    AIMarking: {
+      /** Coverage */
+      coverage: components["schemas"]["KeyPointCoverage"][];
+      /**
+       * Verdict
+       * @enum {string}
+       */
+      verdict: "correct" | "partly" | "incorrect";
+      /**
+       * Suggested Grade
+       * @enum {integer}
+       */
+      suggested_grade: 1 | 2 | 3;
+      /** Feedback */
+      feedback: string;
+      /** Model */
+      model: string;
+    };
     /** AIModelStatus */
     AIModelStatus: {
       /** Provider */
@@ -2453,6 +2505,15 @@ export interface components {
       /** Kept */
       kept: number;
     };
+    /** KeyPointCoverage */
+    KeyPointCoverage: {
+      /** Index */
+      index: number;
+      /** Key Point */
+      key_point: string;
+      /** Covered */
+      covered: boolean;
+    };
     /** LaterAssessmentOut */
     LaterAssessmentOut: {
       /**
@@ -2509,6 +2570,11 @@ export interface components {
       method: "pages" | "similarity";
       /** Score */
       score: number | null;
+    };
+    /** MarkIn */
+    MarkIn: {
+      /** Answer Text */
+      answer_text: string;
     };
     /** MasteryComponentsOut */
     MasteryComponentsOut: {
@@ -3277,6 +3343,13 @@ export interface components {
       duration_ms?: number | null;
       /** Answer Text */
       answer_text?: string | null;
+      /**
+       * Marked By
+       * @default self
+       * @enum {string}
+       */
+      marked_by: "self" | "ai";
+      ai_marking?: components["schemas"]["AIMarking"] | null;
     };
     /** ReviewOut */
     ReviewOut: {
@@ -3312,6 +3385,7 @@ export interface components {
       desired_retention: number | null;
       /** Fsrs Version */
       fsrs_version: string | null;
+      ai_marking: components["schemas"]["AIMarking"] | null;
       after: components["schemas"]["ReviewAfterOut"] | null;
     };
     /** ReviewResultOut */
@@ -3855,11 +3929,8 @@ export interface components {
        * @enum {string}
        */
       status: "not_enough" | "estimated";
-      /**
-       * Band
-       * @enum {string}
-       */
-      band: "weak" | "developing" | "strong";
+      /** Band */
+      band: ("weak" | "developing" | "strong") | null;
       components: components["schemas"]["MasteryComponentsOut"];
       samples: components["schemas"]["MasterySamplesOut"];
       /** Basis */
@@ -6883,6 +6954,8 @@ export interface operations {
         topic_id?: string | null;
         status?: ("active" | "suspended" | "rejected") | null;
         origin?: ("ai" | "user") | null;
+        kind?: ("flashcard" | "short_answer") | null;
+        subtopics?: boolean;
         limit?: number;
         offset?: number;
       };
@@ -7072,6 +7145,55 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
         };
+      };
+    };
+  };
+  mark_practice_items__item_id__mark_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        item_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MarkIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AIMarking"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description The AI's marking couldn't be used; mark it yourself */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No AI model can take it now; Retry-After says when to try again */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

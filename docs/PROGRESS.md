@@ -2,6 +2,20 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-23: Phase 5, task 4 (the practice UI and AI marking)
+
+- **From #50's review (ADR 0028):** recall is FSRS R a week ahead (R at `at` read 100 % after any Again); properties
+  now generate reviews. The first to fail was "a new Again never raises it" (0.375 → 0.405). The task's 30-day
+  exception wasn't the real boundary (a card failed and left 20 days also rose), so the property is stated on the
+  item's own recall. Worked examples: 25 % (no band), 92 % strong, 85 % strong 30 days on. No band while `not_enough`.
+- **AI marking (ADR 0029):** `POST /practice/items/{id}/mark`, per-key-point coverage, verdict and grade by code,
+  interactive (503 busy, 502 unusable); reviews carry `marked_by` and `ai_marking` (migration 0027). Eval: 90 % of 30
+  (correct 70 %, partly and incorrect 100 %).
+- **Screens:** /practice, the review session (keyboard throughout), items, Settings → Practice, Today's Reviews card,
+  the topic dialog's Practice section; e2e for both kinds and suspend/restore; demo practice in the seed; QA in both
+  themes at three widths.
+- **Next:** task 5, mastery in Quiz me and the planner.
+
 ## 2026-11-23: Phase 5, task 3 (topic mastery v1)
 
 - **From #49's review:** listed reviews carry `desired_retention` and `after {state, due}`; queue counts add

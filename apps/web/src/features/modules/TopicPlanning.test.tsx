@@ -5,6 +5,7 @@ import { mockApi } from "@/test/mockApi";
 import { renderApp } from "@/test/render";
 
 import type { TopicNode } from "./api";
+import { aGeneration } from "../practice/fixtures";
 import { aMastery, aModule, anAiStatus, aTopic, aTopicMap, roots } from "./fixtures";
 import {
   confidenceText,
@@ -50,6 +51,7 @@ function serve() {
     "GET /ai/status": () => anAiStatus(),
     "GET /topics/:id/pages": () => [],
     "GET /topics/:id/mastery": () => aMastery(),
+    "GET /practice/items": () => ({ items: [], total: 0 }),
     "PATCH /topics/:id/planning": ({ body }) => {
       const change = body as { confidence?: number | null; estimated_minutes?: number | null };
       if ("confidence" in change) topic = { ...topic, confidence: change.confidence ?? null };
@@ -211,6 +213,7 @@ async function openWithMastery(mastery: ReturnType<typeof aMastery>) {
     "GET /ai/status": () => anAiStatus(),
     "GET /topics/:id/pages": () => [],
     "GET /topics/:id/mastery": () => mastery,
+    "GET /practice/items": () => ({ items: [], total: 0 }),
   });
   renderApp("/modules/m1?tab=topics");
   const dialog = await openTopic(userEvent.setup());
@@ -220,7 +223,7 @@ async function openWithMastery(mastery: ReturnType<typeof aMastery>) {
 
 test("under the starting confidence: the mastery band and what it rests on", async () => {
   const basis =
-    "≈ 64 % (estimated) from recall of ≈ 78 % across 12 practised items, 9 of 14 recent " +
+    "≈ 64 % (estimated) from recall in a week ≈ 78 % across 12 practised items, 9 of 14 recent " +
     "answers right, and your latest session rating of 3 of 5.";
   const line = await openWithMastery(
     aMastery({ status: "estimated", band: "developing", value: 0.64, basis }),
@@ -232,7 +235,32 @@ test("under the starting confidence: the mastery band and what it rests on", asy
 test("with too little practice there's no band, only why", async () => {
   const basis =
     "Not enough practice yet: 2 of 3 attempts. Your latest session rating of 3 of 5 is used for now.";
-  const line = await openWithMastery(aMastery({ value: 0.55, band: "developing", basis }));
+  const line = await openWithMastery(aMastery({ value: 0.55, band: null, basis }));
   expect(line).toHaveTextContent(basis);
   expect(within(line).queryByText("Developing")).not.toBeInTheDocument();
+});
+
+test("the topic dialog counts the topic's practice items and can generate more", async () => {
+  const user = userEvent.setup();
+  const { calls } = mockApi({
+    "GET /modules/:id": () => aModule(),
+    "GET /modules/:id/topics": () => roots(aTopic("q", "Queues", [], { workload: ESTIMATED })),
+    "GET /modules/:id/topic-map": () => aTopicMap(),
+    "GET /ai/status": () => anAiStatus(),
+    "GET /topics/:id/pages": () => [],
+    "GET /topics/:id/mastery": () => aMastery(),
+    "GET /practice/items": () => ({ items: [], total: 7 }),
+    "POST /topics/:id/practice/generate": () => aGeneration({ status: "queued", produced: 0 }),
+    "GET /topics/:id/practice/generations": () => [aGeneration({ status: "succeeded" })],
+  });
+  renderApp("/modules/m1?tab=topics");
+  const dialog = await openTopic(user);
+  const practice = within(dialog).getByRole("region", { name: "Practice" });
+  const link = await within(practice).findByRole("link", { name: "7 practice items" });
+  expect(link).toHaveAttribute("href", "/practice/items?module=m1&topic=q");
+  const listed = calls.find((c) => c.path === "/practice/items");
+  expect(listed).toBeDefined();
+  await user.click(within(practice).getByRole("button", { name: "Generate practice for Queues" }));
+  expect(await within(practice).findByText("8 written")).toBeVisible();
+  expect(calls.some((c) => c.path === "/topics/q/practice/generate")).toBe(true);
 });

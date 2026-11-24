@@ -3,7 +3,7 @@
 Fixed yardsticks for the AI and search features, run **locally against the dev database** (the real
 COS330 data): search (and the tutor's retrieval), linking, topic extraction, the tutor and practice items. They
 never run in CI. Search and linking use the local embedding model, and the topic eval only reads what's stored.
-**The tutor and practice evals are the exceptions**: they make real calls on the free tier (below). The database session is read-only in
+**The tutor, practice and practice marking evals are the exceptions**: they make real calls on the free tier (below). The database session is read-only in
 Postgres itself (`default_transaction_read_only`), so an eval can't write.
 
 Run them from the repo root with the Docker database up (`npm run db:up`; `npm run dev` can be stopped):
@@ -16,6 +16,7 @@ Run them from the repo root with the Docker database up (`npm run db:up`; `npm r
 | Topic extraction | `uv run --directory apps/api python -m evals.topic_extraction cos330` | The current tree against the reviewed reference (matched, missing, extra, moved), and citation precision per material kind |
 | Tutor (**real AI calls**) | `uv run --directory apps/api python -m evals.tutor cos330 --label run1 --review <file outside the repo>` | 20 questions through the tutor in answer mode, each with its topic: cited pages, whether one is acceptable, coverage, "doesn't cover" answers, time to first token, the model; then "Quiz me" after 5 of them. Writes `evals/results/tutor-<date>-<label>.json`. **Target:** a correct page cited for ≥ 17 of 20 (85 %), first token under 2 s |
 | Practice (**real AI calls**) | `uv run --directory apps/api python -m evals.practice cos330`, then `... python -m evals.practice score cos330` | Practice items written for the 6 topics in `practice/cos330.yaml` (8 each), not stored; a spot-check sheet for a person to mark; then grounded %, and answerable % overall and by kind. **Target:** at least 90 % of at least 30 marked items answerable from their cited source |
+| Practice marking (**real AI calls**) | `uv run --directory apps/api python -m evals.practice_marking cos330` | 10 short-answer items written on the fly from the same topics (not stored), three answers each with a known verdict, marked as `POST /practice/items/{id}/mark` does: agreement overall and per expected verdict. Writes `evals/results/practice-marking-cos330.json`. No pass mark |
 
 ### The tutor eval
 
@@ -64,6 +65,21 @@ Run them from the repo root with the Docker database up (`npm run db:up`; `npm r
   Phase 5's first Verify line is met. The one failure was a short answer asking *why* something holds where the
   sources only say *that* it does; several answerable items added small facts not on their pages. The generation
   prompt now forbids both (ADR 0026).
+
+### The practice marking eval
+
+- **Items:** for each topic in `practice/cos330.yaml`, 6 items through the generation service (as the practice eval),
+  keeping the short answers with at least 2 key points; the first 10, taken in turn from each topic. Nothing stored.
+- **Answers with a known verdict:** the reference answer itself (**correct**); the first half of the key points,
+  rounded up (2 of 3), copied from them (**partly**: code calls half or more partly); another topic's reference
+  answer (**incorrect**).
+- **Marking:** `services.practice.marking.mark`, the endpoint's own code: the model judges each key point, code
+  derives the verdict. Paced like the tutor eval.
+- **Output:** numbers only: cases, agreement % overall and per expected verdict, the full confusion counts, the models
+  that marked, calls, tokens and time. No item or answer text, here or in the terminal.
+- **Result (23 Nov 2026, `results/practice-marking-cos330.json`):** 27 of 30 (**90.0 %**): correct 7 of 10 (2 judged
+  partly, 1 incorrect), partly 10 of 10, incorrect 10 of 10, none failed; all marked by Groq's gpt-oss-120b (36 calls,
+  about 11 minutes with pacing). Every miss was strict, never lenient (ADR 0029).
 
 `... python -m evals.topic_extraction cos330 --export` rewrites the reference from the dev database
 (after a deliberate review, not to make the eval pass).

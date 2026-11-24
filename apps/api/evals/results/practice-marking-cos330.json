@@ -1,0 +1,51 @@
+{
+  "cases": 30,
+  "agreed": 27,
+  "agreement_pct": 90.0,
+  "failed": 0,
+  "by_expected": {
+    "correct": {
+      "cases": 10,
+      "agreed": 7,
+      "agreement_pct": 70.0,
+      "got": {
+        "correct": 7,
+        "partly": 2,
+        "incorrect": 1,
+        "failed": 0
+      }
+    },
+    "partly": {
+      "cases": 10,
+      "agreed": 10,
+      "agreement_pct": 100.0,
+      "got": {
+        "correct": 0,
+        "partly": 10,
+        "incorrect": 0,
+        "failed": 0
+      }
+    },
+    "incorrect": {
+      "cases": 10,
+      "agreed": 10,
+      "agreement_pct": 100.0,
+      "got": {
+        "correct": 0,
+        "partly": 0,
+        "incorrect": 10,
+        "failed": 0
+      }
+    }
+  },
+  "eval": "practice-marking-cos330",
+  "date": "2026-11-23",
+  "items": 10,
+  "models": {
+    "groq/openai/gpt-oss-120b": 30
+  },
+  "calls": 36,
+  "input_tokens": 48658,
+  "output_tokens": 7396,
+  "seconds": 645.4
+}
