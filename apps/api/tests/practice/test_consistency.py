@@ -32,13 +32,13 @@ from tests.practice.conftest import Practice, card, checked, generated, question
 FIRST = question(
     "How does a stateful firewall differ from a packet filter?",
     "It tracks connections; a packet filter checks each packet on its own.",
-    ["Tracks connections", "Used as the bulk-data layer in TLS", "Packet filters judge alone"],
+    ["Tracks connections", "Logs every dropped packet", "Packet filters judge alone"],
     ["S1", "S2"],
 )
 SECOND = question(
     "Why does a proxy firewall see the protocol?",
     "It relays the traffic itself.",
-    ["Default policies differ in security level"],
+    ["Runs on a dedicated host"],
     ["S3"],
 )
 REPLY = generated(
@@ -78,8 +78,8 @@ def test_the_check_numbers_each_short_answer_and_its_key_points() -> None:
     sent = check_messages([first, second])[1].text
     assert "Item 1\nQuestion: How does a stateful firewall" in sent
     assert "Reference answer: It tracks connections;" in sent
-    assert "  2. Used as the bulk-data layer in TLS" in sent
-    assert "Item 2\n" in sent and "  1. Default policies differ" in sent
+    assert "  2. Logs every dropped packet" in sent
+    assert "Item 2\n" in sent and "  1. Runs on a dedicated host" in sent
     assert "For each of the 2 items" in sent
 
 

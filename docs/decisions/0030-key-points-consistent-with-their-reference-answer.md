@@ -13,8 +13,8 @@ word is marked down for a point it never makes. That is why the marking eval agr
 The evidence that the marker itself is sound: live, on a hand-written item whose key points are all in its reference
 answer, it judged the reference answer, a paraphrase, half the points, an off-topic answer and an injection attempt
 all correctly. In #48's spot-check sheet, 11 of 18 short answers had a key point with under 50 % word overlap with
-their own reference answer; clear cases are key points like "used as the bulk-data layer in TLS" and "default
-policies differ in security level", which their answers never state. The fault is in generation.
+their own reference answer, and in the clearest cases the answer never states the point at all (the examples stay
+in the review: they are course-derived text). The fault is in generation.
 
 ## Decision
 
