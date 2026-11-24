@@ -8278,6 +8278,7 @@
               "spacing",
               "no_estimate",
               "low_confidence",
+              "low_mastery",
               "urgency",
               "workload"
             ],
@@ -8340,7 +8341,8 @@
               "material",
               "nightly",
               "manual",
-              "move"
+              "move",
+              "practice"
             ],
             "title": "Trigger"
           },
@@ -8479,7 +8481,8 @@
               "material",
               "nightly",
               "manual",
-              "move"
+              "move",
+              "practice"
             ],
             "title": "Trigger"
           },
@@ -10122,6 +10125,7 @@
               "spacing",
               "no_estimate",
               "low_confidence",
+              "low_mastery",
               "urgency",
               "workload"
             ],
