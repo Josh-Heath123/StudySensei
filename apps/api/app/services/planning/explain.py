@@ -20,12 +20,15 @@ from app.services.planning.planner import (
     REVIEW_DAYS,
     Block,
     Shortfall,
+    mastery_percent,
+    mastery_time_percent,
 )
 
 BASIS = (
     "Needed time is estimated: each topic's workload (your own figure, or estimated from its "
-    "pages), less the time measured in your sessions, adjusted for your confidence. Free time "
-    "is your study time, at most the daily cap each day."
+    "pages), less the time measured in your sessions, adjusted for your mastery where it's "
+    "estimated from your practice, else for your confidence. Free time is your study time, at "
+    "most the daily cap each day."
 )
 
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
@@ -85,6 +88,14 @@ def _across(topic: TopicFacts) -> str:
     return f" across {topic.name} and its {plural(topic.subtopics, 'subtopic')}"
 
 
+def _mastery_basis(topic: TopicFacts) -> str:
+    """ "≈ 34 % (estimated from 9 answers)". An estimate of how well it's known now, from the
+    student's own practice: never an exam prediction (ADR 0031)."""
+    assert topic.mastery is not None
+    answers = plural(topic.mastery_attempts, "answer")
+    return f"≈ {mastery_percent(topic.mastery)} % (estimated from {answers})"
+
+
 def workload_sentence(topic: TopicFacts) -> str:
     """ "≈ 40 min estimated from 13 slides; 15 min studied so far (measured, 1 session)." For
     a topic with subtopics: "≈ 7 h estimated from 72 slides and 34 pages of text across Ch1
@@ -107,6 +118,9 @@ def workload_sentence(topic: TopicFacts) -> str:
             f"{duration(topic.studied_minutes)} studied so far "
             f"(measured, {plural(topic.sessions, 'session')})"
         )
+    # A strong unit (ADR 0031): why it gets less time than its workload.
+    if topic.mastery is not None and (less := 100 - mastery_time_percent(topic.mastery)) > 0:
+        return f"{load}; {studied}; mastery {_mastery_basis(topic)}, so {less} % less time."
     return f"{load}; {studied}."
 
 
@@ -137,6 +151,10 @@ def reason_text(block: Block, facts: PlanFacts) -> str:
         )
     if topic is None:
         return urgency_sentence(block, facts)
+    if block.reason == "low_mastery" and topic.mastery is not None:
+        extra = mastery_time_percent(topic.mastery) - 100
+        more = f"it gets {extra} % more time" if extra > 0 else "it gets its full time"
+        return f"Your mastery is {_mastery_basis(topic)}, so {more}. " + workload_sentence(topic)
     if block.reason == "low_confidence" and topic.confidence is not None:
         extra = CONFIDENCE_PERCENT[topic.confidence] - 100
         rated = (
@@ -323,6 +341,8 @@ def version_summary(
         return "Updated overnight."
     if trigger == "manual":
         return "Re-planned on request."
+    if trigger == "practice":
+        return "Your practice changed how strong some topics are."
     return "Your first plan."
 
 

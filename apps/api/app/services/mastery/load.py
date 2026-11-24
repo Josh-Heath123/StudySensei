@@ -13,13 +13,14 @@ Sources:
 - recall: ``reviews.state_after`` of each active item's latest scheduled review up to ``at``
   (the same state ``practice_item_states`` holds for ``at`` = now);
 - attempts: ``reviews`` (grade, reviewed_at) and ``messages.quiz`` / ``quiz_answers``, graded by
-  ``tutor.quiz.grade`` and dated by the message's ``updated_at`` (when the picks were saved);
+  ``tutor.grading.grade`` and dated by the message's ``updated_at`` (when the picks were saved);
 - the prior: ``session_topic_ratings`` (dated by the session's reflection, else its end, else its
   start) and ``topics.confidence``.
 """
 
 import uuid
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -55,7 +56,7 @@ from app.services.mastery.formula import (
 )
 from app.services.planning.subtree import make_tree, subtree
 from app.services.practice.scheduling import MemoryState
-from app.services.tutor.quiz import grade
+from app.services.tutor.grading import grade
 
 
 @dataclass(frozen=True)
@@ -208,3 +209,19 @@ async def one_topic_mastery(
     topic = await get_topic(session, topic_id, user_id=user_id)
     found = await module_mastery(session, topic.module_id, user_id=user_id, at=at)
     return next(t for t in found if t.topic_id == topic_id)
+
+
+async def mastery_by_topic(
+    session: AsyncSession,
+    module_ids: Iterable[uuid.UUID],
+    *,
+    user_id: uuid.UUID,
+    at: datetime,
+) -> dict[uuid.UUID, Mastery]:
+    """Every topic of these modules → its mastery as of ``at`` (each over its subtree): one
+    call for the planner's whole load (ADR 0031), not one per unit."""
+    out: dict[uuid.UUID, Mastery] = {}
+    for module_id in sorted(set(module_ids), key=str):
+        for found in await module_mastery(session, module_id, user_id=user_id, at=at):
+            out[found.topic_id] = found.mastery
+    return out

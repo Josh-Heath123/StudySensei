@@ -7,6 +7,7 @@ Run with: uv run python -m app.planning.preview --days 28 [--now 2026-11-20T08:0
 Dev only: ``--persist`` instead re-plans for real (``replan``, trigger manual, decision 0021)
 and prints the stored version and its blocks; ``--skip-next`` then skips the next planned
 block through the service and prints the version that follows. Both write to the database.
+Dev only: ``--no-mastery`` plans as if no topic had an estimated mastery (ADR 0031), to compare.
 """
 
 import argparse
@@ -111,14 +112,18 @@ def render_version(plan: PlanOut) -> str:
     return "\n".join(lines)
 
 
-async def main(days: int, now: datetime, *, persist: bool, skip_next: bool) -> None:
+async def main(
+    days: int, now: datetime, *, persist: bool, skip_next: bool, use_mastery: bool = True
+) -> None:
     email = get_settings().local_user_email
     async with get_sessionmaker()() as session:
         user = await session.scalar(select(User).where(User.email == email))
         if user is None:
             raise SystemExit("No local user: run `python -m app.seed` first.")
         if not persist:
-            result = await preview(session, user_id=user.id, now=now, days=days)
+            result = await preview(
+                session, user_id=user.id, now=now, days=days, use_mastery=use_mastery
+            )
             await session.rollback()
             print(render(result))
         else:
@@ -153,6 +158,11 @@ def cli() -> None:
         action="store_true",
         help="with --persist: skip the next planned block, then print the new version",
     )
+    parser.add_argument(
+        "--no-mastery",
+        action="store_true",
+        help="dev only: ignore estimated mastery (plan from ratings alone), to compare",
+    )
     args = parser.parse_args()
     if not 1 <= args.days <= MAX_RANGE_DAYS:
         parser.error(f"--days must be 1 to {MAX_RANGE_DAYS}")
@@ -164,7 +174,17 @@ def cli() -> None:
         sys.stdout.reconfigure(encoding="utf-8")
     if args.skip_next and not args.persist:
         parser.error("--skip-next needs --persist")
-    asyncio.run(main(args.days, now, persist=args.persist, skip_next=args.skip_next))
+    if args.no_mastery and args.persist:
+        parser.error("--no-mastery is for the preview only")
+    asyncio.run(
+        main(
+            args.days,
+            now,
+            persist=args.persist,
+            skip_next=args.skip_next,
+            use_mastery=not args.no_mastery,
+        )
+    )
 
 
 if __name__ == "__main__":

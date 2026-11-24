@@ -1,4 +1,5 @@
-"""Planner v1: what to study, when. A pure function of its inputs (decisions 0017, 0019-0021).
+"""Planner v1: what to study, when. A pure function of its inputs (decisions 0017, 0019-0021,
+0031).
 
 No database, no clock, no AI: ``plan()`` takes a ``PlanInput`` and returns the same ``Plan``
 for the same input, whatever order its lists come in. It works in three passes, sooner
@@ -38,6 +39,11 @@ URGENT_DAYS = 7
 REVIEW_KINDS = frozenset({"exam", "test", "quiz"})
 # Starting confidence → percent of the remaining workload. Not rated counts as 3.
 CONFIDENCE_PERCENT = {1: 150, 2: 125, 3: 100, 4: 85, 5: 70}
+# Estimated mastery → percent (ADR 0031): 150 - mastery %, kept within these bounds.
+MASTERY_PERCENT_MAX = 150
+MASTERY_PERCENT_MIN = 70
+# Below this a unit's first block is low_mastery and a first pass (the "weak" band's edge).
+WEAK_BELOW = 0.5
 
 
 @dataclass(frozen=True)
@@ -62,6 +68,8 @@ class TopicInput:
     confidence: int | None
     # Course order: the topic's index in its module's tree, pre-order (decision 0019).
     order: int = 0
+    # Mastery 0-1 when its status is "estimated" (ADR 0031), else None: the rating is used.
+    mastery: float | None = None
 
 
 @dataclass(frozen=True)
@@ -86,7 +94,8 @@ Reason = Literal[
     "final_review",  # the review in the days before an assessment
     "spacing",  # a topic's first block on a second day
     "no_estimate",  # a topic with no workload figure gets its two default blocks
-    "low_confidence",  # the topic is rated 1 or 2
+    "low_confidence",  # the topic is rated 1 or 2 (and has no estimated mastery)
+    "low_mastery",  # the topic's estimated mastery is below 0.5 (ADR 0031)
     "urgency",  # the assessment is due within 7 days of the block
     "workload",  # the rest of the topic's workload
 ]
@@ -131,14 +140,46 @@ class Plan:
     shortfalls: tuple[Shortfall, ...]
 
 
+def mastery_percent(mastery: float) -> int:
+    """Mastery as a whole percent, rounded half up: 0.344 → 34. The text shows this figure and
+    ``strength_percent`` is computed from it, so the two always agree."""
+    return math.floor(mastery * 100 + 0.5)
+
+
+def mastery_time_percent(mastery: float) -> int:
+    """``clamp(150 - mastery %, 70, 150)`` (ADR 0031): mastery 0 → 150, 0.5 → 100, 0.8 or
+    more → 70."""
+    raw = MASTERY_PERCENT_MAX - mastery_percent(mastery)
+    return min(MASTERY_PERCENT_MAX, max(MASTERY_PERCENT_MIN, raw))
+
+
+def strength_percent(topic: TopicInput) -> int:
+    """The percent of its remaining workload a topic gets: from its estimated mastery when it
+    has one (``mastery_time_percent``), else its confidence (``CONFIDENCE_PERCENT``; not rated
+    counts as 3)."""
+    if topic.mastery is not None:
+        return mastery_time_percent(topic.mastery)
+    return CONFIDENCE_PERCENT.get(topic.confidence or 3, 100)
+
+
+def strength(topic: TopicInput) -> float:
+    """How strong a topic is, 0-1, for priority (ADR 0031): its estimated mastery, else its
+    rating mapped (c - 1) / 4, else 0.5. Without mastery this orders exactly as confidence."""
+    if topic.mastery is not None:
+        return topic.mastery
+    if topic.confidence is not None:
+        return (topic.confidence - 1) / 4
+    return 0.5
+
+
 def required_minutes(topic: TopicInput, studied: int) -> int:
     """What a topic still needs, rounded up to 5 minutes: ``max(0, workload - studied)``
-    scaled by confidence (``CONFIDENCE_PERCENT``). A topic with no workload figure needs its
-    two default blocks, less what's been studied."""
+    scaled by ``strength_percent``. A topic with no workload figure needs its two default
+    blocks, less what's been studied."""
     if topic.workload_minutes is None:
         return max(0, MIN_BLOCKS * BLOCK_MINUTES - studied)
     remaining = max(0, topic.workload_minutes - studied)
-    percent = CONFIDENCE_PERCENT.get(topic.confidence or 3, 100)
+    percent = strength_percent(topic)
     scaled = math.ceil(remaining * percent / 100)
     return math.ceil(scaled / 5) * 5
 
@@ -351,15 +392,19 @@ def _assessment_key(assessment: AssessmentInput) -> tuple[datetime, float, str]:
     return (assessment.due_at, -(assessment.weight or 0), str(assessment.id))
 
 
-def _topic_key(topic: _Topic) -> tuple[int, int, str]:
-    """Within an assessment: lower confidence first, then course order, then the id."""
-    return (topic.input.confidence or 3, topic.input.order, str(topic.input.id))
+def _topic_key(topic: _Topic) -> tuple[float, int, str]:
+    """Within an assessment: lower strength first (estimated mastery, else the rating), then
+    course order, then the id."""
+    return (strength(topic.input), topic.input.order, str(topic.input.id))
 
 
 def _study_reason(topic: _Topic, start: int) -> Reason:
     if topic.input.workload_minutes is None:
         return "no_estimate"
-    if (topic.input.confidence or 3) <= 2:
+    if topic.input.mastery is not None:
+        if topic.input.mastery < WEAK_BELOW:
+            return "low_mastery"
+    elif (topic.input.confidence or 3) <= 2:
         return "low_confidence"
     if _minutes(topic.assessment.due_at) - start <= URGENT_DAYS * MINUTES_PER_DAY:
         return "urgency"
