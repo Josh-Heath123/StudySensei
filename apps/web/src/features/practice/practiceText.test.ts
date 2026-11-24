@@ -5,6 +5,7 @@ import {
   generationText,
   keyPointLines,
   memoryText,
+  nextDueText,
   shareRight,
   sourceChip,
   suggestFromTicks,
@@ -37,6 +38,14 @@ test("times from now, rounded and never zero minutes", () => {
     "in 4 days",
   ]);
   expect(fromNow(later(-30), NOW)).toBe("now");
+});
+
+test("the next review: under a minute away or past says so, never a bare now", () => {
+  expect(nextDueText(later(0.3), NOW)).toBe("in under a minute");
+  expect(nextDueText(later(59 / 60), NOW)).toBe("in under a minute");
+  expect(nextDueText(later(-5), NOW)).toBe("in under a minute");
+  expect(nextDueText(later(1), NOW)).toBe("in 1 min");
+  expect(nextDueText(later(180), NOW)).toBe("in 3 h");
 });
 
 test("the counts line leaves out a zero", () => {

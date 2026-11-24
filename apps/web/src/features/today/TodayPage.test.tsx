@@ -342,4 +342,12 @@ test("with nothing due, the Reviews card says when the next review is", async ()
   renderToday({ queue: { next_due_at: next } });
   expect(await screen.findByText("Next review in 3 h.")).toBeVisible();
   expect(screen.queryByRole("link", { name: "Start review" })).not.toBeInTheDocument();
+  // Practice is still one click away when nothing is due.
+  expect(screen.getByRole("link", { name: "Open practice" })).toHaveAttribute("href", "/practice");
+});
+
+test("with nothing scheduled, the Reviews card still opens practice", async () => {
+  renderToday({ queue: { next_due_at: null } });
+  expect(await screen.findByText(/Nothing to review yet/)).toBeVisible();
+  expect(screen.getByRole("link", { name: "Open practice" })).toHaveAttribute("href", "/practice");
 });

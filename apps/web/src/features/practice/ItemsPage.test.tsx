@@ -165,6 +165,21 @@ test("Add a card: a short answer needs its key points, one per line", async () =
 
 // --- /practice -----------------------------------------------------------------------
 
+test("Practice: a card due within seconds reads in under a minute beside Due now 0", async () => {
+  const soon = new Date(Date.now() + 20_000).toISOString();
+  mockApi({
+    ...HEALTH,
+    "GET /modules": () => [aModule()],
+    "GET /practice/queue": () => aQueue([], { due_now: 0, new_today_left: 0, next_due_at: soon }),
+    "GET /modules/:id/mastery": () => aModuleMastery("m1", []),
+  });
+  renderApp("/practice");
+
+  const reviews = await screen.findByLabelText("Reviews");
+  expect(await within(reviews).findByText("in under a minute")).toBeVisible();
+  expect(within(reviews).queryByText("now")).not.toBeInTheDocument();
+});
+
 test("Practice: the counts, Start review, and topics weakest first with a band only when estimated", async () => {
   mockApi({
     ...HEALTH,

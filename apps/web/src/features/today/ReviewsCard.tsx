@@ -2,7 +2,7 @@ import { Layers } from "lucide-react";
 import { Link } from "react-router";
 
 import { useQueue } from "@/features/practice/api";
-import { countsLine, fromNow } from "@/features/practice/practiceText";
+import { countsLine, nextDueText } from "@/features/practice/practiceText";
 import { useNow } from "@/lib/useNow";
 import { Button } from "@/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card";
@@ -38,19 +38,24 @@ export function ReviewsCard() {
             </Button>
           </div>
         ) : (
-          <p className="text-muted">
-            {counts.next_due_at ? (
-              `Next review ${fromNow(counts.next_due_at, now)}.`
-            ) : (
-              <>
-                Nothing to review yet.{" "}
-                <Link to="/practice" className="text-link hover:underline">
-                  Add a card or generate practice
-                </Link>
-                .
-              </>
-            )}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-muted">
+              {counts.next_due_at ? (
+                `Next review ${nextDueText(counts.next_due_at, now)}.`
+              ) : (
+                <>
+                  Nothing to review yet.{" "}
+                  <Link to="/practice" className="text-link hover:underline">
+                    Add a card or generate practice
+                  </Link>
+                  .
+                </>
+              )}
+            </p>
+            <Button asChild variant="outline">
+              <Link to="/practice">Open practice</Link>
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>
