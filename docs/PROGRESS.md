@@ -2,6 +2,20 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-24: Phase 5, task 5 (mastery in Quiz me and the planner)
+
+- **From #51's review (ADR 0030):** the prompt says key points summarise the reference answer, and a batched
+  consistency check after generation (the marking judgement) removes uncovered key points, dropping an item left with
+  none (`key_points_not_in_answer`). Marking eval 90 % → **100 %** of 30 (correct 7 → 10 of 10); the check removed
+  nothing in that run (36 kept, 12 short answers), so the prompt did the work. /practice says "in under a minute"
+  for a card due within seconds; Today's Reviews card always has Open practice.
+- **Mastery in the plan (ADR 0031):** estimated mastery sets a unit's time (`clamp(150 − mastery %, 70, 150)`),
+  priority, the new `low_mastery` reason with its text, and the first method; without it, plans are unchanged (every
+  existing planner test passes untouched; no property failed with random mastery). Scenario: 0.3 vs 0.9 on equal
+  workload plans 400 vs 250 minutes, the weak one first. Each review queues one `practice` re-plan 15 min on
+  (migration 0028). Quiz me gets the band word only.
+- **Next:** a week of real use for Phase 5's "done when"; then Phase 6, past-paper intelligence.
+
 ## 2026-11-23: Phase 5, task 4 (the practice UI and AI marking)
 
 - **From #50's review (ADR 0028):** recall is FSRS R a week ahead (R at `at` read 100 % after any Again); properties

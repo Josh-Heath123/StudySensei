@@ -616,11 +616,16 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   2. **Prompt** (`prompts.py`): the topic's name, the sources (untrusted), up to 30 prompts the topic has ("don't
      repeat these") and the ask: about 60 % flashcards, the rest short-answer questions. Nothing about the student.
   3. **Call:** smart role, JSON validated against `GeneratedPractice` (1-12 items), not interactive (it may wait out
-     rate limits), at most 4 provider calls per generation. Invalid output, a cut-off or a refusal fails the
-     generation with a readable error; `AIUnavailable` with `retry_at` sets it back to queued and reschedules.
-  4. **Filter** (`filter.py`, pure): drops `not_grounded`, `too_short`, `answer_repeats_prompt`,
-     `missing_key_points` and `duplicate` items, counted by reason.
-  5. **Store**, in one transaction: kept items (origin ai, provider, model, generation), the sources each cited, the
+     rate limits), at most 6 provider calls per generation (two a try). Invalid output, a cut-off or a refusal fails
+     the generation with a readable error; `AIUnavailable` with `retry_at` sets it back to queued and reschedules. The
+     prompt says the reference answer must state every key point, and key points add nothing to it.
+  4. **Consistency check** (ADR 0030): one more call, batched, judges each short answer's reference answer against
+     its own key points with the marking judgement (`marking.COVERAGE_RULES`; `ConsistencyReply`, one verdict per key
+     point of every item; purpose `practice_check`). Code removes the uncovered key points; an item left with none is
+     dropped as `key_points_not_in_answer`. A check that still fails after its repair fails the generation.
+  5. **Filter** (`filter.py`, pure): drops `not_grounded`, `too_short`, `answer_repeats_prompt`,
+     `missing_key_points` and `duplicate` items, counted by reason with the check's drops.
+  6. **Store**, in one transaction: kept items (origin ai, provider, model, generation), the sources each cited, the
      counts.
 - **Items:** the student's own are origin user; editing an AI item's text makes it theirs (decision 0009) and keeps
   its sources. A topic merge moves the topic's items to the target, rejecting any prompt the target has as a
@@ -663,7 +668,9 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   `at` (recall from the latest `state_after`, so a past `at` is exact), quiz answers (dated by the message's
   `updated_at`) and ratings; each item summarised once. 60 topics and 600 items: about 33 ms.
 - **UI:** the topic dialog's Planning card shows the band and basis under Starting confidence (read-only).
-- The planner and Quiz me don't use it yet (task 5).
+- **Used by** (task 5, ADR 0031): the planner (a unit's estimated mastery sets its time, priority, reason and first
+  method; see Scheduling) and Quiz me (the band word only). `mastery_by_topic` loads every topic of several modules
+  in one call.
 
 ### The practice screens and AI marking (Phase 5, task 4; ADR 0029)
 
@@ -679,7 +686,19 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   list; grades with their `/preview` intervals on keys 1-4; a learning step under 20 minutes away keeps the session
   waiting), `/practice/items` (filters, memory state, edit, suspend or restore, reject, delete), Settings → Practice,
   Today's Reviews card, and the topic dialog's Practice section.
-- **Eval:** `evals/practice_marking` (agreement with known verdicts; see `apps/api/evals/README.md`).
+- **Eval:** `evals/practice_marking` (agreement with known verdicts, and the generation counts; see
+  `apps/api/evals/README.md`).
+
+### Mastery in Quiz me and the plan (Phase 5, task 5; ADR 0031)
+
+- **Re-planning after practice:** each review (`reviewing.review_item`) queues a re-plan with trigger `practice` and
+  `run_after` 15 minutes on, in the review's transaction; the queue keeps one job at its earliest time, so a sitting
+  yields one re-plan after it. Summary: "Your practice changed how strong some topics are."
+- **Quiz me** (`services/tutor/quiz.py`): when the conversation's topic has an estimated mastery (`topic_band`), the
+  prompt adds its band word and what to ask for (`BAND_ASKS`: weak, mostly recall and definitions; developing, a mix;
+  strong, mostly application and comparison). No number and nothing else about the student; otherwise the prompt is
+  unchanged. The band is derived study data, not personal data.
+- **The plan:** see Scheduling (inputs, time, priority, reasons, methods).
 
 ## Camera and microphone (Phase 7 / 3)
 
@@ -730,18 +749,26 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   order) and the minutes studied per topic. The same input gives the same plan, in any order.
 - **Blocks** are 50 minutes (25 only where a 50 doesn't fit) on a 5-minute grid, with a 10-minute break between
   neighbours, inside free time, under the cap per local day, after now and before their assessment's deadline.
-- **Three passes,** sooner deadlines first (then weight, then lower confidence, then course order, then ids; ADR
-  0019): a final review in the last 72 h before each exam, test or quiz (not assignments, projects or "other"), as late
+- **Three passes,** sooner deadlines first (then weight, then lower strength, then course order, then ids; ADRs
+  0019 and 0031): a final review in the last 72 h before each exam, test or quiz (not assignments, projects or "other"), as late
   as fits; two blocks per topic on different days, as early as fits (a later
   assessment looks first after the previous deadline); then the rest of each topic's required minutes
-  (`max(0, workload − studied)`, +50 % at confidence 1 to −30 % at 5), spread over days.
+  (`max(0, workload − studied)` scaled by `strength_percent`), spread over days.
+- **Mastery** (ADR 0031): `TopicInput.mastery` is the unit's mastery when estimated, else None.
+  - Time: `strength_percent` is `clamp(150 − mastery %, 70, 150)`, the mastery rounded half up to the percent the
+    text shows (0 → 150 %, 0.5 → 100 %, 0.8 or more → 70 %); without mastery, confidence as before (+50 % at 1 to
+    −30 % at 5).
+  - Priority within an assessment: strength is the mastery, else `(c − 1) / 4`, else 0.5; lower first. With no
+    mastery the order is exactly the confidence order (Hypothesis-tested).
+  - Reason: `low_mastery` below 0.5, where `low_confidence` was in the time-ordered assignment; `low_confidence` only
+    without mastery.
 - **Output:** blocks with a kind (`study`/`review`) and a machine-readable reason (`final_review`, `spacing`,
-  `no_estimate`, `low_confidence`, `urgency`, `workload`), and shortfalls (`not_enough_time`, `not_spaced`,
+  `no_estimate`, `low_confidence`, `low_mastery`, `urgency`, `workload`), and shortfalls (`not_enough_time`, `not_spaced`,
   `no_estimate`, `no_review_time`, `no_topics`) for the feasibility report (task 3).
 - **Tests:** Hypothesis properties (`tests/planning/test_plan_properties.py`, checks in `plan_checks.py`), the rules
-  one at a time, and the Phase 4 scenario with a skipped block and a 200 ms budget for 60 topics over 30 days.
-- **Later:** mastery and past-paper importance join the priority (Phases 5–6); the next 24 h stay fixed when
-  re-planning (task 4).
+  one at a time (also with random mastery), the Phase 4 scenario with a skipped block and a 200 ms budget for 60
+  topics over 30 days, and "the plan shifts toward weak topics" (`test_mastery_plan.py`).
+- **Later:** past-paper importance joins the priority (Phase 6).
 
 ### Plan text, methods and feasibility (Phase 4, task 3; ADR 0018)
 
@@ -753,16 +780,22 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
     no ticked ancestor is one unit (ticked descendants are absorbed; a unit inside a sooner assessment's unit becomes
     that unit). Workload: yours on the unit, else estimated over the distinct pages of the whole subtree, else none.
     Confidence: its own, else the mean of rated descendants (half up). Course order: pre-order index in the tree.
+    Mastery (ADR 0031): over the unit's subtree at `now`, only when estimated, from one `mastery_by_topic` call per
+    load; `use_mastery=False` (the preview CLI's `--no-mastery`, dev only) ignores it.
   - Studied minutes: `sum(active_seconds)` of sessions on the unit or any descendant, floored.
   - The topic tree API gives each topic with children `workload_with_subtopics` from the same `subtree_workload`,
     and the topic dialog shows it; the assessment form shows a ticked topic's descendants as included (only what's
     ticked is saved).
 - **Methods** (`methods.py`, pure): a four-row rules table, first match wins: review → `mixed_review`; a topic's
-  first block at confidence 1–2 or unrated → `first_pass`; at 3–5 → `active_recall`; later blocks → `practice`.
+  first block with mastery below 0.5 (without mastery: confidence 1–2 or unrated) → `first_pass`; otherwise (mastery
+  0.5 or more, or confidence 3–5) → `active_recall`; later blocks → `practice`.
 - **Text** (`explain.py`, pure): one or two sentences per block from its reason and facts, and the report's lines.
   Every minute figure says "estimated from N slides", "by your own figure" or "measured, N sessions", and a unit
   with subtopics says "across Ch1 and its 4 subtopics" (and "you rated its subtopics N of 5 on average"). An
-  assessment whose topics are all planned for a sooner one says so instead of "needs 0 min". No AI.
+  assessment whose topics are all planned for a sooner one says so instead of "needs 0 min". Mastery (ADR 0031):
+  `low_mastery` says "Your mastery is ≈ 34 % (estimated from 9 answers), so it gets 16 % more time."; a unit given
+  less time for its mastery ends its workload sentence "mastery ≈ 86 % (estimated from 12 answers), so 30 % less
+  time." No AI.
 - **Feasibility** (`feasibility.py`, pure): per topic required, planned and short; per assessment and overall the
   sums, review minutes, free minutes to the deadline (capped per local day) and booked minutes; a status (`fits`,
   `tight` under 15 % spare, `short`); shortfalls in words; levers (add time, raise the cap, narrow topics).
@@ -800,10 +833,11 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
   | `material` | the end of `link_topics` for a module | queued |
   | `nightly` | the worker, after the user's local 03:00 | queued |
   | `manual` | `POST /plan/replan`; the preview CLI's `--persist` | inline |
+  | `practice` | each review (ADR 0031) | queued, 15 min on |
 
-- **Coalescing:** `queue.enqueue_replan` inserts a `replan` job with `ON CONFLICT DO NOTHING` on the partial unique
-  index (one queued per user), in the caller's transaction. A running job doesn't absorb new changes; the first
-  trigger of a queued job is kept.
+- **Coalescing:** `queue.enqueue_replan` inserts a `replan` job on the partial unique index (one queued per user), in
+  the caller's transaction, at `run_after` (default now). On conflict the queued job keeps its first trigger and the
+  earlier of the two times (ADR 0031). A running job doesn't absorb new changes.
 - **Nightly:** `queue_nightly_replans(session, now)` (checked by the worker at most once a minute) queues users whose
   current version wasn't checked since their last local 03:00 and who have no re-plan queued or running.
 - **API:** `GET /plan?from=&to=` (the current version and its blocks in the range; creates version 1 when there's none,

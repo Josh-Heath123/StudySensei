@@ -18,7 +18,7 @@ logs, so any past value can be recomputed (Phase 8's trends lose nothing).
 | --- | --- |
 | `constants.py` | Every constant, named, in one place |
 | `formula.py` | Pure: per-item summaries, the prior, the value, status, band and sentence. No database, no clock |
-| `load.py` | Read-only, user-scoped: loads one module's inputs, summarises each item once, computes every topic |
+| `load.py` | Read-only, user-scoped: loads one module's inputs, summarises each item once, computes every topic; `mastery_by_topic` does several modules in one call (the planner) |
 | `app/api/mastery.py` | `GET /modules/{id}/mastery` (every topic, tree order) and `GET /topics/{id}/mastery` |
 
 ## Inputs and where they come from
@@ -151,13 +151,21 @@ Tests: `tests/mastery/test_formula.py` (`test_worked_example_*`, `test_three_aga
 - **Time zones:** the local day comes from `users.timezone` as of now; changing it re-buckets past reviews.
 - **Order:** items are de-duplicated by id and every sum is `math.fsum`, so input order can't change a bit.
 
-## What tasks 4 and 5 will use
+## What uses it
 
-- **Task 4 (practice UI):** the band and `basis` per topic (`GET /modules/{id}/mastery`), the counts in `samples` to say
-  what's been practised, and `not_enough` to invite three more attempts.
-- **Task 5 (Quiz me and the planner):** `value` (computed even when `not_enough`) to point Quiz me at weak topics and to
-  weight planner priority toward them; `status` and `samples.attempts` to decide how much to trust it. The planner's
-  inputs and rules don't change in this task.
+Only an `estimated` value (3 attempts or more) is used anywhere outside this module's own screens; with `not_enough`
+the student's rating stands. Nothing writes mastery back.
+
+| Where | What it reads | What it does with it |
+| --- | --- | --- |
+| The practice screens (task 4) | band, `basis`, `samples`, status (`GET /modules/{id}/mastery`) | `/practice` lists topics weakest first, with a band only when estimated; `not_enough` invites three more attempts |
+| The topic dialog | band and `basis` | Shown under Starting confidence (read-only) |
+| The planner (task 5, ADR 0031) | `value` and `samples.attempts` per planning unit, over its subtree, at `now` (`mastery_by_topic`, one call per load) | Time `clamp(150 − mastery %, 70, 150)` %; priority (lower first, before course order); reason `low_mastery` below 0.5; a first block's method (first pass below 0.5, active recall from 0.5); the text "≈ 34 % (estimated from 9 answers)" |
+| Re-planning (task 5) | (reviews) | Each review queues a re-plan 15 minutes on (trigger `practice`), coalesced to one per sitting |
+| Quiz me (task 5, ADR 0031) | `band` of the conversation's topic, at the real clock | The band word only goes in the prompt: weak asks mostly recall, developing a mix, strong mostly application. No number |
+
+None of these presents mastery as a prediction of a mark: the plan says how much time it gives and why, and Quiz me
+only picks the question mix.
 
 ## Changing a constant
 
