@@ -2,6 +2,22 @@
 
 Newest first. 3–5 lines per session: what was done, what was decided, what's next.
 
+## 2026-11-26: Spike S2 (past-paper parsing accuracy)
+
+- **From #52's review:** a practice review now pushes a queued `practice` re-plan to 15 minutes after itself
+  (`enqueue_replan(debounce=True)`), so a sitting of any length re-plans once, 15 minutes after its last review; a
+  queued re-plan with another trigger keeps its earlier time. Tests: 15 minutes after the last review, a sitting of
+  reviews 8 minutes apart, another trigger kept.
+- **Privacy first:** 0 of 8 COS330 past papers match the submission pattern (title, file name or hash). Every page
+  read by hand: ST1 2020, 2023 and 2025 are marked online submissions throughout (excluded), and ST1 2016 pages 10–22
+  are handwritten marked answers (excluded). Examiner names are redacted and masked. 5 papers and 28 pages were used.
+- **Key (draft, for the reviewer):** `evals/pastpapers/cos330.yaml`, 103 parts and 330 marks; 3 of 3 printed totals
+  match. The study guide agrees wherever it names a chapter, and calls 4 groups out of scope.
+- **Result (ADR 0032):** transcription v2 17 of 17 pages, every key mark found; segmentation A (whole paper) **98.1 %**,
+  B (page by page) 85.4 %; classification C1 (whole paper) **88.1 %** chapter agreement, C2 (8 nearest topics) 53.0 %,
+  its retrieval capping it at 78 %. Gemini was overloaded much of the day; Groq's JSON 400s don't fall back.
+- **Next:** the reviewer confirms the key; then Phase 6 task 1 (`past_questions` models and upload).
+
 ## 2026-11-24: Phase 5, task 5 (mastery in Quiz me and the planner)
 
 - **From #51's review (ADR 0030):** the prompt says key points summarise the reference answer, and a batched

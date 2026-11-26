@@ -98,6 +98,11 @@ Committed: queries, material titles, page numbers, topic names, chapter patterns
 - `search/cos330.yaml`: 15 queries, each with its acceptable pages (material title, page, slide flag) and its
   session topic for the retrieval mode (a subtopic's name and its chapter).
 - `topic_extraction/cos330_reference.yaml`: Joshua's reviewed tree, 58 topics as names and parent names.
+- `pastpapers/cos330.yaml` (**draft, to be confirmed by the reviewer**): the past-paper answer key from spike S2
+  (`docs/spikes/s2-past-papers.md`). Per usable ST1 paper, each marked part's number as printed, marks, page, type
+  and topics (the tree's names), the printed total, and the pages and papers excluded for privacy (counts and page
+  numbers only). No question text. `spikes/s2_pastpapers` scores against it; Phase 6's `evals/pastpapers` starts
+  from it.
 - `metrics.py`: the pure metric functions, unit-tested in `tests/evals/` (those tests do run in CI).
 
 **Never committed: course text** (no page text, snippets, descriptions or file contents), and nothing

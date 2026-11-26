@@ -53,7 +53,7 @@ async def five_cards(session: AsyncSession, practice: Practice) -> list[uuid.UUI
     return out
 
 
-async def test_five_reviews_leave_one_replan_15_minutes_after_the_first(
+async def test_five_reviews_leave_one_replan_15_minutes_after_the_last(
     session: AsyncSession, practice: Practice, user_a: User
 ) -> None:
     assert timedelta(minutes=15) == REPLAN_AFTER
@@ -63,8 +63,43 @@ async def test_five_reviews_leave_one_replan_15_minutes_after_the_first(
 
     [job] = await queued_replans(session, user_a)
     assert job.payload == {"trigger": "practice", "detail": {}}
-    # The earliest time is kept: 15 minutes after the first review.
-    assert job.run_after == T0 + timedelta(minutes=15)
+    # Each review pushes it back: 15 minutes after the last review.
+    assert job.run_after == T0 + timedelta(minutes=4 + 15)
+
+
+async def test_a_sitting_longer_than_15_minutes_replans_once(
+    session: AsyncSession, practice: Practice, user_a: User
+) -> None:
+    # Reviews 8 minutes apart: under the old rule the re-plan fell due mid-sitting (at 15) and
+    # the next review queued a second one.
+    times = [T0 + timedelta(minutes=8 * n) for n in range(5)]  # 0, 8, 16, 24, 32
+    for at, item_id in zip(times, await five_cards(session, practice), strict=True):
+        await review_item(session, item_id, ReviewIn(grade=3), user_id=user_a.id, now=at)
+        [job] = await queued_replans(session, user_a)
+        # Never due before the sitting's next review.
+        assert job.run_after == at + REPLAN_AFTER
+
+    [job] = await queued_replans(session, user_a)
+    assert job.run_after == times[-1] + REPLAN_AFTER
+
+
+async def test_a_review_doesnt_push_back_a_replan_with_another_trigger(
+    session: AsyncSession, practice: Practice, user_a: User
+) -> None:
+    [first, second, *_] = await five_cards(session, practice)
+    await enqueue_replan(session, user_id=user_a.id, trigger="availability")
+    await session.commit()
+    [job] = await queued_replans(session, user_a)
+    due = job.run_after
+
+    await review_item(session, first, ReviewIn(grade=3), user_id=user_a.id, now=T0)
+    await review_item(
+        session, second, ReviewIn(grade=3), user_id=user_a.id, now=T0 + timedelta(minutes=5)
+    )
+    [job] = await queued_replans(session, user_a)
+    # Its trigger and its time are kept (the earlier of the two).
+    assert job.payload["trigger"] == "availability"
+    assert job.run_after == min(due, T0 + REPLAN_AFTER)
 
 
 async def test_a_change_that_needs_a_replan_now_still_gets_it_now(
