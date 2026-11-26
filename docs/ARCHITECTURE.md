@@ -692,8 +692,10 @@ Decision 0002. Everything goes through `app/ai/`; nothing else talks to a provid
 ### Mastery in Quiz me and the plan (Phase 5, task 5; ADR 0031)
 
 - **Re-planning after practice:** each review (`reviewing.review_item`) queues a re-plan with trigger `practice` and
-  `run_after` 15 minutes on, in the review's transaction; the queue keeps one job at its earliest time, so a sitting
-  yields one re-plan after it. Summary: "Your practice changed how strong some topics are."
+  `run_after` 15 minutes on, in the review's transaction. The queue keeps one job, and a review pushes a queued
+  `practice` re-plan to 15 minutes after itself (`debounce`), so a sitting of any length yields one re-plan 15 minutes
+  after its last review; a queued re-plan with another trigger keeps its earlier time. Summary: "Your practice changed
+  how strong some topics are."
 - **Quiz me** (`services/tutor/quiz.py`): when the conversation's topic has an estimated mastery (`topic_band`), the
   prompt adds its band word and what to ask for (`BAND_ASKS`: weak, mostly recall and definitions; developing, a mix;
   strong, mostly application and comparison). No number and nothing else about the student; otherwise the prompt is

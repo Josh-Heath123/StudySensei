@@ -12,8 +12,9 @@ always chooses the grade. An AI marking they saw (ADR 0029) is stored with the r
 checking it's for the item's key points as they are now.
 
 Each review also queues a re-plan (trigger "practice", ADR 0031) 15 minutes later, in the same
-transaction: mastery moves the plan, and the queue keeps one job at its earliest time, so a
-sitting of reviews yields one re-plan after it.
+transaction: mastery moves the plan. The queue keeps one job, and each review pushes a queued
+practice re-plan to 15 minutes after itself, so a sitting of reviews, however long, yields one
+re-plan 15 minutes after its last review.
 """
 
 import uuid
@@ -40,7 +41,7 @@ from app.services.practice.scheduling import (
 RESTORE = "Restore it before reviewing."
 MARKING_MISMATCH = "That AI marking isn't for this question as it is now. Check it again."
 GRADE_NAMES = {1: "again", 2: "hard", 3: "good", 4: "easy"}
-# A review's re-plan waits this long, so a sitting of reviews leads to one re-plan.
+# A review's re-plan waits this long after the latest review, so a sitting leads to one re-plan.
 REPLAN_AFTER = timedelta(minutes=15)
 
 
@@ -126,7 +127,9 @@ async def review_item(
         .values(item_id=item.id, user_id=user_id, **values)
         .on_conflict_do_update(index_elements=["item_id"], set_=values)
     )
-    await enqueue_replan(session, user_id=user_id, trigger="practice", run_after=now + REPLAN_AFTER)
+    await enqueue_replan(
+        session, user_id=user_id, trigger="practice", run_after=now + REPLAN_AFTER, debounce=True
+    )
     await session.commit()
     await session.refresh(review)
     return Reviewed(review, after, days)

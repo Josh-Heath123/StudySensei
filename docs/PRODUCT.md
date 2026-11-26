@@ -34,7 +34,7 @@ reflects them. Camera and voice support the study session. They are not the prod
    **The plan uses mastery:** once a topic has 3 practice answers, its estimated mastery replaces the self-rating in
    the plan. Weaker topics get more time (up to 50 % more) and come first; strong ones get less (down to 30 % less);
    the block says so, for example "Your mastery is ≈ 34 % (estimated from 9 answers), so it gets 16 % more time." A
-   practice sitting re-plans once, 15 minutes after it starts. "Quiz me" asks mostly recall on a weak topic and mostly
+   practice sitting re-plans once, 15 minutes after its last review. "Quiz me" asks mostly recall on a weak topic and mostly
    application on a strong one. Mastery is how well you know a topic now, never a prediction of a mark.
 6. **Weekly review:** hours planned vs studied, mastery trends, and what changes next week. Every insight is labelled
    _measured_ or _estimated_, with its evidence.
