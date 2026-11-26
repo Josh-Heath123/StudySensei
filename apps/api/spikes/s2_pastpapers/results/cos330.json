@@ -1,0 +1,2169 @@
+{
+  "spike": "S2 past-paper parsing",
+  "module": "COS330",
+  "date": "2026-11-26",
+  "key": {
+    "papers": 5,
+    "parts": 103,
+    "marks": 330.0,
+    "excluded_papers": 3,
+    "excluded_pages": 13
+  },
+  "transcription": {
+    "transcribe-v1": {
+      "papers": {
+        "ST1 2012": {
+          "pages": 2,
+          "done": 2,
+          "failed": 0,
+          "parts": 11,
+          "label": 11,
+          "marks": 11
+        },
+        "ST1 2014": {
+          "pages": 0,
+          "done": 0,
+          "failed": 0,
+          "parts": 0,
+          "label": 0,
+          "marks": 0
+        },
+        "ST1 2016": {
+          "pages": 9,
+          "done": 9,
+          "failed": 0,
+          "parts": 33,
+          "label": 33,
+          "marks": 29
+        },
+        "ST1 2017": {
+          "pages": 0,
+          "done": 0,
+          "failed": 0,
+          "parts": 0,
+          "label": 0,
+          "marks": 0
+        },
+        "ST1 2018": {
+          "pages": 6,
+          "done": 6,
+          "failed": 0,
+          "parts": 15,
+          "label": 15,
+          "marks": 15
+        }
+      },
+      "overall": {
+        "pages": 17,
+        "done": 17,
+        "failed": 0,
+        "parts": 59,
+        "label": 59,
+        "marks": 55,
+        "label_pct": 100.0,
+        "marks_pct": 93.2
+      },
+      "cost": {
+        "calls": 17,
+        "turned_away": 0,
+        "input_tokens": 20531,
+        "output_tokens": 3803,
+        "seconds": 89.8,
+        "failures": 0,
+        "units": 17,
+        "models": {
+          "gemini/gemini-3.5-flash-lite": 17
+        }
+      }
+    },
+    "transcribe": {
+      "papers": {
+        "ST1 2012": {
+          "pages": 2,
+          "done": 2,
+          "failed": 0,
+          "parts": 11,
+          "label": 11,
+          "marks": 11
+        },
+        "ST1 2014": {
+          "pages": 0,
+          "done": 0,
+          "failed": 0,
+          "parts": 0,
+          "label": 0,
+          "marks": 0
+        },
+        "ST1 2016": {
+          "pages": 9,
+          "done": 9,
+          "failed": 0,
+          "parts": 33,
+          "label": 33,
+          "marks": 33
+        },
+        "ST1 2017": {
+          "pages": 0,
+          "done": 0,
+          "failed": 0,
+          "parts": 0,
+          "label": 0,
+          "marks": 0
+        },
+        "ST1 2018": {
+          "pages": 6,
+          "done": 6,
+          "failed": 0,
+          "parts": 15,
+          "label": 15,
+          "marks": 15
+        }
+      },
+      "overall": {
+        "pages": 17,
+        "done": 17,
+        "failed": 0,
+        "parts": 59,
+        "label": 59,
+        "marks": 59,
+        "label_pct": 100.0,
+        "marks_pct": 100.0
+      },
+      "cost": {
+        "calls": 17,
+        "turned_away": 1,
+        "input_tokens": 21602,
+        "output_tokens": 3782,
+        "seconds": 90.1,
+        "failures": 0,
+        "units": 17,
+        "models": {
+          "gemini/gemini-3.5-flash-lite": 17
+        }
+      }
+    }
+  },
+  "segmentation": {
+    "seg-a-v1": {
+      "papers": {
+        "ST1 2012": {
+          "parts": 11,
+          "predicted": 11,
+          "exact": 11,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 11,
+          "total_right": true,
+          "sum_right": true,
+          "models": [
+            null
+          ],
+          "mismatches": []
+        },
+        "ST1 2014": {
+          "parts": 21,
+          "predicted": 21,
+          "exact": 21,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 21,
+          "total_right": null,
+          "sum_right": true,
+          "models": [
+            null
+          ],
+          "mismatches": []
+        },
+        "ST1 2016": {
+          "parts": 33,
+          "predicted": 14,
+          "exact": 7,
+          "exact_pct": 21.2,
+          "marks_wrong": 0,
+          "missing": 26,
+          "extra": 7,
+          "page_right": 7,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            null
+          ],
+          "mismatches": [
+            "1a.i: missing",
+            "1a.ii: missing",
+            "1a.iii: missing",
+            "1a.iv: missing",
+            "2e: missing",
+            "2f: missing",
+            "2g: missing",
+            "3a: missing",
+            "3b: missing",
+            "4a: missing",
+            "4b: missing",
+            "5a: missing",
+            "5b: missing",
+            "6a: missing",
+            "6b: missing",
+            "7a: missing",
+            "7b: missing",
+            "7c: missing",
+            "8a: missing",
+            "8b: missing",
+            "8c: missing",
+            "9a: missing",
+            "9b: missing",
+            "11a: missing",
+            "11b: missing",
+            "11c: missing",
+            "1.a: extra",
+            "5: extra",
+            "6: extra",
+            "7: extra",
+            "8: extra",
+            "9: extra",
+            "11: extra"
+          ]
+        },
+        "ST1 2017": {
+          "parts": 23,
+          "predicted": 23,
+          "exact": 0,
+          "exact_pct": 0.0,
+          "marks_wrong": 0,
+          "missing": 23,
+          "extra": 23,
+          "page_right": 0,
+          "total_right": true,
+          "sum_right": true,
+          "models": [
+            null
+          ],
+          "mismatches": [
+            "1.1(a): missing",
+            "1.1(b): missing",
+            "1.2: missing",
+            "2.1: missing",
+            "2.2: missing",
+            "2.3: missing",
+            "3.1: missing",
+            "3.2: missing",
+            "3.3(a): missing",
+            "3.3(b): missing",
+            "3.3(c): missing",
+            "3.4: missing",
+            "4.1: missing",
+            "4.2: missing",
+            "4.3: missing",
+            "5.1: missing",
+            "5.2: missing",
+            "5.3: missing",
+            "5.4(a): missing",
+            "5.4(b): missing",
+            "5.4(c): missing",
+            "6.1: missing",
+            "7.1: missing",
+            "1.a: extra",
+            "1.b: extra",
+            "2: extra",
+            "1: extra",
+            "3: extra",
+            "3.a: extra",
+            "3.b: extra",
+            "3.c: extra",
+            "4: extra",
+            "4.a: extra",
+            "4.b: extra",
+            "4.c: extra"
+          ]
+        },
+        "ST1 2018": {
+          "parts": 15,
+          "predicted": 15,
+          "exact": 3,
+          "exact_pct": 20.0,
+          "marks_wrong": 0,
+          "missing": 12,
+          "extra": 12,
+          "page_right": 3,
+          "total_right": null,
+          "sum_right": true,
+          "models": [
+            null
+          ],
+          "mismatches": [
+            "1a: missing",
+            "1b: missing",
+            "1c: missing",
+            "2a: missing",
+            "2b: missing",
+            "2c: missing",
+            "2d: missing",
+            "6a: missing",
+            "6b: missing",
+            "6c: missing",
+            "7a: missing",
+            "7b: missing",
+            "a: extra",
+            "b: extra",
+            "c: extra",
+            "d: extra"
+          ]
+        }
+      },
+      "overall": {
+        "parts": 103,
+        "exact": 42,
+        "exact_pct": 40.8,
+        "totals_right": 3,
+        "totals_printed": 3,
+        "meets_target": false
+      },
+      "cost": {
+        "calls": 8,
+        "turned_away": 7,
+        "input_tokens": 26572,
+        "output_tokens": 9230,
+        "seconds": 112.2,
+        "failures": 0,
+        "units": 5,
+        "models": {
+          "gemini/gemini-3.5-flash-lite": 7,
+          "groq/openai/gpt-oss-120b": 1
+        }
+      }
+    },
+    "seg-a-v1+qualify": {
+      "papers": {
+        "ST1 2012": {
+          "parts": 11,
+          "predicted": 11,
+          "exact": 11,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 11,
+          "total_right": true,
+          "sum_right": true,
+          "models": [
+            null
+          ],
+          "mismatches": []
+        },
+        "ST1 2014": {
+          "parts": 21,
+          "predicted": 21,
+          "exact": 21,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 21,
+          "total_right": null,
+          "sum_right": true,
+          "models": [
+            null
+          ],
+          "mismatches": []
+        },
+        "ST1 2016": {
+          "parts": 33,
+          "predicted": 14,
+          "exact": 7,
+          "exact_pct": 21.2,
+          "marks_wrong": 0,
+          "missing": 26,
+          "extra": 7,
+          "page_right": 7,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            null
+          ],
+          "mismatches": [
+            "1a.i: missing",
+            "1a.ii: missing",
+            "1a.iii: missing",
+            "1a.iv: missing",
+            "2e: missing",
+            "2f: missing",
+            "2g: missing",
+            "3a: missing",
+            "3b: missing",
+            "4a: missing",
+            "4b: missing",
+            "5a: missing",
+            "5b: missing",
+            "6a: missing",
+            "6b: missing",
+            "7a: missing",
+            "7b: missing",
+            "7c: missing",
+            "8a: missing",
+            "8b: missing",
+            "8c: missing",
+            "9a: missing",
+            "9b: missing",
+            "11a: missing",
+            "11b: missing",
+            "11c: missing",
+            "1.a: extra",
+            "5: extra",
+            "6: extra",
+            "7: extra",
+            "8: extra",
+            "9: extra",
+            "11: extra"
+          ]
+        },
+        "ST1 2017": {
+          "parts": 23,
+          "predicted": 23,
+          "exact": 0,
+          "exact_pct": 0.0,
+          "marks_wrong": 0,
+          "missing": 23,
+          "extra": 23,
+          "page_right": 0,
+          "total_right": true,
+          "sum_right": true,
+          "models": [
+            null
+          ],
+          "mismatches": [
+            "1.1(a): missing",
+            "1.1(b): missing",
+            "1.2: missing",
+            "2.1: missing",
+            "2.2: missing",
+            "2.3: missing",
+            "3.1: missing",
+            "3.2: missing",
+            "3.3(a): missing",
+            "3.3(b): missing",
+            "3.3(c): missing",
+            "3.4: missing",
+            "4.1: missing",
+            "4.2: missing",
+            "4.3: missing",
+            "5.1: missing",
+            "5.2: missing",
+            "5.3: missing",
+            "5.4(a): missing",
+            "5.4(b): missing",
+            "5.4(c): missing",
+            "6.1: missing",
+            "7.1: missing",
+            "1.a: extra",
+            "1.b: extra",
+            "2: extra",
+            "1: extra",
+            "3: extra",
+            "3.a: extra",
+            "3.b: extra",
+            "3.c: extra",
+            "4: extra",
+            "4.a: extra",
+            "4.b: extra",
+            "4.c: extra"
+          ]
+        },
+        "ST1 2018": {
+          "parts": 15,
+          "predicted": 15,
+          "exact": 15,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 15,
+          "total_right": null,
+          "sum_right": true,
+          "models": [
+            null
+          ],
+          "mismatches": []
+        }
+      },
+      "overall": {
+        "parts": 103,
+        "exact": 54,
+        "exact_pct": 52.4,
+        "totals_right": 3,
+        "totals_printed": 3,
+        "meets_target": false
+      },
+      "cost": {
+        "calls": 8,
+        "turned_away": 7,
+        "input_tokens": 26572,
+        "output_tokens": 9230,
+        "seconds": 112.2,
+        "failures": 0,
+        "units": 5,
+        "models": {
+          "gemini/gemini-3.5-flash-lite": 7,
+          "groq/openai/gpt-oss-120b": 1
+        }
+      }
+    },
+    "seg-b-v1": {
+      "papers": {
+        "ST1 2012": {
+          "parts": 11,
+          "predicted": 11,
+          "exact": 11,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 11,
+          "total_right": true,
+          "sum_right": true,
+          "models": [
+            null
+          ],
+          "mismatches": []
+        },
+        "ST1 2014": {
+          "parts": 21,
+          "predicted": 22,
+          "exact": 21,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 1,
+          "page_right": 21,
+          "total_right": null,
+          "sum_right": false,
+          "models": [
+            null
+          ],
+          "mismatches": [
+            "4: extra"
+          ]
+        },
+        "ST1 2016": {
+          "parts": 33,
+          "predicted": 29,
+          "exact": 26,
+          "exact_pct": 78.8,
+          "marks_wrong": 0,
+          "missing": 7,
+          "extra": 3,
+          "page_right": 26,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            null
+          ],
+          "mismatches": [
+            "2e: missing",
+            "2f: missing",
+            "2g: missing",
+            "3a: missing",
+            "3b: missing",
+            "4a: missing",
+            "4b: missing",
+            "e: extra",
+            "f: extra",
+            "g: extra"
+          ]
+        },
+        "ST1 2017": {
+          "parts": 23,
+          "predicted": 22,
+          "exact": 2,
+          "exact_pct": 8.7,
+          "marks_wrong": 0,
+          "missing": 21,
+          "extra": 20,
+          "page_right": 2,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            null
+          ],
+          "mismatches": [
+            "1.1(a): missing",
+            "1.1(b): missing",
+            "1.2: missing",
+            "2.1: missing",
+            "2.2: missing",
+            "2.3: missing",
+            "3.3(a): missing",
+            "3.3(b): missing",
+            "3.3(c): missing",
+            "3.4: missing",
+            "4.1: missing",
+            "4.2: missing",
+            "4.3: missing",
+            "5.1: missing",
+            "5.2: missing",
+            "5.3: missing",
+            "5.4(a): missing",
+            "5.4(b): missing",
+            "5.4(c): missing",
+            "6.1: missing",
+            "7.1: missing",
+            "1.a: extra",
+            "1.b: extra",
+            "2: extra",
+            "1: extra",
+            "3: extra",
+            "a: extra",
+            "b: extra",
+            "c: extra",
+            "4: extra",
+            "5: extra"
+          ]
+        },
+        "ST1 2018": {
+          "parts": 15,
+          "predicted": 14,
+          "exact": 10,
+          "exact_pct": 66.7,
+          "marks_wrong": 0,
+          "missing": 5,
+          "extra": 4,
+          "page_right": 10,
+          "total_right": null,
+          "sum_right": false,
+          "models": [
+            null
+          ],
+          "mismatches": [
+            "2a: missing",
+            "2b: missing",
+            "2c: missing",
+            "2d: missing",
+            "5: missing",
+            "a: extra",
+            "b: extra",
+            "c: extra",
+            "d: extra"
+          ]
+        }
+      },
+      "overall": {
+        "parts": 103,
+        "exact": 70,
+        "exact_pct": 68.0,
+        "totals_right": 3,
+        "totals_printed": 3,
+        "meets_target": false
+      },
+      "cost": {
+        "calls": 29,
+        "turned_away": 0,
+        "input_tokens": 39931,
+        "output_tokens": 12240,
+        "seconds": 582.3,
+        "failures": 0,
+        "units": 28,
+        "models": {
+          "groq/openai/gpt-oss-120b": 29
+        }
+      }
+    },
+    "seg-b-v1+qualify": {
+      "papers": {
+        "ST1 2012": {
+          "parts": 11,
+          "predicted": 11,
+          "exact": 11,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 11,
+          "total_right": true,
+          "sum_right": true,
+          "models": [
+            null
+          ],
+          "mismatches": []
+        },
+        "ST1 2014": {
+          "parts": 21,
+          "predicted": 22,
+          "exact": 21,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 1,
+          "page_right": 21,
+          "total_right": null,
+          "sum_right": false,
+          "models": [
+            null
+          ],
+          "mismatches": [
+            "4: extra"
+          ]
+        },
+        "ST1 2016": {
+          "parts": 33,
+          "predicted": 29,
+          "exact": 29,
+          "exact_pct": 87.9,
+          "marks_wrong": 0,
+          "missing": 4,
+          "extra": 0,
+          "page_right": 29,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            null
+          ],
+          "mismatches": [
+            "3a: missing",
+            "3b: missing",
+            "4a: missing",
+            "4b: missing"
+          ]
+        },
+        "ST1 2017": {
+          "parts": 23,
+          "predicted": 22,
+          "exact": 8,
+          "exact_pct": 34.8,
+          "marks_wrong": 0,
+          "missing": 15,
+          "extra": 14,
+          "page_right": 8,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            null
+          ],
+          "mismatches": [
+            "1.1(a): missing",
+            "1.1(b): missing",
+            "1.2: missing",
+            "2.2: missing",
+            "2.3: missing",
+            "3.3(a): missing",
+            "3.3(b): missing",
+            "3.3(c): missing",
+            "3.4: missing",
+            "5.1: missing",
+            "5.2: missing",
+            "5.3: missing",
+            "5.4(a): missing",
+            "5.4(b): missing",
+            "5.4(c): missing",
+            "1.a: extra",
+            "1.b: extra",
+            "2: extra",
+            "3: extra",
+            "3.a: extra",
+            "3.b: extra",
+            "3.c: extra",
+            "4: extra",
+            "5: extra",
+            "5.a: extra",
+            "5.b: extra",
+            "5.c: extra"
+          ]
+        },
+        "ST1 2018": {
+          "parts": 15,
+          "predicted": 14,
+          "exact": 14,
+          "exact_pct": 93.3,
+          "marks_wrong": 0,
+          "missing": 1,
+          "extra": 0,
+          "page_right": 14,
+          "total_right": null,
+          "sum_right": false,
+          "models": [
+            null
+          ],
+          "mismatches": [
+            "5: missing"
+          ]
+        }
+      },
+      "overall": {
+        "parts": 103,
+        "exact": 83,
+        "exact_pct": 80.6,
+        "totals_right": 3,
+        "totals_printed": 3,
+        "meets_target": false
+      },
+      "cost": {
+        "calls": 29,
+        "turned_away": 0,
+        "input_tokens": 39931,
+        "output_tokens": 12240,
+        "seconds": 582.3,
+        "failures": 0,
+        "units": 28,
+        "models": {
+          "groq/openai/gpt-oss-120b": 29
+        }
+      }
+    },
+    "seg-a-v2": {
+      "papers": {
+        "ST1 2012": {
+          "parts": 11,
+          "predicted": 11,
+          "exact": 11,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 11,
+          "total_right": true,
+          "sum_right": true,
+          "models": [
+            "gemini/gemini-3.5-flash-lite"
+          ],
+          "mismatches": []
+        },
+        "ST1 2014": {
+          "parts": 21,
+          "predicted": 21,
+          "exact": 21,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 5,
+          "total_right": null,
+          "sum_right": true,
+          "models": [
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": []
+        },
+        "ST1 2016": {
+          "parts": 33,
+          "predicted": 26,
+          "exact": 25,
+          "exact_pct": 75.8,
+          "marks_wrong": 0,
+          "missing": 8,
+          "extra": 1,
+          "page_right": 25,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": [
+            "1a.i: missing",
+            "1a.ii: missing",
+            "1a.iii: missing",
+            "1a.iv: missing",
+            "3a: missing",
+            "3b: missing",
+            "4a: missing",
+            "4b: missing",
+            "1.a: extra"
+          ]
+        },
+        "ST1 2017": {
+          "failed": true,
+          "parts": 23
+        },
+        "ST1 2018": {
+          "parts": 15,
+          "predicted": 15,
+          "exact": 15,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 15,
+          "total_right": null,
+          "sum_right": true,
+          "models": [
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": []
+        }
+      },
+      "overall": {
+        "parts": 103,
+        "exact": 72,
+        "exact_pct": 69.9,
+        "totals_right": 2,
+        "totals_printed": 3,
+        "meets_target": false
+      },
+      "cost": {
+        "calls": 6,
+        "turned_away": 12,
+        "input_tokens": 9457,
+        "output_tokens": 6322,
+        "seconds": 334.6,
+        "failures": 1,
+        "units": 5,
+        "models": {
+          "gemini/gemini-3.5-flash-lite": 1,
+          "groq/openai/gpt-oss-120b": 4,
+          "gemini/gemini-3.8-flash": 1
+        }
+      }
+    },
+    "seg-a-v2+qualify": {
+      "papers": {
+        "ST1 2012": {
+          "parts": 11,
+          "predicted": 11,
+          "exact": 11,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 11,
+          "total_right": true,
+          "sum_right": true,
+          "models": [
+            "gemini/gemini-3.5-flash-lite"
+          ],
+          "mismatches": []
+        },
+        "ST1 2014": {
+          "parts": 21,
+          "predicted": 21,
+          "exact": 21,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 5,
+          "total_right": null,
+          "sum_right": true,
+          "models": [
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": []
+        },
+        "ST1 2016": {
+          "parts": 33,
+          "predicted": 26,
+          "exact": 25,
+          "exact_pct": 75.8,
+          "marks_wrong": 0,
+          "missing": 8,
+          "extra": 1,
+          "page_right": 25,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": [
+            "1a.i: missing",
+            "1a.ii: missing",
+            "1a.iii: missing",
+            "1a.iv: missing",
+            "3a: missing",
+            "3b: missing",
+            "4a: missing",
+            "4b: missing",
+            "1.a: extra"
+          ]
+        },
+        "ST1 2017": {
+          "failed": true,
+          "parts": 23
+        },
+        "ST1 2018": {
+          "parts": 15,
+          "predicted": 15,
+          "exact": 15,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 15,
+          "total_right": null,
+          "sum_right": true,
+          "models": [
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": []
+        }
+      },
+      "overall": {
+        "parts": 103,
+        "exact": 72,
+        "exact_pct": 69.9,
+        "totals_right": 2,
+        "totals_printed": 3,
+        "meets_target": false
+      },
+      "cost": {
+        "calls": 6,
+        "turned_away": 12,
+        "input_tokens": 9457,
+        "output_tokens": 6322,
+        "seconds": 334.6,
+        "failures": 1,
+        "units": 5,
+        "models": {
+          "gemini/gemini-3.5-flash-lite": 1,
+          "groq/openai/gpt-oss-120b": 4,
+          "gemini/gemini-3.8-flash": 1
+        }
+      }
+    },
+    "seg-b-v2": {
+      "papers": {
+        "ST1 2012": {
+          "parts": 11,
+          "predicted": 10,
+          "exact": 10,
+          "exact_pct": 90.9,
+          "marks_wrong": 0,
+          "missing": 1,
+          "extra": 0,
+          "page_right": 10,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": [
+            "3: missing"
+          ]
+        },
+        "ST1 2014": {
+          "parts": 21,
+          "predicted": 21,
+          "exact": 21,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 21,
+          "total_right": null,
+          "sum_right": true,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": []
+        },
+        "ST1 2016": {
+          "parts": 33,
+          "predicted": 29,
+          "exact": 29,
+          "exact_pct": 87.9,
+          "marks_wrong": 0,
+          "missing": 4,
+          "extra": 0,
+          "page_right": 29,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": [
+            "3a: missing",
+            "3b: missing",
+            "4a: missing",
+            "4b: missing"
+          ]
+        },
+        "ST1 2017": {
+          "parts": 23,
+          "predicted": 20,
+          "exact": 13,
+          "exact_pct": 56.5,
+          "marks_wrong": 0,
+          "missing": 10,
+          "extra": 7,
+          "page_right": 13,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": [
+            "1.1(a): missing",
+            "1.1(b): missing",
+            "2.3: missing",
+            "3.4: missing",
+            "5.1: missing",
+            "5.2: missing",
+            "5.3: missing",
+            "5.4(a): missing",
+            "5.4(b): missing",
+            "5.4(c): missing",
+            "1.a: extra",
+            "1.b: extra",
+            "3: extra",
+            "4: extra",
+            "4.4.a: extra",
+            "4.4.b: extra",
+            "4.4.c: extra"
+          ]
+        },
+        "ST1 2018": {
+          "parts": 15,
+          "predicted": 14,
+          "exact": 14,
+          "exact_pct": 93.3,
+          "marks_wrong": 0,
+          "missing": 1,
+          "extra": 0,
+          "page_right": 14,
+          "total_right": null,
+          "sum_right": false,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": [
+            "5: missing"
+          ]
+        }
+      },
+      "overall": {
+        "parts": 103,
+        "exact": 87,
+        "exact_pct": 84.5,
+        "totals_right": 3,
+        "totals_printed": 3,
+        "meets_target": false
+      },
+      "cost": {
+        "calls": 28,
+        "turned_away": 0,
+        "input_tokens": 41985,
+        "output_tokens": 12110,
+        "seconds": 642.6,
+        "failures": 0,
+        "units": 28,
+        "models": {
+          "groq/openai/gpt-oss-120b": 28
+        }
+      }
+    },
+    "seg-b-v2+qualify": {
+      "papers": {
+        "ST1 2012": {
+          "parts": 11,
+          "predicted": 10,
+          "exact": 10,
+          "exact_pct": 90.9,
+          "marks_wrong": 0,
+          "missing": 1,
+          "extra": 0,
+          "page_right": 10,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": [
+            "3: missing"
+          ]
+        },
+        "ST1 2014": {
+          "parts": 21,
+          "predicted": 21,
+          "exact": 21,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 21,
+          "total_right": null,
+          "sum_right": true,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": []
+        },
+        "ST1 2016": {
+          "parts": 33,
+          "predicted": 29,
+          "exact": 29,
+          "exact_pct": 87.9,
+          "marks_wrong": 0,
+          "missing": 4,
+          "extra": 0,
+          "page_right": 29,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": [
+            "3a: missing",
+            "3b: missing",
+            "4a: missing",
+            "4b: missing"
+          ]
+        },
+        "ST1 2017": {
+          "parts": 23,
+          "predicted": 20,
+          "exact": 13,
+          "exact_pct": 56.5,
+          "marks_wrong": 0,
+          "missing": 10,
+          "extra": 7,
+          "page_right": 13,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": [
+            "1.1(a): missing",
+            "1.1(b): missing",
+            "2.3: missing",
+            "3.4: missing",
+            "5.1: missing",
+            "5.2: missing",
+            "5.3: missing",
+            "5.4(a): missing",
+            "5.4(b): missing",
+            "5.4(c): missing",
+            "1.a: extra",
+            "1.b: extra",
+            "3: extra",
+            "4: extra",
+            "4.4.a: extra",
+            "4.4.b: extra",
+            "4.4.c: extra"
+          ]
+        },
+        "ST1 2018": {
+          "parts": 15,
+          "predicted": 14,
+          "exact": 14,
+          "exact_pct": 93.3,
+          "marks_wrong": 0,
+          "missing": 1,
+          "extra": 0,
+          "page_right": 14,
+          "total_right": null,
+          "sum_right": false,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": [
+            "5: missing"
+          ]
+        }
+      },
+      "overall": {
+        "parts": 103,
+        "exact": 87,
+        "exact_pct": 84.5,
+        "totals_right": 3,
+        "totals_printed": 3,
+        "meets_target": false
+      },
+      "cost": {
+        "calls": 28,
+        "turned_away": 0,
+        "input_tokens": 41985,
+        "output_tokens": 12110,
+        "seconds": 642.6,
+        "failures": 0,
+        "units": 28,
+        "models": {
+          "groq/openai/gpt-oss-120b": 28
+        }
+      }
+    },
+    "seg-a": {
+      "papers": {
+        "ST1 2012": {
+          "parts": 11,
+          "predicted": 11,
+          "exact": 11,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 11,
+          "total_right": true,
+          "sum_right": true,
+          "models": [
+            "gemini/gemini-3.5-flash-lite"
+          ],
+          "mismatches": []
+        },
+        "ST1 2014": {
+          "parts": 21,
+          "predicted": 21,
+          "exact": 21,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 21,
+          "total_right": null,
+          "sum_right": true,
+          "models": [
+            "gemini/gemini-3.5-flash-lite"
+          ],
+          "mismatches": []
+        },
+        "ST1 2016": {
+          "parts": 33,
+          "predicted": 33,
+          "exact": 33,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 33,
+          "total_right": true,
+          "sum_right": true,
+          "models": [
+            "gemini/gemini-3.5-flash-lite"
+          ],
+          "mismatches": []
+        },
+        "ST1 2017": {
+          "parts": 23,
+          "predicted": 23,
+          "exact": 21,
+          "exact_pct": 91.3,
+          "marks_wrong": 0,
+          "missing": 2,
+          "extra": 2,
+          "page_right": 21,
+          "total_right": true,
+          "sum_right": true,
+          "models": [
+            "gemini/gemini-3.5-flash-lite"
+          ],
+          "mismatches": [
+            "1.1(a): missing",
+            "1.1(b): missing",
+            "1.a: extra",
+            "1.b: extra"
+          ]
+        },
+        "ST1 2018": {
+          "parts": 15,
+          "predicted": 15,
+          "exact": 15,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 15,
+          "total_right": null,
+          "sum_right": true,
+          "models": [
+            "gemini/gemini-3.5-flash-lite"
+          ],
+          "mismatches": []
+        }
+      },
+      "overall": {
+        "parts": 103,
+        "exact": 101,
+        "exact_pct": 98.1,
+        "totals_right": 3,
+        "totals_printed": 3,
+        "meets_target": true
+      },
+      "cost": {
+        "calls": 10,
+        "turned_away": 4,
+        "input_tokens": 32933,
+        "output_tokens": 12864,
+        "seconds": 92.5,
+        "failures": 0,
+        "units": 5,
+        "models": {
+          "gemini/gemini-3.5-flash-lite": 10
+        }
+      }
+    },
+    "seg-a+qualify": {
+      "papers": {
+        "ST1 2012": {
+          "parts": 11,
+          "predicted": 11,
+          "exact": 11,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 11,
+          "total_right": true,
+          "sum_right": true,
+          "models": [
+            "gemini/gemini-3.5-flash-lite"
+          ],
+          "mismatches": []
+        },
+        "ST1 2014": {
+          "parts": 21,
+          "predicted": 21,
+          "exact": 21,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 21,
+          "total_right": null,
+          "sum_right": true,
+          "models": [
+            "gemini/gemini-3.5-flash-lite"
+          ],
+          "mismatches": []
+        },
+        "ST1 2016": {
+          "parts": 33,
+          "predicted": 33,
+          "exact": 33,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 33,
+          "total_right": true,
+          "sum_right": true,
+          "models": [
+            "gemini/gemini-3.5-flash-lite"
+          ],
+          "mismatches": []
+        },
+        "ST1 2017": {
+          "parts": 23,
+          "predicted": 23,
+          "exact": 21,
+          "exact_pct": 91.3,
+          "marks_wrong": 0,
+          "missing": 2,
+          "extra": 2,
+          "page_right": 21,
+          "total_right": true,
+          "sum_right": true,
+          "models": [
+            "gemini/gemini-3.5-flash-lite"
+          ],
+          "mismatches": [
+            "1.1(a): missing",
+            "1.1(b): missing",
+            "1.a: extra",
+            "1.b: extra"
+          ]
+        },
+        "ST1 2018": {
+          "parts": 15,
+          "predicted": 15,
+          "exact": 15,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 15,
+          "total_right": null,
+          "sum_right": true,
+          "models": [
+            "gemini/gemini-3.5-flash-lite"
+          ],
+          "mismatches": []
+        }
+      },
+      "overall": {
+        "parts": 103,
+        "exact": 101,
+        "exact_pct": 98.1,
+        "totals_right": 3,
+        "totals_printed": 3,
+        "meets_target": true
+      },
+      "cost": {
+        "calls": 10,
+        "turned_away": 4,
+        "input_tokens": 32933,
+        "output_tokens": 12864,
+        "seconds": 92.5,
+        "failures": 0,
+        "units": 5,
+        "models": {
+          "gemini/gemini-3.5-flash-lite": 10
+        }
+      }
+    },
+    "seg-b": {
+      "papers": {
+        "ST1 2012": {
+          "parts": 11,
+          "predicted": 11,
+          "exact": 11,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 11,
+          "total_right": true,
+          "sum_right": true,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": []
+        },
+        "ST1 2014": {
+          "parts": 21,
+          "predicted": 22,
+          "exact": 20,
+          "exact_pct": 95.2,
+          "marks_wrong": 0,
+          "missing": 1,
+          "extra": 2,
+          "page_right": 20,
+          "total_right": null,
+          "sum_right": false,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": [
+            "2: missing"
+          ]
+        },
+        "ST1 2016": {
+          "parts": 33,
+          "predicted": 32,
+          "exact": 32,
+          "exact_pct": 97.0,
+          "marks_wrong": 0,
+          "missing": 1,
+          "extra": 0,
+          "page_right": 32,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": [
+            "10: missing"
+          ]
+        },
+        "ST1 2017": {
+          "parts": 23,
+          "predicted": 19,
+          "exact": 10,
+          "exact_pct": 43.5,
+          "marks_wrong": 0,
+          "missing": 13,
+          "extra": 9,
+          "page_right": 10,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": [
+            "1.1(a): missing",
+            "1.1(b): missing",
+            "2.3: missing",
+            "3.3(a): missing",
+            "3.3(b): missing",
+            "3.3(c): missing",
+            "3.4: missing",
+            "5.1: missing",
+            "5.2: missing",
+            "5.3: missing",
+            "5.4(a): missing",
+            "5.4(b): missing",
+            "5.4(c): missing",
+            "1.a: extra",
+            "1.b: extra",
+            "3.a: extra",
+            "3.b: extra",
+            "3.c: extra",
+            "4: extra",
+            "5.a: extra",
+            "5.b: extra",
+            "5.c: extra"
+          ]
+        },
+        "ST1 2018": {
+          "parts": 15,
+          "predicted": 15,
+          "exact": 15,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 15,
+          "total_right": null,
+          "sum_right": true,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": []
+        }
+      },
+      "overall": {
+        "parts": 103,
+        "exact": 88,
+        "exact_pct": 85.4,
+        "totals_right": 3,
+        "totals_printed": 3,
+        "meets_target": false
+      },
+      "cost": {
+        "calls": 29,
+        "turned_away": 0,
+        "input_tokens": 44654,
+        "output_tokens": 12662,
+        "seconds": 644.4,
+        "failures": 0,
+        "units": 28,
+        "models": {
+          "groq/openai/gpt-oss-120b": 29
+        }
+      }
+    },
+    "seg-b+qualify": {
+      "papers": {
+        "ST1 2012": {
+          "parts": 11,
+          "predicted": 11,
+          "exact": 11,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 11,
+          "total_right": true,
+          "sum_right": true,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": []
+        },
+        "ST1 2014": {
+          "parts": 21,
+          "predicted": 22,
+          "exact": 20,
+          "exact_pct": 95.2,
+          "marks_wrong": 0,
+          "missing": 1,
+          "extra": 2,
+          "page_right": 20,
+          "total_right": null,
+          "sum_right": false,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": [
+            "2: missing"
+          ]
+        },
+        "ST1 2016": {
+          "parts": 33,
+          "predicted": 32,
+          "exact": 32,
+          "exact_pct": 97.0,
+          "marks_wrong": 0,
+          "missing": 1,
+          "extra": 0,
+          "page_right": 32,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": [
+            "10: missing"
+          ]
+        },
+        "ST1 2017": {
+          "parts": 23,
+          "predicted": 19,
+          "exact": 10,
+          "exact_pct": 43.5,
+          "marks_wrong": 0,
+          "missing": 13,
+          "extra": 9,
+          "page_right": 10,
+          "total_right": true,
+          "sum_right": false,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": [
+            "1.1(a): missing",
+            "1.1(b): missing",
+            "2.3: missing",
+            "3.3(a): missing",
+            "3.3(b): missing",
+            "3.3(c): missing",
+            "3.4: missing",
+            "5.1: missing",
+            "5.2: missing",
+            "5.3: missing",
+            "5.4(a): missing",
+            "5.4(b): missing",
+            "5.4(c): missing",
+            "1.a: extra",
+            "1.b: extra",
+            "3.a: extra",
+            "3.b: extra",
+            "3.c: extra",
+            "4: extra",
+            "5.a: extra",
+            "5.b: extra",
+            "5.c: extra"
+          ]
+        },
+        "ST1 2018": {
+          "parts": 15,
+          "predicted": 15,
+          "exact": 15,
+          "exact_pct": 100.0,
+          "marks_wrong": 0,
+          "missing": 0,
+          "extra": 0,
+          "page_right": 15,
+          "total_right": null,
+          "sum_right": true,
+          "models": [
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b",
+            "groq/openai/gpt-oss-120b"
+          ],
+          "mismatches": []
+        }
+      },
+      "overall": {
+        "parts": 103,
+        "exact": 88,
+        "exact_pct": 85.4,
+        "totals_right": 3,
+        "totals_printed": 3,
+        "meets_target": false
+      },
+      "cost": {
+        "calls": 29,
+        "turned_away": 0,
+        "input_tokens": 44654,
+        "output_tokens": 12662,
+        "seconds": 644.4,
+        "failures": 0,
+        "units": 28,
+        "models": {
+          "groq/openai/gpt-oss-120b": 29
+        }
+      }
+    }
+  },
+  "classification": {
+    "c1-on-seg-a": {
+      "papers": {
+        "ST1 2012": {
+          "parts": 11,
+          "answered": 11,
+          "chapter_agree": 11,
+          "chapter_pct": 100.0,
+          "subtopic_agree": 6,
+          "subtopic_pct": 54.5,
+          "type_agree": 9,
+          "type_pct": 81.8,
+          "strong_answered": 8,
+          "strong_chapter_pct": 100.0,
+          "strong_subtopic_pct": 50.0,
+          "failed": false
+        },
+        "ST1 2014": {
+          "parts": 21,
+          "answered": 21,
+          "chapter_agree": 18,
+          "chapter_pct": 85.7,
+          "subtopic_agree": 13,
+          "subtopic_pct": 61.9,
+          "type_agree": 5,
+          "type_pct": 23.8,
+          "strong_answered": 18,
+          "strong_chapter_pct": 88.9,
+          "strong_subtopic_pct": 66.7,
+          "failed": false
+        },
+        "ST1 2016": {
+          "parts": 33,
+          "answered": 33,
+          "chapter_agree": 28,
+          "chapter_pct": 84.8,
+          "subtopic_agree": 24,
+          "subtopic_pct": 72.7,
+          "type_agree": 25,
+          "type_pct": 75.8,
+          "strong_answered": 30,
+          "strong_chapter_pct": 86.7,
+          "strong_subtopic_pct": 80.0,
+          "failed": false
+        },
+        "ST1 2017": {
+          "parts": 23,
+          "answered": 21,
+          "chapter_agree": 17,
+          "chapter_pct": 81.0,
+          "subtopic_agree": 14,
+          "subtopic_pct": 66.7,
+          "type_agree": 13,
+          "type_pct": 61.9,
+          "strong_answered": 16,
+          "strong_chapter_pct": 93.8,
+          "strong_subtopic_pct": 87.5,
+          "failed": false
+        },
+        "ST1 2018": {
+          "parts": 15,
+          "answered": 15,
+          "chapter_agree": 15,
+          "chapter_pct": 100.0,
+          "subtopic_agree": 10,
+          "subtopic_pct": 66.7,
+          "type_agree": 10,
+          "type_pct": 66.7,
+          "strong_answered": 15,
+          "strong_chapter_pct": 100.0,
+          "strong_subtopic_pct": 66.7,
+          "failed": false
+        }
+      },
+      "overall": {
+        "parts": 103,
+        "answered": 101,
+        "chapter_agree": 89,
+        "chapter_pct": 88.1,
+        "subtopic_agree": 67,
+        "subtopic_pct": 66.3,
+        "type_agree": 62,
+        "type_pct": 61.4,
+        "strong_answered": 87,
+        "strong_chapter_pct": 92.0,
+        "strong_subtopic_pct": 73.6,
+        "unknown_codes": 0,
+        "meets_target": true
+      },
+      "cost": {
+        "calls": 7,
+        "turned_away": 7,
+        "input_tokens": 22246,
+        "output_tokens": 4598,
+        "seconds": 198.6,
+        "failures": 0,
+        "units": 5,
+        "models": {
+          "gemini/gemini-3.5-flash-lite": 4,
+          "groq/openai/gpt-oss-120b": 2,
+          "gemini/gemini-3.8-flash": 1
+        }
+      }
+    },
+    "c2-on-seg-a": {
+      "papers": {
+        "ST1 2012": {
+          "parts": 11,
+          "answered": 11,
+          "chapter_agree": 4,
+          "chapter_pct": 36.4,
+          "subtopic_agree": 2,
+          "subtopic_pct": 18.2,
+          "type_agree": 6,
+          "type_pct": 54.5,
+          "strong_answered": 8,
+          "strong_chapter_pct": 50.0,
+          "strong_subtopic_pct": 25.0,
+          "failed": false
+        },
+        "ST1 2014": {
+          "parts": 21,
+          "answered": 20,
+          "chapter_agree": 18,
+          "chapter_pct": 90.0,
+          "subtopic_agree": 6,
+          "subtopic_pct": 30.0,
+          "type_agree": 4,
+          "type_pct": 20.0,
+          "strong_answered": 17,
+          "strong_chapter_pct": 94.1,
+          "strong_subtopic_pct": 35.3,
+          "failed": false
+        },
+        "ST1 2016": {
+          "parts": 33,
+          "answered": 33,
+          "chapter_agree": 14,
+          "chapter_pct": 42.4,
+          "subtopic_agree": 6,
+          "subtopic_pct": 18.2,
+          "type_agree": 13,
+          "type_pct": 39.4,
+          "strong_answered": 30,
+          "strong_chapter_pct": 43.3,
+          "strong_subtopic_pct": 20.0,
+          "failed": false
+        },
+        "ST1 2017": {
+          "parts": 23,
+          "answered": 21,
+          "chapter_agree": 9,
+          "chapter_pct": 42.9,
+          "subtopic_agree": 6,
+          "subtopic_pct": 28.6,
+          "type_agree": 7,
+          "type_pct": 33.3,
+          "strong_answered": 16,
+          "strong_chapter_pct": 50.0,
+          "strong_subtopic_pct": 31.2,
+          "failed": false
+        },
+        "ST1 2018": {
+          "parts": 15,
+          "answered": 15,
+          "chapter_agree": 8,
+          "chapter_pct": 53.3,
+          "subtopic_agree": 7,
+          "subtopic_pct": 46.7,
+          "type_agree": 8,
+          "type_pct": 53.3,
+          "strong_answered": 15,
+          "strong_chapter_pct": 53.3,
+          "strong_subtopic_pct": 46.7,
+          "failed": false
+        }
+      },
+      "overall": {
+        "parts": 103,
+        "answered": 100,
+        "chapter_agree": 53,
+        "chapter_pct": 53.0,
+        "subtopic_agree": 27,
+        "subtopic_pct": 27.0,
+        "type_agree": 38,
+        "type_pct": 38.0,
+        "strong_answered": 86,
+        "strong_chapter_pct": 57.0,
+        "strong_subtopic_pct": 30.2,
+        "unknown_codes": 0,
+        "meets_target": false
+      },
+      "cost": {
+        "calls": 103,
+        "turned_away": 1,
+        "input_tokens": 76964,
+        "output_tokens": 9122,
+        "seconds": 970.3,
+        "failures": 1,
+        "units": 103,
+        "models": {
+          "groq/openai/gpt-oss-120b": 102,
+          "gemini/gemini-3.5-flash-lite": 1
+        }
+      }
+    },
+    "c1-on-seg-b": {
+      "papers": {
+        "ST1 2012": {
+          "parts": 11,
+          "answered": 11,
+          "chapter_agree": 11,
+          "chapter_pct": 100.0,
+          "subtopic_agree": 9,
+          "subtopic_pct": 81.8,
+          "type_agree": 8,
+          "type_pct": 72.7,
+          "strong_answered": 8,
+          "strong_chapter_pct": 100.0,
+          "strong_subtopic_pct": 87.5,
+          "failed": false
+        },
+        "ST1 2014": {
+          "parts": 21,
+          "answered": 20,
+          "chapter_agree": 17,
+          "chapter_pct": 85.0,
+          "subtopic_agree": 7,
+          "subtopic_pct": 35.0,
+          "type_agree": 7,
+          "type_pct": 35.0,
+          "strong_answered": 17,
+          "strong_chapter_pct": 88.2,
+          "strong_subtopic_pct": 35.3,
+          "failed": false
+        },
+        "ST1 2016": {
+          "parts": 33,
+          "answered": 32,
+          "chapter_agree": 30,
+          "chapter_pct": 93.8,
+          "subtopic_agree": 27,
+          "subtopic_pct": 84.4,
+          "type_agree": 25,
+          "type_pct": 78.1,
+          "strong_answered": 29,
+          "strong_chapter_pct": 96.6,
+          "strong_subtopic_pct": 89.7,
+          "failed": false
+        },
+        "ST1 2017": {
+          "parts": 23,
+          "answered": 10,
+          "chapter_agree": 7,
+          "chapter_pct": 70.0,
+          "subtopic_agree": 8,
+          "subtopic_pct": 80.0,
+          "type_agree": 7,
+          "type_pct": 70.0,
+          "strong_answered": 8,
+          "strong_chapter_pct": 87.5,
+          "strong_subtopic_pct": 100.0,
+          "failed": false
+        },
+        "ST1 2018": {
+          "parts": 15,
+          "answered": 15,
+          "chapter_agree": 15,
+          "chapter_pct": 100.0,
+          "subtopic_agree": 14,
+          "subtopic_pct": 93.3,
+          "type_agree": 12,
+          "type_pct": 80.0,
+          "strong_answered": 15,
+          "strong_chapter_pct": 100.0,
+          "strong_subtopic_pct": 93.3,
+          "failed": false
+        }
+      },
+      "overall": {
+        "parts": 103,
+        "answered": 88,
+        "chapter_agree": 80,
+        "chapter_pct": 90.9,
+        "subtopic_agree": 65,
+        "subtopic_pct": 73.9,
+        "type_agree": 59,
+        "type_pct": 67.0,
+        "strong_answered": 77,
+        "strong_chapter_pct": 94.8,
+        "strong_subtopic_pct": 79.2,
+        "unknown_codes": 0,
+        "meets_target": true
+      },
+      "cost": {
+        "calls": 5,
+        "turned_away": 7,
+        "input_tokens": 16745,
+        "output_tokens": 4136,
+        "seconds": 167.2,
+        "failures": 0,
+        "units": 5,
+        "models": {
+          "gemini/gemini-3.5-flash-lite": 4,
+          "groq/openai/gpt-oss-120b": 1
+        }
+      }
+    },
+    "c2-on-seg-b": {
+      "not_run": true
+    }
+  }
+}

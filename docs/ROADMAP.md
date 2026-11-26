@@ -12,7 +12,7 @@ Sizes: **S** is a handful of sessions, **M** about twice that, and **L** three t
 
 - [x] **S3 Visual direction** (alongside Phases 0–1, in the Project chat): three directions for Today, Session and Module → pick one → design system v1 input (superseded on 18 Nov by direction C "Glass", decision 0012)
 - [ ] **S1 Camera in the browser** (alongside Phase 2): test background-tab throttling with a Web Worker + `MediaStreamTrackProcessor`, Document Picture-in-Picture, and a Tauri fallback. The result decides web vs Tauri for Phase 7
-- [ ] **S2 Past-paper parsing accuracy** (alongside Phases 4–5): try segmentation and classification prompts on real COS330 papers and record the accuracy
+- [x] **S2 Past-paper parsing accuracy** (alongside Phases 4–5): try segmentation and classification prompts on real COS330 papers and record the accuracy (26 Nov: whole-paper segmentation 98.1 %, whole-paper classification 88.1 % chapter agreement; [docs/spikes/s2-past-papers.md](spikes/s2-past-papers.md), ADR 0032)
 
 ---
 
