@@ -48,3 +48,4 @@ apps/web/playwright-report/
 
 # The practice eval's spot-check sheets hold AI text about course material (local only)
 apps/api/evals/practice/.local/
+apps/api/spikes/*/.local/
